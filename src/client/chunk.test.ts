@@ -96,6 +96,20 @@ describe("chunkRange", () => {
     ]);
   });
 
+  it("throws on an empty, inverted, or NaN range", () => {
+    expect(() => chunkRange(futures(), { begin: 0, end: 0 })).toThrow(/invalid range/);
+    expect(() => chunkRange(futures(), { begin: MINUTE, end: 0 })).toThrow(/invalid range/);
+    expect(() => chunkRange(futures(), { begin: Number.NaN, end: MINUTE })).toThrow(
+      /invalid range/,
+    );
+  });
+
+  it("throws on params that cannot price the query", () => {
+    const params = futures({ exchanges: [] });
+    expect(() => chunkRange(params, { begin: 0, end: MINUTE })).toThrow(VeloError);
+    expect(() => chunkRange(params, { begin: 0, end: MINUTE })).toThrow(/must have exchanges/);
+  });
+
   it("throws when a single bucket already exceeds the budget", () => {
     const params = futures({
       exchanges: Array.from({ length: 8 }, () => "binance-futures"),

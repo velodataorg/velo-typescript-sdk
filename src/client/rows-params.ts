@@ -20,6 +20,11 @@ export type RowsParams = { type: MarketType } & (
 
 const BASIS_COLUMN = "3m_basis_ann";
 
+/** Whether the query selects the basis column, which the server validates and prices specially. */
+export function isBasisQuery(params: RowsParams): boolean {
+  return (params.columns as readonly string[]).includes(BASIS_COLUMN);
+}
+
 /**
  * Asserts the parameter rules the server enforces (velo-api-proxy getRows),
  * so a bad query fails at construction with a clear message instead of a 400
@@ -33,7 +38,7 @@ export function validateRowsParams(params: RowsParams): void {
   const selector = params.products ?? params.coins;
   assert(selector !== undefined && selector.length > 0, "one of products or coins is required");
 
-  if ((params.columns as readonly string[]).includes(BASIS_COLUMN)) {
+  if (isBasisQuery(params)) {
     assert(params.type === "futures", `${BASIS_COLUMN} must be used with type futures`);
     assert(params.columns.length === 1, `${BASIS_COLUMN} must be used alone`);
     assert(params.coins !== undefined, `${BASIS_COLUMN} must be used with coins, not products`);
