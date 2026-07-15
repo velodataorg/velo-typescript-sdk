@@ -7,13 +7,13 @@ import type {
 } from "../constants.js";
 import type { Resolution } from "../resolution/resolution.js";
 
-export type ColumnFor<T extends MarketType> = {
+export type Column<T extends MarketType> = {
   futures: FuturesColumn;
   options: OptionsColumn;
   spot: SpotColumn;
 }[T];
 
-interface QueryParamsBase<T extends MarketType, C extends ColumnFor<T> = ColumnFor<T>> {
+interface QueryParamsBase<T extends MarketType, C extends Column<T> = Column<T>> {
   /**
    * Exchanges to include; every exchange is combined with every product
    * (cross product). Required except for `3m_basis_ann` queries.
@@ -31,7 +31,7 @@ interface QueryParamsBase<T extends MarketType, C extends ColumnFor<T> = ColumnF
 /** Selects by product symbol, e.g. "BTCUSDT". */
 export interface QueryParamsProducts<
   T extends MarketType,
-  C extends ColumnFor<T> = ColumnFor<T>,
+  C extends Column<T> = Column<T>,
 > extends QueryParamsBase<T, C> {
   products: readonly string[];
   coins?: never;
@@ -40,7 +40,7 @@ export interface QueryParamsProducts<
 /** Selects by coin symbol, e.g. "BTC". */
 export interface QueryParamsCoins<
   T extends MarketType,
-  C extends ColumnFor<T> = ColumnFor<T>,
+  C extends Column<T> = Column<T>,
 > extends QueryParamsBase<T, C> {
   coins: readonly string[];
   products?: never;
