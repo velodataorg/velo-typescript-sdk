@@ -10,10 +10,10 @@ export type {
   QueryParamsCoins,
   QueryParamsProducts,
   QueryParams,
-} from "./client/param.js";
+} from "./client/query-params.js";
 export { Query } from "./client/query.js";
-export type { CapsRow, RowsRow, RowsRowBase, TermsRow } from "./client/row.js";
-export { CAPS_COLUMNS, ROWS_BASE_COLUMNS, TERMS_COLUMNS } from "./client/row.js";
+export type { MarketCap, Row, RowBase, TermPoint } from "./client/result.js";
+export { CAPS_COLUMNS, ROWS_BASE_COLUMNS, TERMS_COLUMNS } from "./client/result.js";
 export type { Resolution, ResolutionValue } from "./resolution/resolution.js";
 export { RESOLUTIONS, resolutionValue } from "./resolution/resolution.js";
 export {

@@ -6,7 +6,7 @@ export const ROWS_BASE_COLUMNS = ["exchange", "coin", "product", "time"] as cons
 // Object type aliases (not interfaces) so the rows stay mutually assignable
 // with the CsvRow record they are parsed as; interfaces have no implicit
 // index signature.
-export type RowsRowBase = {
+export type RowBase = {
   exchange: Exchange;
   coin: string;
   /** Product symbol; equals `coin` for options, the dated contract for 3m_basis_ann. */
@@ -16,13 +16,13 @@ export type RowsRowBase = {
 };
 
 /** One /rows row: the base columns plus one numeric field per requested column. */
-export type RowsRow<C extends string> = RowsRowBase & { [K in C]: number };
+export type Row<C extends string> = RowBase & { [K in C]: number };
 
 /** The /caps response columns, in wire order. */
 export const CAPS_COLUMNS = ["coin", "time", "circ", "circ_dollars", "fdv", "fdv_dollars"] as const;
 
-/** One /caps row. */
-export type CapsRow = {
+/** One /caps row: a coin's market capitalization. */
+export type MarketCap = {
   coin: string;
   /** Per-coin "as of" millisecond timestamp (not bucket-aligned). */
   time: number;
@@ -36,7 +36,7 @@ export type CapsRow = {
 export const TERMS_COLUMNS = ["coin", "time", "at_the_money_iv", "dte", "fwd_iv"] as const;
 
 /** One /terms row: a point on the options term structure. */
-export type TermsRow = {
+export type TermPoint = {
   coin: string;
   /** Expiry as a millisecond timestamp. */
   time: number;

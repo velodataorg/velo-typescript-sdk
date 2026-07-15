@@ -3,10 +3,10 @@ import { TERMS_COINS } from "../constants.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
 import { assertColumns, parseCsv } from "../util/csv.js";
-import type { ColumnFor, QueryParamsCoins, QueryParamsProducts } from "./param.js";
+import type { ColumnFor, QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
 import { Query } from "./query.js";
-import type { TermsRow } from "./row.js";
-import { TERMS_COLUMNS } from "./row.js";
+import type { TermPoint } from "./result.js";
+import { TERMS_COLUMNS } from "./result.js";
 
 /** One market's slice of the API: /rows queries typed to that market's columns. */
 export class Market<T extends MarketType> {
@@ -40,7 +40,7 @@ export class OptionsMarket extends Market<"options"> {
   }
 
   /** Query the options term structure (/api/v1/terms). Only BTC and ETH are supported. */
-  async terms(coins: readonly TermsCoin[], options?: RequestOptions): Promise<TermsRow[]> {
+  async terms(coins: readonly TermsCoin[], options?: RequestOptions): Promise<TermPoint[]> {
     assert(coins.length > 0, "coins must not be empty");
     assert(
       coins.every((coin) => TERMS_COINS.includes(coin)),
@@ -49,6 +49,6 @@ export class OptionsMarket extends Market<"options"> {
     const body = await this.http.text("/api/v1/terms", { coins }, options);
     const { columns, rows } = parseCsv(body);
     assertColumns(columns, TERMS_COLUMNS, "/api/v1/terms");
-    return rows as TermsRow[];
+    return rows as TermPoint[];
   }
 }
