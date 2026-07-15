@@ -1,7 +1,7 @@
 export type { CsvRow, CsvValue } from "./util/csv.js";
 export * from "./constants.js";
-export type { TimeRange } from "./client/align.js";
-export { alignRange } from "./client/align.js";
+export type { TimeRange } from "./resolution/align.js";
+export { alignRange } from "./resolution/align.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
 export { Market, OptionsMarket } from "./client/market.js";
@@ -14,8 +14,8 @@ export type {
 export { Query } from "./client/query.js";
 export type { CapsRow, RowsRow, RowsRowBase, TermsRow } from "./client/row.js";
 export { CAPS_COLUMNS, ROWS_BASE_COLUMNS, TERMS_COLUMNS } from "./client/row.js";
-export type { Resolution, ResolutionValue } from "./client/resolution.js";
-export { RESOLUTIONS, resolutionParams, resolutionValue } from "./client/resolution.js";
+export type { Resolution, ResolutionValue } from "./resolution/resolution.js";
+export { RESOLUTIONS, resolutionValue } from "./resolution/resolution.js";
 export {
   VeloAuthError,
   VeloBadRequestError,

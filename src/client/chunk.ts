@@ -1,9 +1,9 @@
 import { DateTime } from "luxon";
 
+import type { TimeRange } from "../resolution/align.js";
+import { resolutionValue } from "../resolution/resolution.js";
 import { assert } from "../util/assert.js";
-import type { TimeRange } from "./align.js";
 import type { RowsParams } from "./param.js";
-import { resolutionValue } from "./resolution.js";
 
 /** The server rejects requests whose bucket-count × exchanges × products × columns exceeds this. */
 export const MAX_CELLS_PER_REQUEST = 22_500;

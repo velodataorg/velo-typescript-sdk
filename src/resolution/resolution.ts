@@ -31,10 +31,3 @@ export function resolutionValue(resolution: Resolution): ResolutionValue {
   );
   return value;
 }
-
-/** The /rows wire params: resolution in minutes, or a month count with months=true. */
-export function resolutionParams(resolution: Resolution): { resolution: number; months?: boolean } {
-  const value = resolutionValue(resolution);
-  if (value.unit === "months") return { resolution: value.count, months: true };
-  return { resolution: value.count };
-}

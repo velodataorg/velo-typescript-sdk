@@ -5,11 +5,11 @@ import type {
   MarketType,
   SpotColumn,
 } from "../constants.js";
+import type { TimeRange } from "../resolution/align.js";
+import type { Resolution } from "../resolution/resolution.js";
+import { resolutionValue } from "../resolution/resolution.js";
 import type { HttpParams } from "../transport/http.js";
 import { assert } from "../util/assert.js";
-import type { TimeRange } from "./align.js";
-import type { Resolution } from "./resolution.js";
-import { resolutionParams } from "./resolution.js";
 
 export type ColumnFor<T extends MarketType> = {
   futures: FuturesColumn;
@@ -106,6 +106,13 @@ export function validateRowsParams(params: RowsParams): void {
       `exchanges are required (may only be omitted for ${BASIS_COLUMN} queries)`,
     );
   }
+}
+
+/** The /rows wire resolution: minutes, or a month count with months=true. */
+export function resolutionParams(resolution: Resolution): { resolution: number; months?: boolean } {
+  const value = resolutionValue(resolution);
+  if (value.unit === "months") return { resolution: value.count, months: true };
+  return { resolution: value.count };
 }
 
 /** The /rows wire query for one request, with `range` (usually aligned) taking over begin/end. */

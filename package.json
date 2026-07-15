@@ -1,7 +1,7 @@
 {
   "name": "@velodata/sdk",
   "version": "0.0.0",
-  "description": "TypeScript SDK for the Velo API — crypto futures, options, and spot market data, plus news.",
+  "description": "",
   "keywords": [
     "api",
     "crypto",

@@ -1,6 +1,6 @@
+import { alignRange } from "../resolution/align.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assertColumns, parseCsv } from "../util/csv.js";
-import { alignRange } from "./align.js";
 import { chunkRange } from "./chunk.js";
 import type { RowsParams } from "./param.js";
 import { rowsHttpParams, validateRowsParams } from "./param.js";
