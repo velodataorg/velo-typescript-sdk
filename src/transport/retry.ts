@@ -1,7 +1,3 @@
-// Retry policy for the Velo API transport: capped exponential backoff with
-// jitter, Retry-After parsing, and the retryability rules (connection errors
-// and DEFAULT_RETRYABLE_STATUSES).
-
 import { VeloConnectionError, VeloError } from "./error.js";
 
 export interface RetryOptions {

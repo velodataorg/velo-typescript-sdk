@@ -1,10 +1,7 @@
-// Enum values from the Velo API (velo-docs/openapi.json).
-// Update by hand when the API adds exchanges, columns, or resolutions.
-
 export const BASE_URL = "https://api.velo.xyz";
 
-export const PRODUCT_TYPES = ["futures", "options", "spot"] as const;
-export type ProductType = (typeof PRODUCT_TYPES)[number];
+export const MARKET_TYPES = ["futures", "options", "spot"] as const;
+export type MarketType = (typeof MARKET_TYPES)[number];
 
 export const EXCHANGES = [
   "binance",
@@ -106,9 +103,6 @@ export const SPOT_COLUMNS = [
   "sell_dollar_volume",
 ] as const;
 export type SpotColumn = (typeof SPOT_COLUMNS)[number];
-
-export const RESOLUTIONS = [1, 5, 15, 30, 60, 120, 240, 360, 480, 720, 1440, 4320, 10080] as const;
-export type Resolution = (typeof RESOLUTIONS)[number];
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];

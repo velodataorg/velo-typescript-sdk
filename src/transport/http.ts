@@ -1,12 +1,8 @@
-// HTTP transport for the Velo API: basic auth, query building (query-string),
-// typed errors, and per-attempt timeouts, with the retry policy from retry.ts.
-// No Node builtins — only web-standard APIs (fetch, AbortSignal, btoa) — so it
-// runs on Node >=22, Bun, Deno, and edge runtimes.
-
 import queryString from "query-string";
 
 import { version } from "../../package.json";
 import { BASE_URL } from "../constants.js";
+import { assert } from "../util/assert.js";
 import { toConnectionError, toError, VeloError } from "./error.js";
 import { backoffMs, DEFAULT_RETRY, isRetryable, retryAfterMs, sleep } from "./retry.js";
 import type { RetryOptions } from "./retry.js";
@@ -44,7 +40,7 @@ export class Http {
   private readonly timeout: number;
 
   constructor(config: HttpConfig) {
-    if (!config.apiKey) throw new VeloError("apiKey is required");
+    assert(config.apiKey, "apiKey is required");
     this.baseUrl = config.baseUrl ?? BASE_URL;
     this.authHeader = `Basic ${btoa(`api:${config.apiKey}`)}`;
     this.fetchFn = config.fetch ?? globalThis.fetch;

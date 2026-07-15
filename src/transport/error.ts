@@ -1,5 +1,3 @@
-// Typed errors for the Velo API, mapped from HTTP status codes and transport failures.
-
 export interface VeloErrorDetails {
   status?: number | undefined;
   body?: string | undefined;
