@@ -1,3 +1,4 @@
+import { assert } from "../util/assert.js";
 import { VeloConnectionError, VeloError } from "./error.js";
 
 export interface RetryOptions {
@@ -14,6 +15,26 @@ export const DEFAULT_RETRY: RetryOptions = {
   baseDelayMs: 500,
   maxDelayMs: 10_000,
 };
+
+/**
+ * Asserts a merged retry config is usable. A NaN or undefined smuggled into
+ * `retries` makes the attempt-cutoff comparison always false — an unbounded
+ * retry loop — and bad delays degrade to zero backoff, so fail loudly instead.
+ */
+export function validateRetryOptions(retry: RetryOptions): void {
+  assert(
+    Number.isSafeInteger(retry.retries) && retry.retries >= 0,
+    () => `retries must be a non-negative integer (got ${retry.retries})`,
+  );
+  assert(
+    Number.isFinite(retry.baseDelayMs) && retry.baseDelayMs >= 0,
+    () => `baseDelayMs must be a non-negative number of milliseconds (got ${retry.baseDelayMs})`,
+  );
+  assert(
+    Number.isFinite(retry.maxDelayMs) && retry.maxDelayMs >= 0,
+    () => `maxDelayMs must be a non-negative number of milliseconds (got ${retry.maxDelayMs})`,
+  );
+}
 
 function abortError(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");

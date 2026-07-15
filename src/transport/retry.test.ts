@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { VeloConnectionError, VeloError } from "./error.js";
-import { DEFAULT_RETRYABLE_STATUSES, isRetryable } from "./retry.js";
+import {
+  DEFAULT_RETRY,
+  DEFAULT_RETRYABLE_STATUSES,
+  isRetryable,
+  validateRetryOptions,
+} from "./retry.js";
 
 function errorWithStatus(status?: number): VeloError {
   return new VeloError(`Velo API ${status ?? "failure"}`, { status });
@@ -30,5 +35,30 @@ describe("isRetryable", () => {
   it("accepts an explicit list of status codes", () => {
     expect(isRetryable(errorWithStatus(429), [429])).toBe(true);
     expect(isRetryable(errorWithStatus(500), [429])).toBe(false);
+  });
+});
+
+describe("validateRetryOptions", () => {
+  it("accepts the defaults and zero values", () => {
+    expect(() => validateRetryOptions(DEFAULT_RETRY)).not.toThrow();
+    expect(() => validateRetryOptions({ retries: 0, baseDelayMs: 0, maxDelayMs: 0 })).not.toThrow();
+  });
+
+  it("rejects retries that would unbound the retry loop", () => {
+    // `attempt >= retries` never becomes true for NaN, undefined, or Infinity
+    for (const retries of [NaN, undefined as never, Infinity, -1, 1.5]) {
+      expect(() => validateRetryOptions({ ...DEFAULT_RETRY, retries })).toThrow(VeloError);
+    }
+  });
+
+  it("rejects delays that would degrade to zero backoff", () => {
+    for (const delay of [NaN, undefined as never, Infinity, -1]) {
+      expect(() => validateRetryOptions({ ...DEFAULT_RETRY, baseDelayMs: delay })).toThrow(
+        VeloError,
+      );
+      expect(() => validateRetryOptions({ ...DEFAULT_RETRY, maxDelayMs: delay })).toThrow(
+        VeloError,
+      );
+    }
   });
 });

@@ -4,10 +4,24 @@ import { version } from "../../package.json";
 import { BASE_URL } from "../constants.js";
 import { assert } from "../util/assert.js";
 import { toConnectionError, toError, VeloError } from "./error.js";
-import { backoffMs, DEFAULT_RETRY, isRetryable, retryAfterMs, sleep } from "./retry.js";
+import {
+  backoffMs,
+  DEFAULT_RETRY,
+  isRetryable,
+  retryAfterMs,
+  sleep,
+  validateRetryOptions,
+} from "./retry.js";
 import type { RetryOptions } from "./retry.js";
 
 const USER_AGENT = `velo-sdk/${version}`;
+
+function validateTimeout(timeout: number): void {
+  assert(
+    Number.isFinite(timeout) && timeout > 0,
+    () => `timeout must be a positive number of milliseconds (got ${timeout})`,
+  );
+}
 
 /** Per-attempt timeout in milliseconds; a slow attempt is aborted and retried without eating the retry budget. */
 export const DEFAULT_TIMEOUT = 60_000;
@@ -45,7 +59,9 @@ export class Http {
     this.authHeader = `Basic ${btoa(`api:${config.apiKey}`)}`;
     this.fetchFn = config.fetch ?? globalThis.fetch;
     this.retry = { ...DEFAULT_RETRY, ...config.retry };
+    validateRetryOptions(this.retry);
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
+    validateTimeout(this.timeout);
   }
 
   url(path: string, params: HttpParams = {}): string {
@@ -59,8 +75,12 @@ export class Http {
    */
   async text(path: string, params: HttpParams = {}, options: RequestOptions = {}): Promise<string> {
     const url = this.url(path, params);
+    // Validate the merged values: an override can corrupt a valid config,
+    // e.g. an explicit `retries: undefined` would spread over the default.
     const retry = { ...this.retry, ...options.retry };
+    validateRetryOptions(retry);
     const timeout = options.timeout ?? this.timeout;
+    validateTimeout(timeout);
 
     for (let attempt = 0; ; attempt++) {
       let failure: VeloError;

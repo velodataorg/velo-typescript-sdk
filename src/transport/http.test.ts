@@ -53,6 +53,28 @@ describe("Http", () => {
     expect(() => new Http({ apiKey: "" })).toThrow(VeloError);
   });
 
+  it("rejects an invalid retry config or timeout at construction", () => {
+    expect(() => new Http({ apiKey: "k", retry: { retries: NaN } })).toThrow(
+      /retries must be a non-negative integer/,
+    );
+    expect(() => new Http({ apiKey: "k", retry: { baseDelayMs: -1 } })).toThrow(VeloError);
+    expect(() => new Http({ apiKey: "k", timeout: NaN })).toThrow(
+      /timeout must be a positive number/,
+    );
+  });
+
+  it("rejects an invalid per-request override before sending anything", async () => {
+    const calls: Call[] = [];
+    const t = http([() => new Response("ok")], calls);
+    // an explicit undefined spreads over the valid default
+    const smuggled = { retries: undefined } as never;
+    await expect(t.text("/x", {}, { retry: smuggled })).rejects.toThrow(
+      /retries must be a non-negative integer/,
+    );
+    await expect(t.text("/x", {}, { timeout: 0 })).rejects.toThrow(VeloError);
+    expect(calls).toHaveLength(0);
+  });
+
   it("builds URLs with comma-joined arrays and skips undefined", () => {
     const t = new Http({ apiKey: "k" });
     expect(
