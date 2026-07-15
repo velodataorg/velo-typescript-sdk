@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../transport/error.js";
 import { chunkRange, MAX_CELLS_PER_REQUEST } from "./chunk.js";
-import type { ResolvedParamsV1 } from "./param.js";
+import type { RowsParams } from "./param.js";
 
 const MINUTE = 60_000;
 
-function futures(overrides: Partial<ResolvedParamsV1> = {}): ResolvedParamsV1 {
+function futures(overrides: Partial<RowsParams> = {}): RowsParams {
   return {
     type: "futures",
     exchanges: ["binance-futures"],
@@ -16,7 +16,7 @@ function futures(overrides: Partial<ResolvedParamsV1> = {}): ResolvedParamsV1 {
     end: MINUTE,
     resolution: "1m",
     ...overrides,
-  } as ResolvedParamsV1;
+  } as RowsParams;
 }
 
 /** Steps must be contiguous, cover [begin, end), and stay in order. */
@@ -69,7 +69,7 @@ describe("chunkRange", () => {
   });
 
   it("prices basis queries at 3 exchanges regardless of the params", () => {
-    const params: ResolvedParamsV1 = {
+    const params: RowsParams = {
       type: "futures",
       coins: ["BTC", "ETH"],
       columns: ["3m_basis_ann"],
@@ -101,7 +101,7 @@ describe("chunkRange", () => {
       exchanges: Array.from({ length: 8 }, () => "binance-futures"),
       products: Array.from({ length: 300 }, (_, i) => `P${i}`),
       columns: Array.from({ length: 10 }, () => "close_price"),
-    } as Partial<ResolvedParamsV1>); // 8 x 300 x 10 = 24000 > 22500
+    } as Partial<RowsParams>); // 8 x 300 x 10 = 24000 > 22500
     expect(() => chunkRange(params, { begin: 0, end: MINUTE })).toThrow(VeloError);
     expect(() => chunkRange(params, { begin: 0, end: MINUTE })).toThrow(/query too wide/);
   });

@@ -7,9 +7,9 @@ export { Velo } from "./client/client.js";
 export { Market, OptionsMarket } from "./client/market.js";
 export type {
   ColumnFor,
-  QueryParamsCoinsV1,
-  QueryParamsProductsV1,
-  QueryParamsV1,
+  QueryParamsCoins,
+  QueryParamsProducts,
+  QueryParams,
 } from "./client/param.js";
 export { Query } from "./client/query.js";
 export type { CapsRow, RowsRow, RowsRowBase, TermsRow } from "./client/row.js";

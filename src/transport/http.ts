@@ -27,7 +27,7 @@ export interface RequestOptions {
 }
 
 /** Values are serialized into the query string; arrays are comma-joined; undefined is skipped. */
-export type HttpQuery = Record<
+export type HttpParams = Record<
   string,
   string | number | boolean | readonly string[] | readonly number[] | undefined
 >;
@@ -48,7 +48,7 @@ export class Http {
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
   }
 
-  url(path: string, params: HttpQuery = {}): string {
+  url(path: string, params: HttpParams = {}): string {
     const query = queryString.stringify(params, { arrayFormat: "comma", sort: false });
     return `${this.baseUrl}${path}${query ? `?${query}` : ""}`;
   }
@@ -57,7 +57,7 @@ export class Http {
    * GET a path and return the response body, retrying connection errors, timeouts,
    * and retryable statuses (DEFAULT_RETRYABLE_STATUSES) with capped exponential backoff.
    */
-  async text(path: string, params: HttpQuery = {}, options: RequestOptions = {}): Promise<string> {
+  async text(path: string, params: HttpParams = {}, options: RequestOptions = {}): Promise<string> {
     const url = this.url(path, params);
     const retry = { ...this.retry, ...options.retry };
     const timeout = options.timeout ?? this.timeout;

@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 
 import { assert } from "../util/assert.js";
 import type { TimeRange } from "./align.js";
-import type { ResolvedParamsV1 } from "./param.js";
+import type { RowsParams } from "./param.js";
 import { resolutionValue } from "./resolution.js";
 
 /** The server rejects requests whose bucket-count × exchanges × products × columns exceeds this. */
@@ -17,7 +17,7 @@ const BASIS_EXCHANGE_COUNT = 3;
  * resolutions, resolution-many calendar months for the months mode. Returns
  * a single step when the range already fits.
  */
-export function chunkRange(params: ResolvedParamsV1, range: TimeRange): TimeRange[] {
+export function chunkRange(params: RowsParams, range: TimeRange): TimeRange[] {
   const value = resolutionValue(params.resolution);
 
   if (value.unit === "months") {

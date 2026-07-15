@@ -2,8 +2,8 @@ import type { Http, RequestOptions } from "../transport/http.js";
 import { assertColumns, parseCsv } from "../util/csv.js";
 import { alignRange } from "./align.js";
 import { chunkRange } from "./chunk.js";
-import type { ResolvedParamsV1 } from "./param.js";
-import { rowsQueryParams, validateQueryParams } from "./param.js";
+import type { RowsParams } from "./param.js";
+import { rowsHttpParams, validateRowsParams } from "./param.js";
 import type { RowsRow } from "./row.js";
 import { ROWS_BASE_COLUMNS } from "./row.js";
 
@@ -14,11 +14,11 @@ import { ROWS_BASE_COLUMNS } from "./row.js";
  */
 export class Query<C extends string> {
   /** The validated params as they will be sent, including the market type. */
-  readonly params: ResolvedParamsV1;
+  readonly params: RowsParams;
   private readonly http: Http;
 
-  constructor(http: Http, params: ResolvedParamsV1) {
-    validateQueryParams(params);
+  constructor(http: Http, params: RowsParams) {
+    validateRowsParams(params);
     this.http = http;
     this.params = params;
   }
@@ -35,7 +35,7 @@ export class Query<C extends string> {
     const range = alignRange({ begin: params.begin, end: params.end }, params.resolution);
     const chunks: RowsRow<C>[][] = [];
     for (const step of chunkRange(params, range)) {
-      const body = await this.http.text("/api/v1/rows", rowsQueryParams(params, step), options);
+      const body = await this.http.text("/api/v1/rows", rowsHttpParams(params, step), options);
       const { columns, rows } = parseCsv(body);
       assertColumns(columns, expected, "/api/v1/rows");
       chunks.push(rows as RowsRow<C>[]);

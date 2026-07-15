@@ -5,7 +5,7 @@ import type {
   MarketType,
   SpotColumn,
 } from "../constants.js";
-import type { HttpQuery } from "../transport/http.js";
+import type { HttpParams } from "../transport/http.js";
 import { assert } from "../util/assert.js";
 import type { TimeRange } from "./align.js";
 import type { Resolution } from "./resolution.js";
@@ -17,7 +17,7 @@ export type ColumnFor<T extends MarketType> = {
   spot: SpotColumn;
 }[T];
 
-interface QueryParamsBaseV1<T extends MarketType, C extends ColumnFor<T> = ColumnFor<T>> {
+interface QueryParamsBase<T extends MarketType, C extends ColumnFor<T> = ColumnFor<T>> {
   /**
    * Exchanges to include; every exchange is combined with every product
    * (cross product). Required except for `3m_basis_ann` queries.
@@ -33,19 +33,19 @@ interface QueryParamsBaseV1<T extends MarketType, C extends ColumnFor<T> = Colum
 }
 
 /** Selects by product symbol, e.g. "BTCUSDT". */
-export interface QueryParamsProductsV1<
+export interface QueryParamsProducts<
   T extends MarketType,
   C extends ColumnFor<T> = ColumnFor<T>,
-> extends QueryParamsBaseV1<T, C> {
+> extends QueryParamsBase<T, C> {
   products: readonly string[];
   coins?: never;
 }
 
 /** Selects by coin symbol, e.g. "BTC". */
-export interface QueryParamsCoinsV1<
+export interface QueryParamsCoins<
   T extends MarketType,
   C extends ColumnFor<T> = ColumnFor<T>,
-> extends QueryParamsBaseV1<T, C> {
+> extends QueryParamsBase<T, C> {
   coins: readonly string[];
   products?: never;
 }
@@ -58,22 +58,23 @@ export interface QueryParamsCoinsV1<
  *
  * The mapped type distributes over MarketType, expanding to a six-way union
  * (products/coins × futures/options/spot) so each market is instantiated with
- * its own column set. `QueryParamsProductsV1<MarketType>` would instead pool
+ * its own column set. `QueryParamsProducts<MarketType>` would instead pool
  * every market's columns together.
  */
-export type QueryParamsV1 = {
-  [T in MarketType]: QueryParamsProductsV1<T> | QueryParamsCoinsV1<T>;
+export type QueryParams = {
+  [T in MarketType]: QueryParamsProducts<T> | QueryParamsCoins<T>;
 }[MarketType];
 
 /**
- * A query as resolved by its market namespace: the params plus the injected
- * market type, with every market's columns pooled. Runtime helpers take this
- * so they also accept `Market.query`'s generic params, whose unresolved type
- * parameters don't match the closed QueryParamsV1 union.
+ * What the /rows endpoint actually needs: the user's QueryParams plus the
+ * market type injected by the namespace that created the query, with every
+ * market's columns pooled. Runtime helpers take this so they also accept
+ * `Market.query`'s generic params, whose unresolved type parameters don't
+ * match the closed QueryParams union.
  */
-export type ResolvedParamsV1 = { type: MarketType } & (
-  | QueryParamsProductsV1<MarketType>
-  | QueryParamsCoinsV1<MarketType>
+export type RowsParams = { type: MarketType } & (
+  | QueryParamsProducts<MarketType>
+  | QueryParamsCoins<MarketType>
 );
 
 const BASIS_COLUMN = "3m_basis_ann";
@@ -85,7 +86,7 @@ const BASIS_COLUMN = "3m_basis_ann";
  * for TypeScript callers; plain-JS callers get the same rules at runtime.
  * Time range and resolution are validated by alignRange/resolutionValue.
  */
-export function validateQueryParams(params: ResolvedParamsV1): void {
+export function validateRowsParams(params: RowsParams): void {
   assert(params.columns.length > 0, "columns must not be empty");
   assert(!(params.products && params.coins), "choose products or coins, not both");
   const selector = params.products ?? params.coins;
@@ -108,7 +109,7 @@ export function validateQueryParams(params: ResolvedParamsV1): void {
 }
 
 /** The /rows wire query for one request, with `range` (usually aligned) taking over begin/end. */
-export function rowsQueryParams(params: ResolvedParamsV1, range: TimeRange): HttpQuery {
+export function rowsHttpParams(params: RowsParams, range: TimeRange): HttpParams {
   return {
     type: params.type,
     exchanges: params.exchanges,

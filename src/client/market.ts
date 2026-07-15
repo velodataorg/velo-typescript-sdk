@@ -3,7 +3,7 @@ import { TERMS_COINS } from "../constants.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
 import { assertColumns, parseCsv } from "../util/csv.js";
-import type { ColumnFor, QueryParamsCoinsV1, QueryParamsProductsV1 } from "./param.js";
+import type { ColumnFor, QueryParamsCoins, QueryParamsProducts } from "./param.js";
 import { Query } from "./query.js";
 import type { TermsRow } from "./row.js";
 import { TERMS_COLUMNS } from "./row.js";
@@ -27,7 +27,7 @@ export class Market<T extends MarketType> {
    * (e.g. `FuturesColumn[]`) degrades to rows typed with every column.
    */
   query<C extends ColumnFor<T>>(
-    params: QueryParamsProductsV1<T, C> | QueryParamsCoinsV1<T, C>,
+    params: QueryParamsProducts<T, C> | QueryParamsCoins<T, C>,
   ): Query<C> {
     return new Query(this.http, { type: this.type, ...params });
   }
