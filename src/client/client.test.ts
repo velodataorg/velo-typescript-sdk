@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { VeloError } from "../transport/error.js";
 import { Velo } from "./client.js";
-import { VeloError } from "./transport/error.js";
 
 const ROWS_CSV =
   "exchange,coin,product,time,close_price\n" +
@@ -21,9 +21,8 @@ function searchParams(url: string): URLSearchParams {
   return new URL(url).searchParams;
 }
 
-describe("Velo.rows", () => {
+describe("Velo.futures.query", () => {
   const params = {
-    type: "futures",
     exchanges: ["binance-futures", "bybit"],
     products: ["BTCUSDT"],
     columns: ["close_price"],
@@ -32,9 +31,12 @@ describe("Velo.rows", () => {
     resolution: "1h",
   } as const;
 
-  it("sends one aligned request and parses the rows", async () => {
+  it("sends nothing until execute, then one aligned request, and parses the rows", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
-    const rows = await client.rows(params);
+    const query = client.futures.query(params);
+    expect(urls).toHaveLength(0); // constructing a query is not a request
+
+    const rows = await query.execute();
 
     expect(rows).toEqual([
       {
@@ -56,22 +58,29 @@ describe("Velo.rows", () => {
     expect(urls).toHaveLength(1);
     const url = urls[0] as string;
     expect(url.startsWith("https://api.velo.xyz/api/v1/rows?")).toBe(true);
-    const query = searchParams(url);
-    expect(query.get("type")).toBe("futures");
-    expect(query.get("exchanges")).toBe("binance-futures,bybit");
-    expect(query.get("products")).toBe("BTCUSDT");
-    expect(query.get("columns")).toBe("close_price");
-    expect(query.get("resolution")).toBe("60");
-    expect(query.get("months")).toBeNull();
-    expect(query.get("coins")).toBeNull();
+    const query2 = searchParams(url);
+    expect(query2.get("type")).toBe("futures");
+    expect(query2.get("exchanges")).toBe("binance-futures,bybit");
+    expect(query2.get("products")).toBe("BTCUSDT");
+    expect(query2.get("columns")).toBe("close_price");
+    expect(query2.get("resolution")).toBe("60");
+    expect(query2.get("months")).toBeNull();
+    expect(query2.get("coins")).toBeNull();
     // begin floored, end ceiled to the 1h bucket
-    expect(query.get("begin")).toBe(String(Date.UTC(2026, 5, 17, 7)));
-    expect(query.get("end")).toBe(String(Date.UTC(2026, 5, 17, 10)));
+    expect(query2.get("begin")).toBe(String(Date.UTC(2026, 5, 17, 7)));
+    expect(query2.get("end")).toBe(String(Date.UTC(2026, 5, 17, 10)));
+  });
+
+  it("sends the market type of the namespace that created the query", async () => {
+    const { velo: client, urls } = velo(ROWS_CSV);
+    await client.spot.query(params).execute();
+
+    expect(searchParams(urls[0] as string).get("type")).toBe("spot");
   });
 
   it("sends months=true for the 1M resolution", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
-    await client.rows({ ...params, resolution: "1M" });
+    await client.futures.query({ ...params, resolution: "1M" }).execute();
 
     const query = searchParams(urls[0] as string);
     expect(query.get("resolution")).toBe("1");
@@ -82,10 +91,10 @@ describe("Velo.rows", () => {
 
   it("parses an empty body (pair with no data) as no rows", async () => {
     const { velo: client } = velo("");
-    expect(await client.rows(params)).toEqual([]);
+    expect(await client.futures.query(params).execute()).toEqual([]);
   });
 
-  it("rejects invalid params before any request", async () => {
+  it("rejects invalid params at query construction, before any request", () => {
     const { velo: client, urls } = velo(ROWS_CSV);
     const cases: unknown[] = [
       { ...params, products: undefined }, // no selector
@@ -94,10 +103,9 @@ describe("Velo.rows", () => {
       { ...params, columns: [] }, // no columns
       { ...params, columns: ["3m_basis_ann", "close_price"] }, // basis not alone
       { ...params, columns: ["3m_basis_ann"] }, // basis needs coins
-      { ...params, type: "perps" }, // unknown type (plain JS)
     ];
     for (const invalid of cases) {
-      await expect(client.rows(invalid as never)).rejects.toThrow(VeloError);
+      expect(() => client.futures.query(invalid as never)).toThrow(VeloError);
     }
     expect(urls).toHaveLength(0);
   });
@@ -116,15 +124,16 @@ describe("Velo.rows", () => {
 
     // 30000 one-minute buckets x 1 exchange x 1 product x 1 column -> 2 chunks
     const begin = Date.UTC(2026, 0, 1);
-    const rows = await client.rows({
-      type: "futures",
-      exchanges: ["binance-futures"],
-      products: ["BTCUSDT"],
-      columns: ["close_price"],
-      begin,
-      end: begin + 30_000 * 60_000,
-      resolution: "1m",
-    });
+    const rows = await client.futures
+      .query({
+        exchanges: ["binance-futures"],
+        products: ["BTCUSDT"],
+        columns: ["close_price"],
+        begin,
+        end: begin + 30_000 * 60_000,
+        resolution: "1m",
+      })
+      .execute();
 
     expect(urls).toHaveLength(2);
     const first = searchParams(urls[0] as string);
@@ -142,14 +151,15 @@ describe("Velo.rows", () => {
       "exchange,coin,product,time,3m_basis_ann\n" +
       "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
     const { velo: client, urls } = velo(BASIS_CSV);
-    await client.rows({
-      type: "futures",
-      columns: ["3m_basis_ann"],
-      coins: ["BTC", "ETH"],
-      begin: params.begin,
-      end: params.end,
-      resolution: "1h",
-    });
+    await client.futures
+      .query({
+        columns: ["3m_basis_ann"],
+        coins: ["BTC", "ETH"],
+        begin: params.begin,
+        end: params.end,
+        resolution: "1h",
+      })
+      .execute();
 
     const query = searchParams(urls[0] as string);
     expect(query.get("coins")).toBe("BTC,ETH");
@@ -162,17 +172,19 @@ describe("Velo.rows", () => {
     const { velo: client } = velo(
       "exchange,coin,product,time,open_price\nbinance-futures,BTC,BTCUSDT,1783929600000,63174.9\n",
     );
-    await expect(client.rows(params)).rejects.toThrow(/unexpected \/api\/v1\/rows response header/);
+    await expect(client.futures.query(params).execute()).rejects.toThrow(
+      /unexpected \/api\/v1\/rows response header/,
+    );
   });
 
   it("rejects a response missing the base columns", async () => {
     const { velo: client } = velo("time,close_price\n1783929600000,63174.9\n");
-    await expect(client.rows(params)).rejects.toThrow(VeloError);
+    await expect(client.futures.query(params).execute()).rejects.toThrow(VeloError);
   });
 
   it("types rows by the requested columns", async () => {
     const { velo: client } = velo(ROWS_CSV);
-    const rows = await client.rows(params);
+    const rows = await client.futures.query(params).execute();
 
     // requested and base columns are typed fields
     const price: number = rows[0]!.close_price;
@@ -212,11 +224,11 @@ describe("Velo.caps", () => {
   });
 });
 
-describe("Velo.terms", () => {
+describe("Velo.options.terms", () => {
   it("queries /api/v1/terms with the coins", async () => {
     const body = "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,1767225600000,0.5,7,0.52\n";
     const { velo: client, urls } = velo(body);
-    const rows = await client.terms(["BTC"]);
+    const rows = await client.options.terms(["BTC"]);
 
     expect(new URL(urls[0] as string).pathname).toBe("/api/v1/terms");
     expect(searchParams(urls[0] as string).get("coins")).toBe("BTC");
@@ -228,12 +240,12 @@ describe("Velo.terms", () => {
 
   it("rejects a response with an unexpected header", async () => {
     const { velo: client } = velo("coin,time,at_the_money_iv\nBTC,1767225600000,0.5\n");
-    await expect(client.terms(["BTC"])).rejects.toThrow(/unexpected \/api\/v1\/terms/);
+    await expect(client.options.terms(["BTC"])).rejects.toThrow(/unexpected \/api\/v1\/terms/);
   });
 
   it("rejects coins other than BTC and ETH", async () => {
     const { velo: client } = velo("");
-    await expect(client.terms(["SOL" as never])).rejects.toThrow(/BTC, ETH/);
-    await expect(client.terms([])).rejects.toThrow(VeloError);
+    await expect(client.options.terms(["SOL" as never])).rejects.toThrow(/BTC, ETH/);
+    await expect(client.options.terms([])).rejects.toThrow(VeloError);
   });
 });

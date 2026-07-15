@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { VeloError } from "../transport/error.js";
 import { alignRange } from "./align.js";
-import { VeloError } from "./transport/error.js";
 
 describe("alignRange", () => {
   it("floors begin and ceils end to minute buckets", () => {

@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
 
+import { assert } from "../util/assert.js";
 import type { Resolution } from "./resolution.js";
 import { resolutionValue } from "./resolution.js";
-import { assert } from "./util/assert.js";
 
 export interface TimeRange {
   /** Start of the time range as a millisecond timestamp (inclusive). */

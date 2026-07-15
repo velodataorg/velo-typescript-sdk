@@ -1,4 +1,4 @@
-import type { Exchange } from "./constants.js";
+import type { Exchange } from "../constants.js";
 
 /** Columns every /rows response starts with, in wire order. */
 export const ROWS_BASE_COLUMNS = ["exchange", "coin", "product", "time"] as const;

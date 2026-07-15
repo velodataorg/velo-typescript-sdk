@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { VeloError } from "../transport/error.js";
 import { RESOLUTIONS, resolutionParams, resolutionValue } from "./resolution.js";
-import { VeloError } from "./transport/error.js";
 
 describe("resolutionValue", () => {
   it("maps fixed-length resolutions to minute counts", () => {
