@@ -1,11 +1,11 @@
 import { alignRange } from "../resolution/align.js";
 import type { Http, RequestOptions } from "../transport/http.js";
-import { assertColumns, parseCsv } from "../util/csv.js";
+import { assertCsvHeader, parseCsv } from "../util/csv.js";
 import { chunkRange } from "./chunk.js";
 import type { Row } from "./result.js";
 import { ROWS_BASE_COLUMNS } from "./result.js";
 import type { RowsParams } from "./rows-params.js";
-import { toHttpParams, validateRowsParams } from "./rows-params.js";
+import { snapshotRowsParams, toHttpParams, validateRowsParams } from "./rows-params.js";
 
 /**
  * One /api/v1/rows query, sealed and lazy: constructing it validates the
@@ -20,7 +20,7 @@ export class Query<C extends string> {
   constructor(http: Http, params: RowsParams) {
     validateRowsParams(params);
     this.http = http;
-    this.params = params;
+    this.params = snapshotRowsParams(params);
   }
 
   /**
@@ -37,7 +37,7 @@ export class Query<C extends string> {
     for (const step of chunkRange(params, range)) {
       const body = await this.http.text("/api/v1/rows", toHttpParams(params, step), options);
       const { columns, rows } = parseCsv(body);
-      assertColumns(columns, expected, "/api/v1/rows");
+      assertCsvHeader(columns, expected, "/api/v1/rows");
       chunks.push(rows as Row<C>[]);
     }
     return chunks.flat();

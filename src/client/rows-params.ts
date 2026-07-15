@@ -13,10 +13,29 @@ import type { QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
  * `Market.query`'s generic params, whose unresolved type parameters don't
  * match the closed QueryParams union.
  */
-export type RowsParams = { type: MarketType } & (
+export type RowsParams = { readonly type: MarketType } & (
   | QueryParamsProducts<MarketType>
   | QueryParamsCoins<MarketType>
 );
+
+/**
+ * A defensive copy: the query must stay sealed even if the caller mutates the
+ * arrays it passed in after construction. Scalars are guarded by the readonly
+ * param types; arrays need real copies because the caller keeps mutable
+ * references to them.
+ */
+export function snapshotRowsParams(params: RowsParams): RowsParams {
+  const copies = {
+    columns: [...params.columns],
+    ...(params.exchanges && { exchanges: [...params.exchanges] }),
+  };
+  // Branch on the selector so each arm builds one closed variant of the union.
+  if (params.coins !== undefined) {
+    return { ...params, ...copies, coins: [...params.coins] };
+  } else {
+    return { ...params, ...copies, products: [...params.products] };
+  }
+}
 
 const BASIS_COLUMN = "3m_basis_ann";
 

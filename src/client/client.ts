@@ -1,7 +1,7 @@
 import { Http } from "../transport/http.js";
 import type { HttpConfig, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
-import { assertColumns, parseCsv } from "../util/csv.js";
+import { assertCsvHeader, parseCsv } from "../util/csv.js";
 import { Market, OptionsMarket } from "./market.js";
 import type { MarketCap } from "./result.js";
 import { CAPS_COLUMNS } from "./result.js";
@@ -26,7 +26,7 @@ export class Velo {
     assert(coins.length > 0, "coins must not be empty");
     const body = await this.http.text("/api/v1/caps", { coins }, options);
     const { columns, rows } = parseCsv(body);
-    assertColumns(columns, CAPS_COLUMNS, "/api/v1/caps");
+    assertCsvHeader(columns, CAPS_COLUMNS, "/api/v1/caps");
     return rows as MarketCap[];
   }
 }

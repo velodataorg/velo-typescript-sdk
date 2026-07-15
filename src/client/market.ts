@@ -2,7 +2,7 @@ import type { MarketType, TermsCoin } from "../constants.js";
 import { TERMS_COINS } from "../constants.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
-import { assertColumns, parseCsv } from "../util/csv.js";
+import { assertCsvHeader, parseCsv } from "../util/csv.js";
 import type { Column, QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
 import { Query } from "./query.js";
 import type { TermPoint } from "./result.js";
@@ -27,7 +27,9 @@ export class Market<T extends MarketType> {
    * (e.g. `FuturesColumn[]`) degrades to rows typed with every column.
    */
   query<C extends Column<T>>(params: QueryParamsProducts<T, C> | QueryParamsCoins<T, C>): Query<C> {
-    return new Query(this.http, { type: this.type, ...params });
+    // params spreads first: a stray `type` smuggled past excess-property
+    // checking must not override this market's namespace.
+    return new Query(this.http, { ...params, type: this.type });
   }
 }
 
@@ -46,7 +48,7 @@ export class OptionsMarket extends Market<"options"> {
     );
     const body = await this.http.text("/api/v1/terms", { coins }, options);
     const { columns, rows } = parseCsv(body);
-    assertColumns(columns, TERMS_COLUMNS, "/api/v1/terms");
+    assertCsvHeader(columns, TERMS_COLUMNS, "/api/v1/terms");
     return rows as TermPoint[];
   }
 }

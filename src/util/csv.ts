@@ -27,7 +27,7 @@ export function parseCsv(text: string): { columns: string[]; rows: CsvRow[] } {
 }
 
 /** Asserts a non-empty response's header matches the expected columns exactly, in order. */
-export function assertColumns(
+export function assertCsvHeader(
   actual: readonly string[],
   expected: readonly string[],
   path: string,

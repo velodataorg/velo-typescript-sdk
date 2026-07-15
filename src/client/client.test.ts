@@ -78,6 +78,32 @@ describe("Velo.futures.query", () => {
     expect(searchParams(urls[0] as string).get("type")).toBe("spot");
   });
 
+  it("is sealed: mutating the caller's arrays after construction does not change the request", async () => {
+    const { velo: client, urls } = velo(ROWS_CSV);
+    const products = ["BTCUSDT"];
+    const columns = ["close_price"] as const;
+    const query = client.futures.query({ ...params, products, columns });
+
+    products.push("ETHUSDT"); // would widen the request past what was validated
+
+    await query.execute();
+    const sent = searchParams(urls[0] as string);
+    expect(sent.get("products")).toBe("BTCUSDT");
+
+    // @ts-expect-error the sealed params are read-only
+    query.params.begin = 0;
+  });
+
+  it("ignores a stray type in the params; the namespace wins", async () => {
+    const { velo: client, urls } = velo(ROWS_CSV);
+    // Not a fresh literal, so TypeScript's excess-property check lets the
+    // extra `type` through; it must not override the namespace.
+    const smuggled = { ...params, type: "futures" };
+    await client.spot.query(smuggled).execute();
+
+    expect(searchParams(urls[0] as string).get("type")).toBe("spot");
+  });
+
   it("sends months=true for the 1M resolution", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
     await client.futures.query({ ...params, resolution: "1M" }).execute();
@@ -182,12 +208,22 @@ describe("Velo.futures.query", () => {
     await expect(client.futures.query(params).execute()).rejects.toThrow(VeloError);
   });
 
+  it("parses a SQL NULL data value as null, and the row type allows it", async () => {
+    const { velo: client } = velo(
+      "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,1783929600000,null\n",
+    );
+    const rows = await client.futures.query(params).execute();
+
+    const price: number | null = rows[0]!.close_price;
+    expect(price).toBeNull();
+  });
+
   it("types rows by the requested columns", async () => {
     const { velo: client } = velo(ROWS_CSV);
     const rows = await client.futures.query(params).execute();
 
-    // requested and base columns are typed fields
-    const price: number = rows[0]!.close_price;
+    // requested columns are nullable data fields; base columns are not
+    const price: number | null = rows[0]!.close_price;
     const time: number = rows[0]!.time;
     expect(price).toBe(63174.9);
     expect(time).toBe(1783929600000);
@@ -209,7 +245,7 @@ describe("Velo.caps", () => {
     expect(searchParams(urls[0] as string).get("coins")).toBe("BTC,SOL");
     expect(rows[0]).toMatchObject({ coin: "BTC", circ: 20053612 });
     // fields are typed, no casts needed
-    const circDollars: number = rows[0]!.circ_dollars;
+    const circDollars: number | null = rows[0]!.circ_dollars;
     expect(circDollars).toBe(1248112746545.6);
   });
 
@@ -234,7 +270,7 @@ describe("Velo.options.terms", () => {
     expect(searchParams(urls[0] as string).get("coins")).toBe("BTC");
     expect(rows[0]).toMatchObject({ coin: "BTC", at_the_money_iv: 0.5 });
     // fields are typed, no casts needed
-    const fwdIv: number = rows[0]!.fwd_iv;
+    const fwdIv: number | null = rows[0]!.fwd_iv;
     expect(fwdIv).toBe(0.52);
   });
 

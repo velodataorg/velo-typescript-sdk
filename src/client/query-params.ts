@@ -18,14 +18,14 @@ interface QueryParamsBase<T extends MarketType, C extends Column<T> = Column<T>>
    * Exchanges to include; every exchange is combined with every product
    * (cross product). Required except for `3m_basis_ann` queries.
    */
-  exchanges?: readonly Exchange[];
+  readonly exchanges?: readonly Exchange[];
   /** Columns to return, canonical API names. Available values depend on the market. */
-  columns: readonly C[];
+  readonly columns: readonly C[];
   /** Start of the time range as a millisecond timestamp (inclusive). */
-  begin: number;
+  readonly begin: number;
   /** End of the time range as a millisecond timestamp (exclusive). */
-  end: number;
-  resolution: Resolution;
+  readonly end: number;
+  readonly resolution: Resolution;
 }
 
 /** Selects by product symbol, e.g. "BTCUSDT". */
@@ -33,8 +33,8 @@ export interface QueryParamsProducts<
   T extends MarketType,
   C extends Column<T> = Column<T>,
 > extends QueryParamsBase<T, C> {
-  products: readonly string[];
-  coins?: never;
+  readonly products: readonly string[];
+  readonly coins?: never;
 }
 
 /** Selects by coin symbol, e.g. "BTC". */
@@ -42,8 +42,8 @@ export interface QueryParamsCoins<
   T extends MarketType,
   C extends Column<T> = Column<T>,
 > extends QueryParamsBase<T, C> {
-  coins: readonly string[];
-  products?: never;
+  readonly coins: readonly string[];
+  readonly products?: never;
 }
 
 /**
