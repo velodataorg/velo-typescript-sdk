@@ -151,9 +151,15 @@ describe("Velo.futures.query", () => {
       { ...params, columns: ["3m_basis_ann"] }, // basis needs coins
       { ...params, begin: NaN }, // begin not a timestamp
       { ...params, end: params.begin }, // empty range
+      { ...params, end: 1e16 }, // end past the representable date range
       { ...params, resolution: "2m" }, // unknown resolution
       { ...params, columns: ["iv_1w"] }, // options column on futures
       { ...params, exchanges: ["coinbase"] }, // spot exchange on futures
+      { ...params, products: "BTCUSDT" }, // selector must be an array, not a string
+      { ...params, columns: "close_price" }, // columns must be an array
+      { ...params, exchanges: "binance-futures" }, // exchanges must be an array
+      { ...params, products: [""] }, // empty selector element
+      { ...params, products: Array(1) }, // sparse array hiding an undefined element
     ];
     for (const invalid of cases) {
       expect(() => client.futures.query(invalid as never)).toThrow(VeloError);
@@ -371,6 +377,30 @@ describe("Velo.futures.query stream", () => {
     expect(signals[1]?.aborted).toBe(true);
     // the swallowed prefetch rejection must not surface as an unhandled rejection,
     // which vitest would turn into a test failure
+  });
+
+  it("absorbs a prefetch failure while the consumer is paused, then rejects at next()", async () => {
+    const urls: string[] = [];
+    const fetchFn: typeof globalThis.fetch = async (input) => {
+      urls.push(String(input));
+      if (urls.length === 1) {
+        return new Response(
+          "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,1,10\n",
+          { status: 200 },
+        );
+      }
+      return new Response("bad request", { status: 400 }); // chunk 2 fails fast
+    };
+    const client = new Velo({ apiKey: "test_key", fetch: fetchFn });
+
+    const stream = client.futures.query(chunkedParams).stream();
+    await stream.next(); // chunk 1 delivered; chunk 2 prefetch in flight
+
+    // The 400 lands while the generator is suspended with nothing awaiting
+    // it; an unhandled rejection here would fail the test run.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await expect(stream.next()).rejects.toThrow(VeloError);
   });
 
   it("rejects mid-stream when a later chunk fails, after yielding earlier rows", async () => {

@@ -51,6 +51,27 @@ const MARKET_EXCHANGES: Record<MarketType, readonly string[]> = {
 };
 
 /**
+ * Asserts a params field is really an array of non-empty strings — plain-JS
+ * callers can pass anything, and a bare string would otherwise slip past the
+ * length checks and be spread into characters.
+ *
+ * @param value - The field value to check.
+ * @param field - The field name, for the failure message.
+ * @throws If `value` is not an array of non-empty strings.
+ */
+function assertStringArray(value: unknown, field: string): void {
+  assert(Array.isArray(value), () => `${field} must be an array (got ${typeof value})`);
+  // for..of observes holes as undefined; array callbacks like every() skip
+  // them, which would let a sparse array through unchecked.
+  for (const item of value) {
+    assert(
+      typeof item === "string" && item !== "",
+      () => `${field} must contain only non-empty strings`,
+    );
+  }
+}
+
+/**
  * Asserts the parameter rules the server enforces (velo-api-proxy getRows),
  * so a bad query fails at construction with a clear message instead of a 400
  * after a network round trip.
@@ -68,6 +89,10 @@ export function validateRowsParams(params: RowsParams): void {
     (MARKET_TYPES as readonly string[]).includes(params.type),
     () => `invalid type ${JSON.stringify(params.type)}: expected one of ${MARKET_TYPES.join(", ")}`,
   );
+  assertStringArray(params.columns, "columns");
+  if (params.exchanges !== undefined) assertStringArray(params.exchanges, "exchanges");
+  if (params.products !== undefined) assertStringArray(params.products, "products");
+  if (params.coins !== undefined) assertStringArray(params.coins, "coins");
   assert(params.columns.length > 0, "columns must not be empty");
   assert(!(params.products && params.coins), "choose products or coins, not both");
   const selector = params.products ?? params.coins;

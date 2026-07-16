@@ -112,17 +112,26 @@ export class Query<C extends string> {
     const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
     const opts = { ...options, signal };
 
-    let next = this.#fetchChunk(steps[0] as TimeRange, opts);
+    // A fetch can reject while the generator is suspended between yields,
+    // where nothing is awaiting it — without a handler already attached,
+    // Node reports an unhandled rejection and kills the process. The error
+    // still surfaces at the next `await next`.
+    const start = (step: TimeRange) => {
+      const chunk = this.#fetchChunk(step, opts);
+      chunk.catch(() => {});
+      return chunk;
+    };
+
+    let next = start(steps[0] as TimeRange);
     try {
       for (let i = 0; i < steps.length; i++) {
         const rows = await next;
         const step = steps[i + 1];
-        if (step) next = this.#fetchChunk(step, opts); // download while the consumer iterates
+        if (step) next = start(step); // download while the consumer iterates
         yield* rows;
       }
     } finally {
       abort.abort();
-      next.catch(() => {}); // an unconsumed prefetch must not surface as an unhandled rejection
     }
   }
 

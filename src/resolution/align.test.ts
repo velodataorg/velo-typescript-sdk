@@ -86,4 +86,21 @@ describe("alignRange", () => {
     expect(() => alignRange({ begin: end, end: end - 1 }, "1m")).toThrow(VeloError);
     expect(() => alignRange({ begin: 0, end: Number.NaN }, "1m")).toThrow(VeloError);
   });
+
+  it("rejects timestamps beyond the representable date range", () => {
+    // past 8.64e15 Luxon yields Invalid DateTimes, so calendar alignment would return NaN
+    expect(() => alignRange({ begin: 0, end: 1e16 }, "1M")).toThrow(VeloError);
+    expect(() => alignRange({ begin: 1e20, end: 1e20 + 1e16 }, "1M")).toThrow(/invalid begin/);
+  });
+
+  it("rejects a calendar end whose ceiling crosses the representable date range", () => {
+    expect(() => alignRange({ begin: 8.64e15 - 1, end: 8.64e15 }, "1M")).toThrow(
+      /exceeds the representable date range/,
+    );
+    // fixed-length resolutions have no calendar ceiling and accept the exact boundary
+    expect(alignRange({ begin: 8.64e15 - 60_000, end: 8.64e15 }, "1m")).toEqual({
+      begin: 8.64e15 - 60_000,
+      end: 8.64e15,
+    });
+  });
 });
