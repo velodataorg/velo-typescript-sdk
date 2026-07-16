@@ -3,8 +3,8 @@ import { DateTime } from "luxon";
 import { assert } from "../../util/assert.js";
 import type { TimeRange } from "./align.js";
 import type { AnyRowsParams } from "./params.js";
-import { isBasisQuery } from "./params.js";
-import { resolutionValue } from "./resolution.js";
+import { toResolutionValue } from "./resolution.js";
+import { isBasisQuery } from "./util.js";
 
 /* Maximum number of cells the server accepts in a single request. */
 export const MAX_CELLS_PER_REQUEST = 22_500;
@@ -35,7 +35,7 @@ export function chunkRange(params: AnyRowsParams, range: TimeRange): TimeRange[]
     `invalid range [${range.begin}, ${range.end}): begin must be before end`,
   );
 
-  const value = resolutionValue(params.resolution);
+  const value = toResolutionValue(params.resolution);
   const steps: TimeRange[] = [];
 
   if (value.unit === "months") {

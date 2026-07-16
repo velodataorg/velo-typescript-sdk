@@ -5,23 +5,6 @@
 export const MARKET_TYPES = ["futures", "options", "spot"] as const;
 export type MarketType = (typeof MARKET_TYPES)[number];
 
-export const EXCHANGES = [
-  "binance",
-  "binance-coin-margin",
-  "binance-futures",
-  "bybit",
-  "bybit-coin-margin",
-  "bybit-spot",
-  "coinbase",
-  "deribit",
-  "hyperliquid",
-  "hyperliquid-spot",
-  "okex",
-  "okex-coin-margin",
-  "okex-swap",
-] as const;
-export type Exchange = (typeof EXCHANGES)[number];
-
 /* Exchanges per market, as the server accepts them (velo-api-proxy
  * validExchanges).
  */
@@ -34,10 +17,10 @@ export const FUTURES_EXCHANGES = [
   "hyperliquid",
   "okex-coin-margin",
   "okex-swap",
-] as const satisfies readonly Exchange[];
+] as const;
 export type FuturesExchange = (typeof FUTURES_EXCHANGES)[number];
 
-export const OPTIONS_EXCHANGES = ["deribit"] as const satisfies readonly Exchange[];
+export const OPTIONS_EXCHANGES = ["deribit"] as const;
 export type OptionsExchange = (typeof OPTIONS_EXCHANGES)[number];
 
 export const SPOT_EXCHANGES = [
@@ -46,8 +29,15 @@ export const SPOT_EXCHANGES = [
   "coinbase",
   "hyperliquid-spot",
   "okex",
-] as const satisfies readonly Exchange[];
+] as const;
 export type SpotExchange = (typeof SPOT_EXCHANGES)[number];
+
+export type Exchange = FuturesExchange | OptionsExchange | SpotExchange;
+
+/* Union of the per-market lists (deribit serves two markets). */
+export const EXCHANGES: readonly Exchange[] = [
+  ...new Set([...FUTURES_EXCHANGES, ...OPTIONS_EXCHANGES, ...SPOT_EXCHANGES]),
+].sort();
 
 export const FUTURES_COLUMNS = [
   "open_price",
@@ -144,3 +134,17 @@ export type MarketExchange<T extends MarketType> = {
   options: OptionsExchange;
   spot: SpotExchange;
 }[T];
+
+/* Value-level counterparts of Column and MarketExchange, for runtime
+ * validation of plain-JS input.
+ */
+export const MARKET_COLUMNS: Record<MarketType, readonly string[]> = {
+  futures: FUTURES_COLUMNS,
+  options: OPTIONS_COLUMNS,
+  spot: SPOT_COLUMNS,
+};
+export const MARKET_EXCHANGES: Record<MarketType, readonly string[]> = {
+  futures: FUTURES_EXCHANGES,
+  options: OPTIONS_EXCHANGES,
+  spot: SPOT_EXCHANGES,
+};

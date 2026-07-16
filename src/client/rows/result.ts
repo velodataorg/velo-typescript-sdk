@@ -1,5 +1,5 @@
 import type { CsvSchema, FromSchema } from "../../util/csv.js";
-import type { Exchange } from "./markets.js";
+import type { Exchange } from "./types.js";
 
 /* Cell types of the columns every `/rows` response starts with, in wire order. */
 export const ROWS_BASE_SCHEMA = {

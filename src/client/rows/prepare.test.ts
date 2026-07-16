@@ -2,17 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../errors.js";
 import { MAX_CELLS_PER_REQUEST } from "./chunk.js";
-import { prepareRows, resolutionParams } from "./rows.js";
+import { prepareRows, toResolutionParams } from "./prepare.js";
 
-describe("resolutionParams", () => {
+describe("toResolutionParams", () => {
   it("sends minutes for fixed-length resolutions", () => {
-    expect(resolutionParams("1m")).toEqual({ resolution: 1 });
-    expect(resolutionParams("12h")).toEqual({ resolution: 720 });
-    expect(resolutionParams("1W")).toEqual({ resolution: 10_080 });
+    expect(toResolutionParams("1m")).toEqual({ resolution: 1 });
+    expect(toResolutionParams("12h")).toEqual({ resolution: 720 });
+    expect(toResolutionParams("1W")).toEqual({ resolution: 10_080 });
   });
 
   it("sends a month count with months=true for calendar resolutions", () => {
-    expect(resolutionParams("1M")).toEqual({ resolution: 1, months: true });
+    expect(toResolutionParams("1M")).toEqual({ resolution: 1, months: true });
   });
 });
 

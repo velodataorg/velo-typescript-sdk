@@ -1,6 +1,6 @@
 import type { CapsParams } from "./caps/caps.js";
-import type { MarketType } from "./rows/markets.js";
 import type { RowsParams } from "./rows/params.js";
+import type { MarketType } from "./rows/types.js";
 import type { TermsParams } from "./terms/terms.js";
 
 /* Everything a query can ask for: one kind per rows market, plus caps and

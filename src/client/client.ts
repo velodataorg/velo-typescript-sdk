@@ -3,10 +3,10 @@ import type { HttpConfig } from "../transport/http.js";
 import type { CapsParams, MarketCap } from "./caps/caps.js";
 import { prepareCaps } from "./caps/caps.js";
 import { Query } from "./query.js";
-import type { Column, MarketType } from "./rows/markets.js";
 import type { RowsParamsCoins, RowsParamsProducts } from "./rows/params.js";
+import { prepareRows } from "./rows/prepare.js";
 import type { Row } from "./rows/result.js";
-import { prepareRows } from "./rows/rows.js";
+import type { Column, MarketType } from "./rows/types.js";
 import type { TermPoint, TermsParams } from "./terms/terms.js";
 import { prepareTerms } from "./terms/terms.js";
 

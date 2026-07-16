@@ -7,6 +7,11 @@ export type { PreparedParams } from "./client/query.js";
 export { Query } from "./client/query.js";
 export type { TimeRange } from "./client/rows/align.js";
 export { alignRange } from "./client/rows/align.js";
+export type { RowsParams, RowsParamsCoins, RowsParamsProducts } from "./client/rows/params.js";
+export type { Resolution, ResolutionValue } from "./client/rows/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/rows/resolution.js";
+export type { Row, RowBase } from "./client/rows/result.js";
+export { ROWS_BASE_COLUMNS } from "./client/rows/result.js";
 export type {
   Column,
   Exchange,
@@ -18,7 +23,7 @@ export type {
   OptionsExchange,
   SpotColumn,
   SpotExchange,
-} from "./client/rows/markets.js";
+} from "./client/rows/types.js";
 export {
   EXCHANGES,
   FUTURES_COLUMNS,
@@ -28,12 +33,7 @@ export {
   OPTIONS_EXCHANGES,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
-} from "./client/rows/markets.js";
-export type { RowsParams, RowsParamsCoins, RowsParamsProducts } from "./client/rows/params.js";
-export type { Resolution, ResolutionValue } from "./client/rows/resolution.js";
-export { RESOLUTIONS, resolutionValue } from "./client/rows/resolution.js";
-export type { Row, RowBase } from "./client/rows/result.js";
-export { ROWS_BASE_COLUMNS } from "./client/rows/result.js";
+} from "./client/rows/types.js";
 export type { TermPoint, TermsCoin, TermsParams } from "./client/terms/terms.js";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/terms/terms.js";
 export { BASE_URL, CAPS_PATH, ROWS_PATH, TERMS_PATH } from "./constants.js";

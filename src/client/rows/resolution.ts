@@ -30,7 +30,7 @@ export type Resolution = keyof typeof RESOLUTIONS;
  * @throws If `resolution` is not a known resolution — the type already
  * guarantees this for TypeScript callers; the runtime check guards plain JS.
  */
-export function resolutionValue(resolution: Resolution): ResolutionValue {
+export function toResolutionValue(resolution: Resolution): ResolutionValue {
   const value = Object.hasOwn(RESOLUTIONS, resolution) ? RESOLUTIONS[resolution] : undefined;
   assert(
     value !== undefined,
