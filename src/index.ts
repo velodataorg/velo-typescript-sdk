@@ -2,7 +2,6 @@ export type { CapsParams, MarketCap } from "./client/caps/caps.js";
 export { CAPS_COLUMNS } from "./client/caps/caps.js";
 export type { Market, OptionsMarket, VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
-export type { QueryKind, QueryParams } from "./client/params.js";
 export type { PreparedParams } from "./client/query.js";
 export { Query } from "./client/query.js";
 export type { TimeRange } from "./client/rows/align.js";

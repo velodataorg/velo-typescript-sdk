@@ -42,20 +42,16 @@ export interface RowsParamsCoins<
  * (`velo.futures` etc.), so `columns` narrows to the values valid for that
  * market, and selection is by `products` or `coins` — never both.
  *
- * The mapped type distributes over {@link MarketType}, so the bare
- * `RowsParams` expands to a six-way union (products/coins ×
- * futures/options/spot) where each market is instantiated with its own
- * column set, instead of pooling every market's columns together.
+ * The bare `RowsParams` pools columns and exchanges across markets. The
+ * runtime helpers accept it because they are written defensively against
+ * plain-JS input anyway — validateRowsParams is what enforces the
+ * per-market rules.
  *
  * @typeParam T - The market the params query; defaults to any market.
+ * @typeParam C - The requested columns; `query()` and `prepareRows` infer it
+ * from `columns` to type the resulting rows. Defaults to every column of the
+ * market.
  */
-export type RowsParams<T extends MarketType = MarketType> = {
-  [M in MarketType]: RowsParamsProducts<M> | RowsParamsCoins<M>;
-}[T];
-
-/* What the runtime helpers accept, deliberately pooled across markets:
- * columns and exchanges may come from any market, because the helpers are
- * written defensively against plain-JS input anyway — validateRowsParams is
- * what enforces the per-market rules.
- */
-export type AnyRowsParams = RowsParamsProducts<MarketType> | RowsParamsCoins<MarketType>;
+export type RowsParams<T extends MarketType = MarketType, C extends Column<T> = Column<T>> =
+  | RowsParamsProducts<T, C>
+  | RowsParamsCoins<T, C>;

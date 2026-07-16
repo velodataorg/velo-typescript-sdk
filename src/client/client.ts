@@ -3,7 +3,7 @@ import type { HttpConfig } from "../transport/http.js";
 import type { CapsParams, MarketCap } from "./caps/caps.js";
 import { prepareCaps } from "./caps/caps.js";
 import { Query } from "./query.js";
-import type { RowsParamsCoins, RowsParamsProducts } from "./rows/params.js";
+import type { RowsParams } from "./rows/params.js";
 import { prepareRows } from "./rows/prepare.js";
 import type { Row } from "./rows/result.js";
 import type { Column, MarketType } from "./rows/types.js";
@@ -77,9 +77,7 @@ export interface Market<T extends MarketType> {
    * @returns An unexecuted {@link Query} typed by the requested columns.
    * @throws If the params fail validation.
    */
-  query<C extends Column<T>>(
-    params: RowsParamsProducts<T, C> | RowsParamsCoins<T, C>,
-  ): Query<Row<C>>;
+  query<C extends Column<T>>(params: RowsParams<T, C>): Query<Row<C>>;
 }
 
 /* The options market: `/rows` queries plus the term structure. */

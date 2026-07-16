@@ -5,7 +5,7 @@ import type { PreparedParams } from "../query.js";
 import type { TimeRange } from "./align.js";
 import { alignRange } from "./align.js";
 import { chunkRange } from "./chunk.js";
-import type { AnyRowsParams, RowsParamsCoins, RowsParamsProducts } from "./params.js";
+import type { RowsParams } from "./params.js";
 import type { Resolution } from "./resolution.js";
 import { toResolutionValue } from "./resolution.js";
 import type { Row } from "./result.js";
@@ -33,7 +33,7 @@ import { BASIS_COLUMN, isBasisQuery } from "./util.js";
  */
 export function prepareRows<T extends MarketType, C extends Column<T>>(
   type: T,
-  params: RowsParamsProducts<T, C> | RowsParamsCoins<T, C>,
+  params: RowsParams<T, C>,
 ): PreparedParams<Row<C>> {
   validateRowsParams(type, params);
   // Copy the caller's arrays once: the wire requests are built from the
@@ -45,7 +45,7 @@ export function prepareRows<T extends MarketType, C extends Column<T>>(
     columns: [...params.columns],
     ...(params.exchanges && { exchanges: [...params.exchanges] }),
   };
-  const sealed: AnyRowsParams =
+  const sealed: RowsParams =
     params.coins !== undefined
       ? { ...params, ...copies, coins: [...params.coins] }
       : { ...params, ...copies, products: [...params.products] };
@@ -76,7 +76,7 @@ export function prepareRows<T extends MarketType, C extends Column<T>>(
  * @param params - The params to validate.
  * @throws If the params break any of the server's rules.
  */
-export function validateRowsParams(type: MarketType, params: AnyRowsParams): void {
+export function validateRowsParams(type: MarketType, params: RowsParams): void {
   assert(
     (MARKET_TYPES as readonly string[]).includes(type),
     () => `invalid type ${JSON.stringify(type)}: expected one of ${MARKET_TYPES.join(", ")}`,
@@ -132,7 +132,7 @@ export function validateRowsParams(type: MarketType, params: AnyRowsParams): voi
  * over the params' own begin/end.
  * @returns The HTTP params for one request.
  */
-function toHttpParams(type: MarketType, params: AnyRowsParams, range: TimeRange): HttpParams {
+function toHttpParams(type: MarketType, params: RowsParams, range: TimeRange): HttpParams {
   return {
     type,
     exchanges: params.exchanges,

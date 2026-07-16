@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 
 import { assert } from "../../util/assert.js";
 import type { TimeRange } from "./align.js";
-import type { AnyRowsParams } from "./params.js";
+import type { RowsParams } from "./params.js";
 import { toResolutionValue } from "./resolution.js";
 import { isBasisQuery } from "./util.js";
 
@@ -29,7 +29,7 @@ const BASIS_EXCHANGE_COUNT = 3;
  * @throws If `range` is empty or inverted, or if `params` describes a query
  * too wide to fit even one bucket within the cell budget.
  */
-export function chunkRange(params: AnyRowsParams, range: TimeRange): TimeRange[] {
+export function chunkRange(params: RowsParams, range: TimeRange): TimeRange[] {
   assert(
     range.begin < range.end,
     `invalid range [${range.begin}, ${range.end}): begin must be before end`,

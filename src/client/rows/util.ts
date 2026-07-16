@@ -1,4 +1,4 @@
-import type { AnyRowsParams } from "./params.js";
+import type { RowsParams } from "./params.js";
 
 /* Special-cased in both validation and chunk pricing. */
 export const BASIS_COLUMN = "3m_basis_ann";
@@ -10,6 +10,6 @@ export const BASIS_COLUMN = "3m_basis_ann";
  * @param params - The params to inspect.
  * @returns True if `columns` includes `3m_basis_ann`.
  */
-export function isBasisQuery(params: AnyRowsParams): boolean {
+export function isBasisQuery(params: RowsParams): boolean {
   return (params.columns as readonly string[]).includes(BASIS_COLUMN);
 }
