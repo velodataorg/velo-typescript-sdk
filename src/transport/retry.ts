@@ -16,30 +16,36 @@ export const DEFAULT_RETRY: RetryOptions = {
   maxDelayMs: 10_000,
 };
 
+/* The longest wait Node timers support: setTimeout and AbortSignal.timeout
+ * clamp delays above 2^31 - 1 ms (~24.8 days) to fire almost immediately.
+ */
+export const MAX_TIMER_MS = 2 ** 31 - 1;
+
 /**
  * Asserts a merged retry config is usable.
  *
  * @remarks
  * A NaN or undefined smuggled into `retries` makes the attempt-cutoff
- * comparison always false — an unbounded retry loop — and bad delays degrade
- * to zero backoff, so fail loudly instead.
+ * comparison always false — an unbounded retry loop — bad delays degrade to
+ * zero backoff, and delays past MAX_TIMER_MS overflow Node timers, so fail
+ * loudly instead.
  *
  * @param retry - The merged retry options to check.
- * @throws If any field is not a non-negative number (integer for `retries`).
+ * @throws If any field is not a non-negative number (integer for `retries`,
+ * at most MAX_TIMER_MS for the delays).
  */
 export function validateRetryOptions(retry: RetryOptions): void {
   assert(
     Number.isSafeInteger(retry.retries) && retry.retries >= 0,
     () => `retries must be a non-negative integer (got ${retry.retries})`,
   );
-  assert(
-    Number.isFinite(retry.baseDelayMs) && retry.baseDelayMs >= 0,
-    () => `baseDelayMs must be a non-negative number of milliseconds (got ${retry.baseDelayMs})`,
-  );
-  assert(
-    Number.isFinite(retry.maxDelayMs) && retry.maxDelayMs >= 0,
-    () => `maxDelayMs must be a non-negative number of milliseconds (got ${retry.maxDelayMs})`,
-  );
+  for (const field of ["baseDelayMs", "maxDelayMs"] as const) {
+    const delay = retry[field];
+    assert(
+      Number.isFinite(delay) && delay >= 0 && delay <= MAX_TIMER_MS,
+      () => `${field} must be between 0 and ${MAX_TIMER_MS} milliseconds (got ${delay})`,
+    );
+  }
 }
 
 /**
@@ -101,12 +107,14 @@ export function retryAfterMs(response: Response): number | undefined {
  * @param retry - The backoff parameters.
  * @param retryAfter - A server-requested wait in milliseconds, if any.
  * @returns The wait in milliseconds; a server-provided `retryAfter` wins
- * when it asks for a longer wait than the backoff.
+ * when it asks for a longer wait than the backoff, capped at MAX_TIMER_MS
+ * because a longer setTimeout would fire almost immediately.
  */
 export function backoffMs(attempt: number, retry: RetryOptions, retryAfter?: number): number {
   const exponential = Math.min(retry.maxDelayMs, retry.baseDelayMs * 2 ** attempt);
   const jittered = exponential * (0.5 + Math.random() * 0.5);
-  return retryAfter !== undefined ? Math.max(retryAfter, jittered) : jittered;
+  const delay = retryAfter !== undefined ? Math.max(retryAfter, jittered) : jittered;
+  return Math.min(delay, MAX_TIMER_MS);
 }
 
 /* Statuses retried by default: request timeout, rate limit, and transient server errors. */

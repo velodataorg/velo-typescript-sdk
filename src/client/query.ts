@@ -2,12 +2,13 @@ import { ROWS_PATH } from "../constants.js";
 import type { TimeRange } from "../resolution/align.js";
 import { alignRange } from "../resolution/align.js";
 import type { Http, RequestOptions } from "../transport/http.js";
-import { assertCsvHeader, parseCsv } from "../util/csv.js";
+import type { CsvSchema } from "../util/csv.js";
+import { decodeCsv } from "../util/csv.js";
 import { chunkRange } from "./chunk.js";
 import type { Row } from "./result.js";
-import { ROWS_BASE_COLUMNS } from "./result.js";
+import { ROWS_BASE_SCHEMA } from "./result.js";
 import type { RowsParams } from "./rows-params.js";
-import { snapshotRowsParams, toHttpParams, validateRowsParams } from "./rows-params.js";
+import { toHttpParams, validateRowsParams } from "./rows-params.js";
 
 /**
  * One `/api/v1/rows` query, sealed and lazy: constructing it validates the
@@ -18,9 +19,12 @@ import { snapshotRowsParams, toHttpParams, validateRowsParams } from "./rows-par
  * columns plus these fields.
  */
 export class Query<C extends string> {
-  /* The validated params as they will be sent, including the market type. */
-  readonly params: RowsParams;
-  private readonly http: Http;
+  readonly #params: RowsParams;
+  readonly #http: Http;
+  /* begin/end aligned to whole resolution buckets, as actually sent. */
+  readonly #range: TimeRange;
+  /* The expected response columns: the base columns plus the requested ones. */
+  readonly #schema: CsvSchema;
 
   /**
    * Validates and seals the params; nothing is sent.
@@ -31,8 +35,31 @@ export class Query<C extends string> {
    */
   constructor(http: Http, params: RowsParams) {
     validateRowsParams(params);
-    this.http = http;
-    this.params = snapshotRowsParams(params);
+    this.#http = http;
+    // Seal the params: copy the arrays so the caller's own references cannot
+    // mutate the query after validation, then freeze everything so the
+    // snapshot exposed via the params getter cannot be mutated either — the
+    // readonly types only stop TypeScript callers.
+    const copies = {
+      columns: Object.freeze([...params.columns]),
+      ...(params.exchanges && { exchanges: Object.freeze([...params.exchanges]) }),
+    };
+    // Branch on the selector so each arm builds one closed variant of the union.
+    this.#params =
+      params.coins !== undefined
+        ? Object.freeze({ ...params, ...copies, coins: Object.freeze([...params.coins]) })
+        : Object.freeze({ ...params, ...copies, products: Object.freeze([...params.products]) });
+    this.#range = alignRange({ begin: params.begin, end: params.end }, params.resolution);
+    this.#schema = {
+      ...ROWS_BASE_SCHEMA,
+      ...Object.fromEntries(
+        this.#params.columns.map((column) => [column, "nullable-number"] as const),
+      ),
+    };
+  }
+
+  get params(): RowsParams {
+    return this.#params;
   }
 
   /**
@@ -77,9 +104,7 @@ export class Query<C extends string> {
    * @returns An async generator over the rows, in time order.
    */
   async *stream(options: RequestOptions = {}): AsyncGenerator<Row<C>, void, undefined> {
-    const { params } = this;
-    const range = alignRange({ begin: params.begin, end: params.end }, params.resolution);
-    const steps = chunkRange(params, range);
+    const steps = chunkRange(this.#params, this.#range);
 
     // The prefetch must die with the generator: an early break/throw aborts
     // the in-flight request (and its retry backoff) instead of leaking it.
@@ -109,9 +134,8 @@ export class Query<C extends string> {
    * @returns The chunk's rows.
    */
   async #fetchChunk(step: TimeRange, options: RequestOptions): Promise<Row<C>[]> {
-    const body = await this.http.text(ROWS_PATH, toHttpParams(this.params, step), options);
-    const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, [...ROWS_BASE_COLUMNS, ...this.params.columns], ROWS_PATH);
-    return rows as Row<C>[];
+    const body = await this.#http.text(ROWS_PATH, toHttpParams(this.#params, step), options);
+    // The cast is sound: decodeCsv validated every field against the schema.
+    return decodeCsv(body, this.#schema, ROWS_PATH) as Row<C>[];
   }
 }

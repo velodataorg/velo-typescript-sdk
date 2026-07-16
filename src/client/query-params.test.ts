@@ -34,8 +34,17 @@ const neither: QueryParams = { ...base, columns: ["open_price"] };
 
 const wrongColumn: QueryParamsProducts<"spot"> = {
   ...base,
+  exchanges: ["binance"],
   // @ts-expect-error funding_rate is a futures column, not a spot column
   columns: ["funding_rate"],
+  products: ["BTCUSDT"],
+};
+
+const wrongExchange: QueryParamsProducts<"spot"> = {
+  ...base,
+  // @ts-expect-error binance-futures is a futures exchange, not a spot exchange
+  exchanges: ["binance-futures"],
+  columns: ["close_price"],
   products: ["BTCUSDT"],
 };
 
@@ -43,6 +52,6 @@ describe("QueryParams", () => {
   it("compiles the valid shapes above", () => {
     expect(byProducts.products).toEqual(["BTCUSDT"]);
     expect(byCoins.coins).toEqual(["BTC"]);
-    expect([both, neither, wrongColumn]).toBeDefined();
+    expect([both, neither, wrongColumn, wrongExchange]).toBeDefined();
   });
 });

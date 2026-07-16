@@ -7,6 +7,7 @@ export { Velo } from "./client/client.js";
 export { Market, OptionsMarket } from "./client/market.js";
 export type {
   Column,
+  MarketExchange,
   QueryParamsCoins,
   QueryParamsProducts,
   QueryParams,

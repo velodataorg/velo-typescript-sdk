@@ -1,4 +1,13 @@
 import type { MarketType } from "../constants.js";
+import {
+  FUTURES_COLUMNS,
+  FUTURES_EXCHANGES,
+  MARKET_TYPES,
+  OPTIONS_COLUMNS,
+  OPTIONS_EXCHANGES,
+  SPOT_COLUMNS,
+  SPOT_EXCHANGES,
+} from "../constants.js";
 import type { TimeRange } from "../resolution/align.js";
 import type { Resolution } from "../resolution/resolution.js";
 import { resolutionValue } from "../resolution/resolution.js";
@@ -16,32 +25,6 @@ export type RowsParams = { readonly type: MarketType } & (
   | QueryParamsCoins<MarketType>
 );
 
-/**
- * Returns a defensive copy of the params.
- *
- * @remarks
- * The query must stay sealed even if the caller mutates the arrays it passed
- * in after construction. Scalars are guarded by the readonly param types;
- * arrays need real copies because the caller keeps mutable references to
- * them.
- *
- * @param params - The params to snapshot.
- * @returns A copy of `params` whose arrays are detached from the caller's
- * references.
- */
-export function snapshotRowsParams(params: RowsParams): RowsParams {
-  const copies = {
-    columns: [...params.columns],
-    ...(params.exchanges && { exchanges: [...params.exchanges] }),
-  };
-  // Branch on the selector so each arm builds one closed variant of the union.
-  if (params.coins !== undefined) {
-    return { ...params, ...copies, coins: [...params.coins] };
-  } else {
-    return { ...params, ...copies, products: [...params.products] };
-  }
-}
-
 const BASIS_COLUMN = "3m_basis_ann";
 
 /**
@@ -55,6 +38,18 @@ export function isBasisQuery(params: RowsParams): boolean {
   return (params.columns as readonly string[]).includes(BASIS_COLUMN);
 }
 
+/* What the server accepts per market; anything else is a 400. */
+const MARKET_COLUMNS: Record<MarketType, readonly string[]> = {
+  futures: FUTURES_COLUMNS,
+  options: OPTIONS_COLUMNS,
+  spot: SPOT_COLUMNS,
+};
+const MARKET_EXCHANGES: Record<MarketType, readonly string[]> = {
+  futures: FUTURES_EXCHANGES,
+  options: OPTIONS_EXCHANGES,
+  spot: SPOT_EXCHANGES,
+};
+
 /**
  * Asserts the parameter rules the server enforces (velo-api-proxy getRows),
  * so a bad query fails at construction with a clear message instead of a 400
@@ -63,12 +58,16 @@ export function isBasisQuery(params: RowsParams): boolean {
  * @remarks
  * The type system already guarantees most of this for TypeScript callers;
  * plain-JS callers get the same rules at runtime. Time range and resolution
- * are validated by alignRange/resolutionValue.
+ * are validated by the alignRange call in the Query constructor.
  *
  * @param params - The params to validate.
  * @throws If the params break any of the server's rules.
  */
 export function validateRowsParams(params: RowsParams): void {
+  assert(
+    (MARKET_TYPES as readonly string[]).includes(params.type),
+    () => `invalid type ${JSON.stringify(params.type)}: expected one of ${MARKET_TYPES.join(", ")}`,
+  );
   assert(params.columns.length > 0, "columns must not be empty");
   assert(!(params.products && params.coins), "choose products or coins, not both");
   const selector = params.products ?? params.coins;
@@ -86,6 +85,23 @@ export function validateRowsParams(params: RowsParams): void {
     assert(
       params.exchanges !== undefined && params.exchanges.length > 0,
       `exchanges are required (may only be omitted for ${BASIS_COLUMN} queries)`,
+    );
+    const validColumns = MARKET_COLUMNS[params.type];
+    for (const column of params.columns) {
+      assert(
+        validColumns.includes(column),
+        () => `invalid column ${JSON.stringify(column)} for type ${params.type}`,
+      );
+    }
+  }
+
+  const validExchanges = MARKET_EXCHANGES[params.type];
+  for (const exchange of params.exchanges ?? []) {
+    assert(
+      validExchanges.includes(exchange),
+      () =>
+        `invalid exchange ${JSON.stringify(exchange)} for type ${params.type}: ` +
+        `expected one of ${validExchanges.join(", ")}`,
     );
   }
 }

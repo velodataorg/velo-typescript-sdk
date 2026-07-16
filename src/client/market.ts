@@ -2,11 +2,11 @@ import type { MarketType, TermsCoin } from "../constants.js";
 import { TERMS_COINS, TERMS_PATH } from "../constants.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
-import { assertCsvHeader, parseCsv } from "../util/csv.js";
+import { decodeCsv } from "../util/csv.js";
 import type { Column, QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
 import { Query } from "./query.js";
 import type { TermPoint } from "./result.js";
-import { TERMS_COLUMNS } from "./result.js";
+import { TERMS_SCHEMA } from "./result.js";
 
 /**
  * Entry point for querying one market namespace.
@@ -63,8 +63,7 @@ export class OptionsMarket extends Market<"options"> {
       `terms coins must be among ${TERMS_COINS.join(", ")}`,
     );
     const body = await this.http.text(TERMS_PATH, { coins }, options);
-    const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, TERMS_COLUMNS, TERMS_PATH);
-    return rows as TermPoint[];
+    // The cast is sound: decodeCsv validated every field against the schema.
+    return decodeCsv(body, TERMS_SCHEMA, TERMS_PATH) as TermPoint[];
   }
 }

@@ -80,14 +80,16 @@ describe("Velo.futures.query", () => {
     expect(query2.get("end")).toBe(String(Date.UTC(2026, 5, 17, 10)));
   });
 
+  const spotParams = { ...params, exchanges: ["binance", "coinbase"] } as const;
+
   it("sends the market type of the namespace that created the query", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
-    await client.spot.query(params).execute();
+    await client.spot.query(spotParams).execute();
 
     expect(searchParams(urls[0] as string).get("type")).toBe("spot");
   });
 
-  it("is sealed: mutating the caller's arrays after construction does not change the request", async () => {
+  it("is sealed: neither the caller's arrays nor the snapshot can change the request", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
     const products = ["BTCUSDT"];
     const columns = ["close_price"] as const;
@@ -95,19 +97,28 @@ describe("Velo.futures.query", () => {
 
     products.push("ETHUSDT"); // would widen the request past what was validated
 
+    // the snapshot is frozen: mutating it throws instead of bypassing validation
+    expect(() => (query.params.columns as string[]).push("open_price")).toThrow(TypeError);
+    expect(() => {
+      // @ts-expect-error the sealed params are read-only
+      query.params.begin = 0;
+    }).toThrow(TypeError);
+    expect(() => {
+      // @ts-expect-error params has no setter
+      query.params = { ...query.params };
+    }).toThrow(TypeError);
+
     await query.execute();
     const sent = searchParams(urls[0] as string);
     expect(sent.get("products")).toBe("BTCUSDT");
-
-    // @ts-expect-error the sealed params are read-only
-    query.params.begin = 0;
+    expect(sent.get("columns")).toBe("close_price");
   });
 
   it("ignores a stray type in the params; the namespace wins", async () => {
     const { velo: client, urls } = velo(ROWS_CSV);
     // Not a fresh literal, so TypeScript's excess-property check lets the
     // extra `type` through; it must not override the namespace.
-    const smuggled = { ...params, type: "futures" };
+    const smuggled = { ...spotParams, type: "futures" };
     await client.spot.query(smuggled).execute();
 
     expect(searchParams(urls[0] as string).get("type")).toBe("spot");
@@ -138,6 +149,11 @@ describe("Velo.futures.query", () => {
       { ...params, columns: [] }, // no columns
       { ...params, columns: ["3m_basis_ann", "close_price"] }, // basis not alone
       { ...params, columns: ["3m_basis_ann"] }, // basis needs coins
+      { ...params, begin: NaN }, // begin not a timestamp
+      { ...params, end: params.begin }, // empty range
+      { ...params, resolution: "2m" }, // unknown resolution
+      { ...params, columns: ["iv_1w"] }, // options column on futures
+      { ...params, exchanges: ["coinbase"] }, // spot exchange on futures
     ];
     for (const invalid of cases) {
       expect(() => client.futures.query(invalid as never)).toThrow(VeloError);
@@ -215,6 +231,23 @@ describe("Velo.futures.query", () => {
   it("rejects a response missing the base columns", async () => {
     const { velo: client } = velo("time,close_price\n1783929600000,63174.9\n");
     await expect(client.futures.query(params).execute()).rejects.toThrow(VeloError);
+  });
+
+  it("rejects a response whose cells do not match the column types", async () => {
+    const { velo: client } = velo(
+      "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,not-a-time,not-a-number\n",
+    );
+    await expect(client.futures.query(params).execute()).rejects.toThrow(
+      /column time expected a number/,
+    );
+  });
+
+  it("keeps a numeric-looking coin a string", async () => {
+    const { velo: client } = velo(
+      "exchange,coin,product,time,close_price\nbinance-futures,888,888USDT,1783929600000,1\n",
+    );
+    const rows = await client.futures.query(params).execute();
+    expect(rows[0]?.coin).toBe("888");
   });
 
   it("parses a SQL NULL data value as null, and the row type allows it", async () => {
@@ -369,7 +402,6 @@ describe("Velo.futures.query stream", () => {
     const { velo: client } = velo("");
     expect(await collect(client.futures.query(params).stream())).toEqual([]);
   });
-
 });
 
 describe("Velo.caps", () => {

@@ -8,6 +8,7 @@ import {
   backoffMs,
   DEFAULT_RETRY,
   isRetryable,
+  MAX_TIMER_MS,
   retryAfterMs,
   sleep,
   validateRetryOptions,
@@ -18,16 +19,20 @@ const USER_AGENT = `velo-sdk/${version}`;
 
 /**
  * @param timeout - The timeout to check.
- * @throws If `timeout` is not a positive, finite number of milliseconds.
+ * @throws If `timeout` is not a positive integer of at most MAX_TIMER_MS
+ * milliseconds — the bounds AbortSignal.timeout supports.
  */
 function validateTimeout(timeout: number): void {
   assert(
-    Number.isFinite(timeout) && timeout > 0,
-    () => `timeout must be a positive number of milliseconds (got ${timeout})`,
+    Number.isInteger(timeout) && timeout > 0 && timeout <= MAX_TIMER_MS,
+    () =>
+      `timeout must be a positive integer of at most ${MAX_TIMER_MS} milliseconds (got ${timeout})`,
   );
 }
 
-/* Per-attempt timeout in milliseconds; a slow attempt is aborted and retried without eating the retry budget. */
+/* Per-attempt timeout in milliseconds; a timed-out attempt is aborted and
+ * retried, consuming retry budget like any other retryable failure.
+ */
 export const DEFAULT_TIMEOUT = 60_000;
 
 export interface HttpConfig {

@@ -2,39 +2,87 @@ import { csvParse } from "d3-dsv";
 
 import { assert } from "./assert.js";
 
-export type CsvValue = string | number | boolean | null;
+export type CsvValue = string | number | null;
 export type CsvRow = Record<string, CsvValue>;
 
-/**
- * Parses one CSV field into its typed value.
- *
- * @param raw - The raw field text.
- * @returns null for empty and SQL-NULL fields, a boolean or number where the
- * text is one, and the text itself otherwise.
+/* How to decode one column's cells; "nullable-number" admits SQL NULL. */
+export type CsvCellType = "string" | "number" | "nullable-number";
+
+/* Expected response columns in wire order, each with its cell type. Key order
+ * is significant: the header is asserted against it. (Insertion order is
+ * reliable here because no column name is an integer-like key.)
  */
-export function parseCsvValue(raw: string): CsvValue {
-  if (raw === "") return null;
-  if (raw === "null") return null; // the server serializes a SQL NULL as `${null}`
-  if (raw === "true") return true;
-  if (raw === "false") return false;
+export type CsvSchema = Record<string, CsvCellType>;
+
+/* The value a cell type decodes to. */
+export type CellOf<T extends CsvCellType> = {
+  string: string;
+  number: number;
+  "nullable-number": number | null;
+}[T];
+
+/* The row type a schema decodes to. Row types are derived from their schema
+ * so they cannot drift from what decodeCsv actually validates.
+ */
+export type FromSchema<S extends CsvSchema> = { -readonly [K in keyof S]: CellOf<S[K]> };
+
+/**
+ * Decodes one CSV field per its declared type.
+ *
+ * @remarks
+ * Decoding by declared type rather than by what the text looks like keeps
+ * lexical accidents out of the data: a coin named `888` stays a string, and a
+ * malformed numeric cell fails loudly instead of leaking a string into a
+ * `number` field.
+ *
+ * @param raw - The raw field text; missing trailing cells arrive as `""`.
+ * @param type - The column's declared cell type.
+ * @param column - The column name, for the failure message.
+ * @param path - The endpoint path, for the failure message.
+ * @returns The decoded value.
+ * @throws If `raw` is not a valid cell of `type`.
+ */
+function decodeCsvCell(raw: string, type: CsvCellType, column: string, path: string): CsvValue {
+  if (type === "string") {
+    assert(raw !== "", () => `unexpected ${path} response: column ${column} is empty`);
+    return raw;
+  }
+  if (type === "nullable-number" && (raw === "" || raw === "null")) return null;
   const n = Number(raw);
-  return Number.isNaN(n) ? raw : n;
+  assert(
+    raw !== "" && Number.isFinite(n),
+    () =>
+      `unexpected ${path} response: column ${column} expected a number, got ${JSON.stringify(raw)}`,
+  );
+  return n;
 }
 
 /**
- * Parses a header-first CSV body into one plain object per row, keyed by
- * header column.
+ * Parses a header-first CSV body into one plain object per row, validated
+ * against the expected schema.
+ *
+ * @remarks
+ * All-or-nothing: the header must match the schema's columns exactly and
+ * every cell must decode as its column's type. A zero-row response has no
+ * header and yields no rows.
  *
  * @param text - The CSV body.
- * @returns The header in wire order (`[]` for an empty body) and the parsed
- * rows.
+ * @param schema - The expected columns in wire order, with their cell types.
+ * @param path - The endpoint path, for failure messages.
+ * @returns The decoded rows.
+ * @throws If the header or any cell does not match `schema`.
  */
-export function parseCsv(text: string): { columns: string[]; rows: CsvRow[] } {
+export function decodeCsv(text: string, schema: CsvSchema, path: string): CsvRow[] {
   const parsed = csvParse(text);
-  const rows = Array.from(parsed, (raw) =>
-    Object.fromEntries(Object.keys(raw).map((key) => [key, parseCsvValue(raw[key] ?? "")])),
+  assertCsvHeader(parsed.columns, Object.keys(schema), path);
+  return Array.from(parsed, (raw) =>
+    Object.fromEntries(
+      Object.entries(schema).map(([column, type]) => [
+        column,
+        decodeCsvCell(raw[column] ?? "", type, column, path),
+      ]),
+    ),
   );
-  return { columns: parsed.columns, rows };
 }
 
 /**

@@ -1,9 +1,11 @@
 import type {
-  Exchange,
   FuturesColumn,
+  FuturesExchange,
   OptionsColumn,
+  OptionsExchange,
   MarketType,
   SpotColumn,
+  SpotExchange,
 } from "../constants.js";
 import type { Resolution } from "../resolution/resolution.js";
 
@@ -13,11 +15,17 @@ export type Column<T extends MarketType> = {
   spot: SpotColumn;
 }[T];
 
+export type MarketExchange<T extends MarketType> = {
+  futures: FuturesExchange;
+  options: OptionsExchange;
+  spot: SpotExchange;
+}[T];
+
 interface QueryParamsBase<T extends MarketType, C extends Column<T> = Column<T>> {
   /* Exchanges to include; every exchange is combined with every product
    * (cross product). Required except for `3m_basis_ann` queries.
    */
-  readonly exchanges?: readonly Exchange[];
+  readonly exchanges?: readonly MarketExchange<T>[];
   /* Columns to return, canonical API names. Available values depend on the market. */
   readonly columns: readonly C[];
   /* Start of the time range as a millisecond timestamp (inclusive). */

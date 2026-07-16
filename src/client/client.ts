@@ -2,10 +2,10 @@ import { CAPS_PATH } from "../constants.js";
 import { Http } from "../transport/http.js";
 import type { HttpConfig, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
-import { assertCsvHeader, parseCsv } from "../util/csv.js";
+import { decodeCsv } from "../util/csv.js";
 import { Market, OptionsMarket } from "./market.js";
 import type { MarketCap } from "./result.js";
-import { CAPS_COLUMNS } from "./result.js";
+import { CAPS_SCHEMA } from "./result.js";
 
 export type VeloConfig = HttpConfig;
 
@@ -26,8 +26,7 @@ export class Velo {
   async caps(coins: readonly string[], options?: RequestOptions): Promise<MarketCap[]> {
     assert(coins.length > 0, "coins must not be empty");
     const body = await this.http.text(CAPS_PATH, { coins }, options);
-    const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, CAPS_COLUMNS, CAPS_PATH);
-    return rows as MarketCap[];
+    // The cast is sound: decodeCsv validated every field against the schema.
+    return decodeCsv(body, CAPS_SCHEMA, CAPS_PATH) as MarketCap[];
   }
 }

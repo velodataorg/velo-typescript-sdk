@@ -58,9 +58,13 @@ describe("Http", () => {
       /retries must be a non-negative integer/,
     );
     expect(() => new Http({ apiKey: "k", retry: { baseDelayMs: -1 } })).toThrow(VeloError);
-    expect(() => new Http({ apiKey: "k", timeout: NaN })).toThrow(
-      /timeout must be a positive number/,
-    );
+    // AbortSignal.timeout rejects fractions, and Node timers clamp delays
+    // above 2^31 - 1 to fire almost immediately
+    for (const timeout of [NaN, 0, 0.5, 2 ** 31]) {
+      expect(() => new Http({ apiKey: "k", timeout })).toThrow(
+        /timeout must be a positive integer/,
+      );
+    }
   });
 
   it("rejects an invalid per-request override before sending anything", async () => {

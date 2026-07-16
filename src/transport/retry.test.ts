@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { VeloConnectionError, VeloError } from "./error.js";
 import {
+  backoffMs,
   DEFAULT_RETRY,
   DEFAULT_RETRYABLE_STATUSES,
   isRetryable,
+  MAX_TIMER_MS,
   validateRetryOptions,
 } from "./retry.js";
 
@@ -52,7 +54,8 @@ describe("validateRetryOptions", () => {
   });
 
   it("rejects delays that would degrade to zero backoff", () => {
-    for (const delay of [NaN, undefined as never, Infinity, -1]) {
+    // delays above MAX_TIMER_MS overflow Node timers, which also fire almost immediately
+    for (const delay of [NaN, undefined as never, Infinity, -1, MAX_TIMER_MS + 1]) {
       expect(() => validateRetryOptions({ ...DEFAULT_RETRY, baseDelayMs: delay })).toThrow(
         VeloError,
       );
@@ -60,5 +63,16 @@ describe("validateRetryOptions", () => {
         VeloError,
       );
     }
+  });
+});
+
+describe("backoffMs", () => {
+  it("caps a server Retry-After at what Node timers support", () => {
+    // e.g. `Retry-After: 99999999999` must not overflow setTimeout into a ~0ms wait
+    expect(backoffMs(0, DEFAULT_RETRY, Number.MAX_SAFE_INTEGER)).toBe(MAX_TIMER_MS);
+  });
+
+  it("lets a longer Retry-After win over the backoff", () => {
+    expect(backoffMs(0, DEFAULT_RETRY, 60_000)).toBe(60_000);
   });
 });
