@@ -14,21 +14,21 @@ export type Column<T extends MarketType> = {
 }[T];
 
 interface QueryParamsBase<T extends MarketType, C extends Column<T> = Column<T>> {
-  /**
-   * Exchanges to include; every exchange is combined with every product
+  /* Exchanges to include; every exchange is combined with every product
    * (cross product). Required except for `3m_basis_ann` queries.
    */
   readonly exchanges?: readonly Exchange[];
-  /** Columns to return, canonical API names. Available values depend on the market. */
+  /* Columns to return, canonical API names. Available values depend on the market. */
   readonly columns: readonly C[];
-  /** Start of the time range as a millisecond timestamp (inclusive). */
+  /* Start of the time range as a millisecond timestamp (inclusive). */
   readonly begin: number;
-  /** End of the time range as a millisecond timestamp (exclusive). */
+  /* End of the time range as a millisecond timestamp (exclusive). */
   readonly end: number;
+  /* Bucket length of the returned rows. */
   readonly resolution: Resolution;
 }
 
-/** Selects by product symbol, e.g. "BTCUSDT". */
+/* Selects by product symbol, e.g. "BTCUSDT". */
 export interface QueryParamsProducts<
   T extends MarketType,
   C extends Column<T> = Column<T>,
@@ -37,7 +37,7 @@ export interface QueryParamsProducts<
   readonly coins?: never;
 }
 
-/** Selects by coin symbol, e.g. "BTC". */
+/* Selects by coin symbol, e.g. "BTC". */
 export interface QueryParamsCoins<
   T extends MarketType,
   C extends Column<T> = Column<T>,
@@ -47,15 +47,17 @@ export interface QueryParamsCoins<
 }
 
 /**
- * Parameters for one market query. The market type comes from the namespace
- * that creates the query (`velo.futures` etc.), so `columns` narrows to the
- * values valid for that market, and selection is by `products` or `coins` —
- * never both.
+ * Parameters for one market query.
  *
- * The mapped type distributes over MarketType, expanding to a six-way union
- * (products/coins × futures/options/spot) so each market is instantiated with
- * its own column set. `QueryParamsProducts<MarketType>` would instead pool
- * every market's columns together.
+ * @remarks
+ * The market type comes from the namespace that creates the query
+ * (`velo.futures` etc.), so `columns` narrows to the values valid for that
+ * market, and selection is by `products` or `coins` — never both.
+ *
+ * The mapped type distributes over {@link MarketType}, expanding to a six-way
+ * union (products/coins × futures/options/spot) so each market is
+ * instantiated with its own column set. `QueryParamsProducts<MarketType>`
+ * would instead pool every market's columns together.
  */
 export type QueryParams = {
   [T in MarketType]: QueryParamsProducts<T> | QueryParamsCoins<T>;

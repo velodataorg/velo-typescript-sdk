@@ -6,12 +6,10 @@ import type { HttpParams } from "../transport/http.js";
 import { assert } from "../util/assert.js";
 import type { QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
 
-/**
- * What the /rows endpoint actually needs: the user's QueryParams plus the
- * market type injected by the namespace that created the query, with every
- * market's columns pooled. Runtime helpers take this so they also accept
- * `Market.query`'s generic params, whose unresolved type parameters don't
- * match the closed QueryParams union.
+/* The params sent to /api/v1/rows: the user's QueryParams plus the market
+ * type. Deliberately looser than QueryParams:
+ * - columns may come from any market
+ * - runtime helpers don't care which market the query is for
  */
 export type RowsParams = { readonly type: MarketType } & (
   | QueryParamsProducts<MarketType>
@@ -19,10 +17,17 @@ export type RowsParams = { readonly type: MarketType } & (
 );
 
 /**
- * A defensive copy: the query must stay sealed even if the caller mutates the
- * arrays it passed in after construction. Scalars are guarded by the readonly
- * param types; arrays need real copies because the caller keeps mutable
- * references to them.
+ * Returns a defensive copy of the params.
+ *
+ * @remarks
+ * The query must stay sealed even if the caller mutates the arrays it passed
+ * in after construction. Scalars are guarded by the readonly param types;
+ * arrays need real copies because the caller keeps mutable references to
+ * them.
+ *
+ * @param params - The params to snapshot.
+ * @returns A copy of `params` whose arrays are detached from the caller's
+ * references.
  */
 export function snapshotRowsParams(params: RowsParams): RowsParams {
   const copies = {
@@ -39,7 +44,13 @@ export function snapshotRowsParams(params: RowsParams): RowsParams {
 
 const BASIS_COLUMN = "3m_basis_ann";
 
-/** Whether the query selects the basis column, which the server validates and prices specially. */
+/**
+ * Whether the query selects the basis column, which the server validates and
+ * prices specially.
+ *
+ * @param params - The params to inspect.
+ * @returns True if `columns` includes `3m_basis_ann`.
+ */
 export function isBasisQuery(params: RowsParams): boolean {
   return (params.columns as readonly string[]).includes(BASIS_COLUMN);
 }
@@ -47,9 +58,15 @@ export function isBasisQuery(params: RowsParams): boolean {
 /**
  * Asserts the parameter rules the server enforces (velo-api-proxy getRows),
  * so a bad query fails at construction with a clear message instead of a 400
- * after a network round trip. The type system already guarantees most of this
- * for TypeScript callers; plain-JS callers get the same rules at runtime.
- * Time range and resolution are validated by alignRange/resolutionValue.
+ * after a network round trip.
+ *
+ * @remarks
+ * The type system already guarantees most of this for TypeScript callers;
+ * plain-JS callers get the same rules at runtime. Time range and resolution
+ * are validated by alignRange/resolutionValue.
+ *
+ * @param params - The params to validate.
+ * @throws If the params break any of the server's rules.
  */
 export function validateRowsParams(params: RowsParams): void {
   assert(params.columns.length > 0, "columns must not be empty");
@@ -73,14 +90,26 @@ export function validateRowsParams(params: RowsParams): void {
   }
 }
 
-/** The /rows wire resolution: minutes, or a month count with months=true. */
+/**
+ * Converts a resolution to its /rows wire form.
+ *
+ * @param resolution - The resolution to convert.
+ * @returns Minutes, or a month count with `months: true`.
+ */
 export function resolutionParams(resolution: Resolution): { resolution: number; months?: boolean } {
   const value = resolutionValue(resolution);
   if (value.unit === "months") return { resolution: value.count, months: true };
   return { resolution: value.count };
 }
 
-/** The /rows wire query for one request, with `range` (usually aligned) taking over begin/end. */
+/**
+ * Builds the /rows wire query for one request.
+ *
+ * @param params - The validated query params.
+ * @param range - The begin/end actually sent (usually aligned), taking over
+ * the params' own begin/end.
+ * @returns The HTTP params for one request.
+ */
 export function toHttpParams(params: RowsParams, range: TimeRange): HttpParams {
   return {
     type: params.type,

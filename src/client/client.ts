@@ -21,7 +21,7 @@ export class Velo {
     this.spot = new Market(this.http, "spot");
   }
 
-  /** Query market caps (/api/v1/caps). */
+  /* Query market caps (/api/v1/caps). */
   async caps(coins: readonly string[], options?: RequestOptions): Promise<MarketCap[]> {
     assert(coins.length > 0, "coins must not be empty");
     const body = await this.http.text("/api/v1/caps", { coins }, options);

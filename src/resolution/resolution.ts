@@ -22,7 +22,14 @@ export const RESOLUTIONS = {
 
 export type Resolution = keyof typeof RESOLUTIONS;
 
-/** The bucket size for a resolution; throws for anything outside RESOLUTIONS. */
+/**
+ * Looks up the bucket size for a resolution.
+ *
+ * @param resolution - A key of RESOLUTIONS.
+ * @returns The bucket size as a minute or month count.
+ * @throws If `resolution` is not a known resolution — the type already
+ * guarantees this for TypeScript callers; the runtime check guards plain JS.
+ */
 export function resolutionValue(resolution: Resolution): ResolutionValue {
   const value = Object.hasOwn(RESOLUTIONS, resolution) ? RESOLUTIONS[resolution] : undefined;
   assert(

@@ -9,15 +9,25 @@ import type { RowsParams } from "./rows-params.js";
 import { snapshotRowsParams, toHttpParams, validateRowsParams } from "./rows-params.js";
 
 /**
- * One /api/v1/rows query, sealed and lazy: constructing it validates the
- * params (throwing VeloError on a bad query) but nothing is sent until
- * `execute()`. Created via `velo.futures.query(...)` and friends.
+ * One `/api/v1/rows` query, sealed and lazy: constructing it validates the
+ * params (throwing `VeloError` on a bad query) but nothing is sent until
+ * {@link Query.execute | execute()}.
+ *
+ * @typeParam C - The requested column names; each row is typed as the base
+ * columns plus these fields.
  */
 export class Query<C extends string> {
-  /** The validated params as they will be sent, including the market type. */
+  /* The validated params as they will be sent, including the market type. */
   readonly params: RowsParams;
   private readonly http: Http;
 
+  /**
+   * Validates and seals the params; nothing is sent.
+   *
+   * @param http - The transport requests are sent through.
+   * @param params - The query params, including the market type.
+   * @throws If the params fail validation.
+   */
   constructor(http: Http, params: RowsParams) {
     validateRowsParams(params);
     this.http = http;
@@ -25,11 +35,17 @@ export class Query<C extends string> {
   }
 
   /**
-   * Fire the query and collect every row. begin/end are aligned to whole
-   * resolution buckets before sending (begin floors, end ceils), and ranges
-   * exceeding the server's per-request budget are fetched in chunks and
-   * concatenated in time order. All-or-nothing: a failed chunk rejects the
-   * whole call; use `stream()` to consume rows as they arrive instead.
+   * Fires the query and collects every row.
+   *
+   * @remarks
+   * `begin`/`end` are aligned to whole resolution buckets before sending
+   * (begin floors, end ceils), and ranges exceeding the server's per-request
+   * budget are fetched in chunks and concatenated in time order.
+   * All-or-nothing: a failed chunk rejects the whole call; use
+   * {@link Query.stream | stream()} to consume rows as they arrive instead.
+   *
+   * @param options - Per-request transport options.
+   * @returns Every row in the aligned range, in time order.
    */
   async execute(options?: RequestOptions): Promise<Row<C>[]> {
     // Collected by hand: Array.fromAsync would raise the Node floor to 22.
@@ -41,11 +57,23 @@ export class Query<C extends string> {
   }
 
   /**
-   * Fire the query and yield rows in time order as they arrive, one chunked
-   * request at a time with the next chunk prefetched while the current one is
-   * consumed. Lazy: nothing is sent until the first `next()`. Unlike
-   * `execute()`, a failed chunk can reject the iteration after earlier rows
-   * were already yielded.
+   * Fires the query and yields rows in time order as they arrive.
+   *
+   * @remarks
+   * Fetches one chunked request at a time, with the next chunk prefetched
+   * while the current one is consumed:
+   *
+   * ```text
+   * [fetch 1][fetch 2 ][fetch 3 ]
+   *          [yield 1…][yield 2…][yield 3…]
+   * ```
+   *
+   * Lazy: nothing is sent until the first `next()`. Unlike
+   * {@link Query.execute | execute()}, a failed chunk can reject the
+   * iteration after earlier rows were already yielded.
+   *
+   * @param options - Per-request transport options.
+   * @returns An async generator over the rows, in time order.
    */
   async *stream(options: RequestOptions = {}): AsyncGenerator<Row<C>, void, undefined> {
     const { params } = this;
@@ -58,12 +86,12 @@ export class Query<C extends string> {
     const signal = options.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
     const opts = { ...options, signal };
 
-    let next = this.fetchChunk(steps[0] as TimeRange, opts);
+    let next = this.#fetchChunk(steps[0] as TimeRange, opts);
     try {
       for (let i = 0; i < steps.length; i++) {
         const rows = await next;
         const step = steps[i + 1];
-        if (step) next = this.fetchChunk(step, opts); // download while the consumer iterates
+        if (step) next = this.#fetchChunk(step, opts); // download while the consumer iterates
         yield* rows;
       }
     } finally {
@@ -72,12 +100,14 @@ export class Query<C extends string> {
     }
   }
 
-  [Symbol.asyncIterator](): AsyncGenerator<Row<C>, void, undefined> {
-    return this.stream();
-  }
-
-  /** Fetch and parse one chunk of the range through the retrying transport. */
-  private async fetchChunk(step: TimeRange, options: RequestOptions): Promise<Row<C>[]> {
+  /**
+   * Fetches and parses one chunk of the range through the retrying transport.
+   *
+   * @param step - The chunk's time range.
+   * @param options - Per-request transport options.
+   * @returns The chunk's rows.
+   */
+  async #fetchChunk(step: TimeRange, options: RequestOptions): Promise<Row<C>[]> {
     const body = await this.http.text("/api/v1/rows", toHttpParams(this.params, step), options);
     const { columns, rows } = parseCsv(body);
     assertCsvHeader(columns, [...ROWS_BASE_COLUMNS, ...this.params.columns], "/api/v1/rows");

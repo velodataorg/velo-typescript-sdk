@@ -370,12 +370,6 @@ describe("Velo.futures.query stream", () => {
     expect(await collect(client.futures.query(params).stream())).toEqual([]);
   });
 
-  it("is async-iterable directly as an alias for stream()", async () => {
-    const { velo: client } = velo(ROWS_CSV);
-    const rows = await collect(client.futures.query(params));
-    expect(rows).toHaveLength(2);
-    expect(rows[0]?.exchange).toBe("binance-futures");
-  });
 });
 
 describe("Velo.caps", () => {

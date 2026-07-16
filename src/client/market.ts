@@ -8,38 +8,54 @@ import { Query } from "./query.js";
 import type { TermPoint } from "./result.js";
 import { TERMS_COLUMNS } from "./result.js";
 
-/** One market's slice of the API: /rows queries typed to that market's columns. */
+/**
+ * Entry point for querying one market namespace.
+ *
+ * @typeParam T - The market namespace this instance queries.
+ */
 export class Market<T extends MarketType> {
   protected readonly http: Http;
   private readonly type: T;
 
+  /**
+   * @param http - The transport requests are sent through.
+   * @param type - The market namespace this instance queries.
+   */
   constructor(http: Http, type: T) {
     this.http = http;
     this.type = type;
   }
 
   /**
-   * Create a market-data query (/api/v1/rows). The params are validated here;
-   * nothing is sent until `execute()`.
+   * Creates a market-data query (`/api/v1/rows`).
    *
-   * Rows are typed by the requested columns: pass a columns literal and each
-   * row is the base columns plus exactly those fields. A pre-widened array
-   * (e.g. `FuturesColumn[]`) degrades to rows typed with every column.
+   * @param params - Query params selecting either products or coins.
+   * @returns An unexecuted {@link Query} typed by the requested columns.
+   * @throws If the params fail validation.
    */
   query<C extends Column<T>>(params: QueryParamsProducts<T, C> | QueryParamsCoins<T, C>): Query<C> {
-    // params spreads first: a stray `type` smuggled past excess-property
-    // checking must not override this market's namespace.
     return new Query(this.http, { ...params, type: this.type });
   }
 }
 
-/** The options market: /rows queries plus the term structure. */
+/* The options market: `/rows` queries plus the term structure. */
 export class OptionsMarket extends Market<"options"> {
+  /**
+   * @param http - The transport requests are sent through.
+   */
   constructor(http: Http) {
     super(http, "options");
   }
 
-  /** Query the options term structure (/api/v1/terms). Only BTC and ETH are supported. */
+  /**
+   * Queries the options term structure (`/api/v1/terms`).
+   *
+   * @param coins - Coins to fetch the term structure for; only BTC and ETH
+   * are supported.
+   * @param options - Per-request transport options.
+   * @returns The term-structure points for the requested coins.
+   * @throws If `coins` is empty or contains an unsupported coin.
+   */
   async terms(coins: readonly TermsCoin[], options?: RequestOptions): Promise<TermPoint[]> {
     assert(coins.length > 0, "coins must not be empty");
     assert(

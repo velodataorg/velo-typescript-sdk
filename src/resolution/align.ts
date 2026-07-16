@@ -5,12 +5,19 @@ import type { Resolution } from "./resolution.js";
 import { resolutionValue } from "./resolution.js";
 
 export interface TimeRange {
-  /** Start of the time range as a millisecond timestamp (inclusive). */
+  /* Start of the time range as a millisecond timestamp (inclusive). */
   begin: number;
-  /** End of the time range as a millisecond timestamp (exclusive). */
+  /* End of the time range as a millisecond timestamp (exclusive). */
   end: number;
 }
 
+/**
+ * Aligns the range to whole calendar units in UTC.
+ *
+ * @param range - The range to align.
+ * @param unit - The calendar unit to snap to.
+ * @returns The range with begin floored and end ceiled to `unit` boundaries.
+ */
 function alignToCalendar(range: TimeRange, unit: "week" | "month"): TimeRange {
   const begin = DateTime.fromMillis(range.begin, { zone: "utc" }).startOf(unit);
   const end = DateTime.fromMillis(range.end, { zone: "utc" });
@@ -20,6 +27,21 @@ function alignToCalendar(range: TimeRange, unit: "week" | "month"): TimeRange {
   return { begin: begin.toMillis(), end: ceiled.toMillis() };
 }
 
+/**
+ * Aligns a range to whole resolution buckets, widening it: begin floors and
+ * end ceils to the nearest bucket boundary.
+ *
+ * @remarks
+ * Minute-based resolutions align to epoch multiples of the bucket length;
+ * `1W` aligns to calendar weeks and month resolutions to calendar months,
+ * both in UTC.
+ *
+ * @param range - The range to align, as millisecond timestamps.
+ * @param resolution - The resolution whose buckets the range snaps to.
+ * @returns The aligned range; it always contains the input range.
+ * @throws If begin is not a non-negative integer, or end is not an integer
+ * after begin.
+ */
 export function alignRange(range: TimeRange, resolution: Resolution): TimeRange {
   const { begin, end } = range;
   assert(

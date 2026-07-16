@@ -2,11 +2,11 @@ import { assert } from "../util/assert.js";
 import { VeloConnectionError, VeloError } from "./error.js";
 
 export interface RetryOptions {
-  /** Max retry attempts after the initial request. */
+  /* Max retry attempts after the initial request. */
   retries: number;
-  /** First backoff delay; doubles per attempt. */
+  /* First backoff delay; doubles per attempt. */
   baseDelayMs: number;
-  /** Backoff ceiling. */
+  /* Backoff ceiling. */
   maxDelayMs: number;
 }
 
@@ -17,9 +17,15 @@ export const DEFAULT_RETRY: RetryOptions = {
 };
 
 /**
- * Asserts a merged retry config is usable. A NaN or undefined smuggled into
- * `retries` makes the attempt-cutoff comparison always false — an unbounded
- * retry loop — and bad delays degrade to zero backoff, so fail loudly instead.
+ * Asserts a merged retry config is usable.
+ *
+ * @remarks
+ * A NaN or undefined smuggled into `retries` makes the attempt-cutoff
+ * comparison always false — an unbounded retry loop — and bad delays degrade
+ * to zero backoff, so fail loudly instead.
+ *
+ * @param retry - The merged retry options to check.
+ * @throws If any field is not a non-negative number (integer for `retries`).
  */
 export function validateRetryOptions(retry: RetryOptions): void {
   assert(
@@ -36,10 +42,23 @@ export function validateRetryOptions(retry: RetryOptions): void {
   );
 }
 
+/**
+ * @param signal - An already-aborted signal.
+ * @returns The signal's abort reason, or a fresh `AbortError` DOMException
+ * when none was provided.
+ */
 function abortError(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
 }
 
+/**
+ * Waits for `ms` milliseconds, abortable.
+ *
+ * @param ms - How long to wait.
+ * @param signal - Cancels the wait; the timer is cleared on abort.
+ * @returns Resolves after the wait; rejects with the signal's abort reason
+ * if aborted before or during it.
+ */
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -58,7 +77,14 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Parse a Retry-After header: either delay-seconds or an HTTP-date. */
+/**
+ * Parses a response's Retry-After header: either delay-seconds or an
+ * HTTP-date.
+ *
+ * @param response - The response to read the header from.
+ * @returns The wait in milliseconds, or undefined when the header is
+ * missing, malformed, or in the past.
+ */
 export function retryAfterMs(response: Response): number | undefined {
   const header = response.headers.get("retry-after");
   if (!header) return undefined;
@@ -68,16 +94,32 @@ export function retryAfterMs(response: Response): number | undefined {
   return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 
+/**
+ * The delay before the next retry: capped exponential backoff with jitter.
+ *
+ * @param attempt - The zero-based index of the attempt that just failed.
+ * @param retry - The backoff parameters.
+ * @param retryAfter - A server-requested wait in milliseconds, if any.
+ * @returns The wait in milliseconds; a server-provided `retryAfter` wins
+ * when it asks for a longer wait than the backoff.
+ */
 export function backoffMs(attempt: number, retry: RetryOptions, retryAfter?: number): number {
   const exponential = Math.min(retry.maxDelayMs, retry.baseDelayMs * 2 ** attempt);
   const jittered = exponential * (0.5 + Math.random() * 0.5);
-  // A server-provided Retry-After wins when it asks for a longer wait.
   return retryAfter !== undefined ? Math.max(retryAfter, jittered) : jittered;
 }
 
-/** Statuses retried by default: request timeout, rate limit, and transient server errors. */
+/* Statuses retried by default: request timeout, rate limit, and transient server errors. */
 export const DEFAULT_RETRYABLE_STATUSES: readonly number[] = [408, 429, 500, 502, 503, 504];
 
+/**
+ * Whether a failure is worth retrying.
+ *
+ * @param error - The failure of the attempt.
+ * @param retryableStatuses - The HTTP statuses considered transient.
+ * @returns True for every connection-level failure, and for HTTP failures
+ * whose status is in `retryableStatuses`.
+ */
 export function isRetryable(
   error: VeloError,
   retryableStatuses: readonly number[] = DEFAULT_RETRYABLE_STATUSES,
