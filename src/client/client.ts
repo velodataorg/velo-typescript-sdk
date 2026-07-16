@@ -13,28 +13,54 @@ import { prepareTerms } from "./terms/terms.js";
 export type VeloConfig = HttpConfig;
 
 export class Velo {
-  readonly futures: Market<"futures">;
-  readonly options: OptionsMarket;
-  readonly spot: Market<"spot">;
-  private readonly http: Http;
+  readonly #futures: Market<"futures">;
+  readonly #spot: Market<"spot">;
+  readonly #options: OptionsMarket;
+  readonly #http: Http;
 
   constructor(config: VeloConfig) {
-    this.http = new Http(config);
-    this.futures = new Market(this.http, "futures");
-    this.options = new OptionsMarket(this.http);
-    this.spot = new Market(this.http, "spot");
+    this.#http = new Http(config);
+    this.#futures = this.#market("futures");
+    this.#spot = this.#market("spot");
+    this.#options = {
+      ...this.#market("options"),
+      terms: (params) => new Query(this.#http, prepareTerms(params)),
+    };
+  }
+
+  get futures(): Market<"futures"> {
+    return this.#futures;
+  }
+
+  get spot(): Market<"spot"> {
+    return this.#spot;
+  }
+
+  get options(): OptionsMarket {
+    return this.#options;
   }
 
   /**
-   * Creates a market-caps query (`/api/v1/caps`), validated; nothing is sent
-   * until execute() or stream().
+   * Creates a market-caps query (`/api/v1/caps`).
    *
    * @param params - The caps params.
    * @returns An unexecuted {@link Query} over the market caps.
    * @throws If `coins` is empty or not an array of non-empty strings.
    */
   caps(params: CapsParams): Query<MarketCap> {
-    return new Query(this.http, prepareCaps(params));
+    return new Query(this.#http, prepareCaps(params));
+  }
+
+  /**
+   * Binds the transport to one market namespace.
+   *
+   * @param type - The market namespace to query.
+   * @returns The namespace object.
+   */
+  #market<T extends MarketType>(type: T): Market<T> {
+    return {
+      query: (params) => new Query(this.#http, prepareRows(type, params)),
+    };
   }
 }
 
@@ -43,22 +69,9 @@ export class Velo {
  *
  * @typeParam T - The market namespace this instance queries.
  */
-export class Market<T extends MarketType> {
-  protected readonly http: Http;
-  private readonly type: T;
-
+export interface Market<T extends MarketType> {
   /**
-   * @param http - The transport requests are sent through.
-   * @param type - The market namespace this instance queries.
-   */
-  constructor(http: Http, type: T) {
-    this.http = http;
-    this.type = type;
-  }
-
-  /**
-   * Creates a market-data query (`/api/v1/rows`), validated and lowered to
-   * wire requests; nothing is sent until execute() or stream().
+   * Creates a market-data query (`/api/v1/rows`).
    *
    * @param params - Query params selecting either products or coins.
    * @returns An unexecuted {@link Query} typed by the requested columns.
@@ -66,29 +79,17 @@ export class Market<T extends MarketType> {
    */
   query<C extends Column<T>>(
     params: RowsParamsProducts<T, C> | RowsParamsCoins<T, C>,
-  ): Query<Row<C>> {
-    return new Query(this.http, prepareRows(this.type, params));
-  }
+  ): Query<Row<C>>;
 }
 
 /* The options market: `/rows` queries plus the term structure. */
-export class OptionsMarket extends Market<"options"> {
+export interface OptionsMarket extends Market<"options"> {
   /**
-   * @param http - The transport requests are sent through.
-   */
-  constructor(http: Http) {
-    super(http, "options");
-  }
-
-  /**
-   * Creates an options term-structure query (`/api/v1/terms`), validated;
-   * nothing is sent until execute() or stream().
+   * Creates an options term-structure query (`/api/v1/terms`).
    *
    * @param params - The terms params; only BTC and ETH are supported.
    * @returns An unexecuted {@link Query} over the term-structure points.
    * @throws If `coins` is empty or contains an unsupported coin.
    */
-  terms(params: TermsParams): Query<TermPoint> {
-    return new Query(this.http, prepareTerms(params));
-  }
+  terms(params: TermsParams): Query<TermPoint>;
 }
