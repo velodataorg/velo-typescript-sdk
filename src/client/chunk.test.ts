@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../transport/error.js";
+import { VeloError } from "../errors.js";
 import { chunkRange, MAX_CELLS_PER_REQUEST } from "./chunk.js";
 import type { RowsParams } from "./rows-params.js";
 

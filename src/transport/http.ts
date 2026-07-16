@@ -2,8 +2,9 @@ import queryString from "query-string";
 
 import { version } from "../../package.json";
 import { BASE_URL } from "../constants.js";
+import { VeloError } from "../errors.js";
 import { assert } from "../util/assert.js";
-import { toConnectionError, toError, VeloError } from "./error.js";
+import { toConnectionError, toError } from "./error-mapping.js";
 import {
   backoffMs,
   DEFAULT_RETRY,

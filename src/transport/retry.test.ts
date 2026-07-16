@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloConnectionError, VeloError } from "./error.js";
+import { VeloConnectionError, VeloError } from "../errors.js";
 import {
   backoffMs,
   DEFAULT_RETRY,

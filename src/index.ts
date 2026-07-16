@@ -25,7 +25,7 @@ export {
   VeloRateLimitError,
   VeloServerError,
   VeloTimeoutError,
-} from "./transport/error.js";
+} from "./errors.js";
 export { DEFAULT_TIMEOUT } from "./transport/http.js";
 export type { RequestOptions } from "./transport/http.js";
 export { DEFAULT_RETRY } from "./transport/retry.js";

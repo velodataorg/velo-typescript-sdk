@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../transport/error.js";
+import { VeloError } from "../errors.js";
 import { Velo } from "./client.js";
 
 const ROWS_CSV =

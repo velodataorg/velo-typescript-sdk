@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloBadRequestError, VeloError } from "../transport/error.js";
+import { VeloBadRequestError, VeloError } from "../errors.js";
 import { assert } from "./assert.js";
 
 describe("assert", () => {

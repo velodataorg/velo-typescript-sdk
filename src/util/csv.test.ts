@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../transport/error.js";
+import { VeloError } from "../errors.js";
 import type { CsvSchema } from "./csv.js";
 import { decodeCsv } from "./csv.js";
 

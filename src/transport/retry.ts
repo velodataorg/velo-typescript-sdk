@@ -1,5 +1,5 @@
+import { VeloConnectionError, VeloError } from "../errors.js";
 import { assert } from "../util/assert.js";
-import { VeloConnectionError, VeloError } from "./error.js";
 
 export interface RetryOptions {
   /* Max retry attempts after the initial request. */
