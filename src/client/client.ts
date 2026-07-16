@@ -1,3 +1,4 @@
+import { CAPS_PATH } from "../constants.js";
 import { Http } from "../transport/http.js";
 import type { HttpConfig, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
@@ -24,9 +25,9 @@ export class Velo {
   /* Query market caps (/api/v1/caps). */
   async caps(coins: readonly string[], options?: RequestOptions): Promise<MarketCap[]> {
     assert(coins.length > 0, "coins must not be empty");
-    const body = await this.http.text("/api/v1/caps", { coins }, options);
+    const body = await this.http.text(CAPS_PATH, { coins }, options);
     const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, CAPS_COLUMNS, "/api/v1/caps");
+    assertCsvHeader(columns, CAPS_COLUMNS, CAPS_PATH);
     return rows as MarketCap[];
   }
 }

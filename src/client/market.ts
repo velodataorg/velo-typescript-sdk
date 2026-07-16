@@ -1,5 +1,5 @@
 import type { MarketType, TermsCoin } from "../constants.js";
-import { TERMS_COINS } from "../constants.js";
+import { TERMS_COINS, TERMS_PATH } from "../constants.js";
 import type { Http, RequestOptions } from "../transport/http.js";
 import { assert } from "../util/assert.js";
 import { assertCsvHeader, parseCsv } from "../util/csv.js";
@@ -62,9 +62,9 @@ export class OptionsMarket extends Market<"options"> {
       coins.every((coin) => TERMS_COINS.includes(coin)),
       `terms coins must be among ${TERMS_COINS.join(", ")}`,
     );
-    const body = await this.http.text("/api/v1/terms", { coins }, options);
+    const body = await this.http.text(TERMS_PATH, { coins }, options);
     const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, TERMS_COLUMNS, "/api/v1/terms");
+    assertCsvHeader(columns, TERMS_COLUMNS, TERMS_PATH);
     return rows as TermPoint[];
   }
 }

@@ -1,3 +1,4 @@
+import { ROWS_PATH } from "../constants.js";
 import type { TimeRange } from "../resolution/align.js";
 import { alignRange } from "../resolution/align.js";
 import type { Http, RequestOptions } from "../transport/http.js";
@@ -108,9 +109,9 @@ export class Query<C extends string> {
    * @returns The chunk's rows.
    */
   async #fetchChunk(step: TimeRange, options: RequestOptions): Promise<Row<C>[]> {
-    const body = await this.http.text("/api/v1/rows", toHttpParams(this.params, step), options);
+    const body = await this.http.text(ROWS_PATH, toHttpParams(this.params, step), options);
     const { columns, rows } = parseCsv(body);
-    assertCsvHeader(columns, [...ROWS_BASE_COLUMNS, ...this.params.columns], "/api/v1/rows");
+    assertCsvHeader(columns, [...ROWS_BASE_COLUMNS, ...this.params.columns], ROWS_PATH);
     return rows as Row<C>[];
   }
 }
