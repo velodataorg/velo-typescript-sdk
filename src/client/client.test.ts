@@ -21,6 +21,15 @@ function searchParams(url: string): URLSearchParams {
   return new URL(url).searchParams;
 }
 
+/** Drain an async iterable into an array (Array.fromAsync needs Node 22; engines allow 20). */
+async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
+  const items: T[] = [];
+  for await (const item of iterable) {
+    items.push(item);
+  }
+  return items;
+}
+
 describe("Velo.futures.query", () => {
   const params = {
     exchanges: ["binance-futures", "bybit"],
@@ -231,6 +240,141 @@ describe("Velo.futures.query", () => {
     // @ts-expect-error open_price was not requested
     const missing = rows[0]!.open_price;
     expect(missing).toBeUndefined();
+  });
+});
+
+describe("Velo.futures.query stream", () => {
+  const params = {
+    exchanges: ["binance-futures", "bybit"],
+    products: ["BTCUSDT"],
+    columns: ["close_price"],
+    begin: Date.UTC(2026, 5, 17, 7),
+    end: Date.UTC(2026, 5, 17, 9),
+    resolution: "1h",
+  } as const;
+
+  // 30000 one-minute buckets x 1 exchange x 1 product x 1 column -> 2 chunks
+  const chunkedParams = {
+    exchanges: ["binance-futures"],
+    products: ["BTCUSDT"],
+    columns: ["close_price"],
+    begin: Date.UTC(2026, 0, 1),
+    end: Date.UTC(2026, 0, 1) + 30_000 * 60_000,
+    resolution: "1m",
+  } as const;
+
+  /** A Velo client whose fetch returns one distinct row per request and records URLs. */
+  function chunkedVelo() {
+    const urls: string[] = [];
+    const fetchFn: typeof globalThis.fetch = async (input) => {
+      urls.push(String(input));
+      const step = urls.length;
+      return new Response(
+        `exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,${step},${step * 10}\n`,
+        { status: 200 },
+      );
+    };
+    return { velo: new Velo({ apiKey: "test_key", fetch: fetchFn }), urls };
+  }
+
+  it("yields the same rows execute returns", async () => {
+    const { velo: client } = velo(ROWS_CSV);
+    const streamed = await collect(client.futures.query(params).stream());
+    const executed = await client.futures.query(params).execute();
+
+    expect(streamed).toEqual(executed);
+    expect(streamed).toHaveLength(2);
+  });
+
+  it("is lazy: nothing is sent until the first next()", async () => {
+    const { velo: client, urls } = velo(ROWS_CSV);
+    const stream = client.futures.query(params).stream();
+    expect(urls).toHaveLength(0); // creating the generator is not a request
+
+    await stream.next();
+    expect(urls).toHaveLength(1);
+  });
+
+  it("prefetches the next chunk while the current one is consumed, in time order", async () => {
+    const { velo: client, urls } = chunkedVelo();
+    const stream = client.futures.query(chunkedParams).stream();
+
+    const first = await stream.next();
+    expect(first.value?.close_price).toBe(10);
+    expect(urls).toHaveLength(2); // chunk 2 already requested before chunk 1 is drained
+
+    const rest = await collect(stream);
+    expect(rest.map((row) => row.close_price)).toEqual([20]);
+  });
+
+  it("aborts the in-flight prefetch when the consumer breaks early", async () => {
+    const urls: string[] = [];
+    const signals: AbortSignal[] = [];
+    const fetchFn: typeof globalThis.fetch = async (input, init) => {
+      urls.push(String(input));
+      const signal = init?.signal as AbortSignal;
+      signals.push(signal);
+      if (urls.length === 1) {
+        return new Response(
+          "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,1,10\n",
+          {
+            status: 200,
+          },
+        );
+      }
+      // chunk 2 hangs until aborted
+      return new Promise((_, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+      });
+    };
+    const client = new Velo({ apiKey: "test_key", fetch: fetchFn });
+
+    for await (const row of client.futures.query(chunkedParams).stream()) {
+      expect(row.close_price).toBe(10);
+      break; // chunk 2 is in flight now
+    }
+
+    expect(urls).toHaveLength(2);
+    expect(signals[1]?.aborted).toBe(true);
+    // the swallowed prefetch rejection must not surface as an unhandled rejection,
+    // which vitest would turn into a test failure
+  });
+
+  it("rejects mid-stream when a later chunk fails, after yielding earlier rows", async () => {
+    const urls: string[] = [];
+    const fetchFn: typeof globalThis.fetch = async (input) => {
+      urls.push(String(input));
+      if (urls.length === 1) {
+        return new Response(
+          "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,1,10\n",
+          {
+            status: 200,
+          },
+        );
+      }
+      return new Response("bad request", { status: 400 });
+    };
+    const client = new Velo({ apiKey: "test_key", fetch: fetchFn });
+
+    const seen: number[] = [];
+    await expect(async () => {
+      for await (const row of client.futures.query(chunkedParams).stream()) {
+        seen.push(row.close_price as number);
+      }
+    }).rejects.toThrow(VeloError);
+    expect(seen).toEqual([10]); // chunk 1 rows were delivered before the failure
+  });
+
+  it("completes with no rows on an empty body", async () => {
+    const { velo: client } = velo("");
+    expect(await collect(client.futures.query(params).stream())).toEqual([]);
+  });
+
+  it("is async-iterable directly as an alias for stream()", async () => {
+    const { velo: client } = velo(ROWS_CSV);
+    const rows = await collect(client.futures.query(params));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.exchange).toBe("binance-futures");
   });
 });
 
