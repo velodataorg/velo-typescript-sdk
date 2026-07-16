@@ -2,7 +2,6 @@ import { CAPS_PATH } from "../../constants.js";
 import { assert, assertStringArray } from "../../util/assert.js";
 import type { CsvSchema, FromSchema } from "../../util/csv.js";
 import type { PreparedParams } from "../query.js";
-import { freezePrepared } from "../query.js";
 
 /* Parameters for one market-caps query (`/api/v1/caps`). */
 export interface CapsParams {
@@ -33,16 +32,16 @@ export type MarketCap = FromSchema<typeof CAPS_SCHEMA>;
  * Validates and lowers a /caps query — always a single request.
  *
  * @param params - The caps params.
- * @returns The prepared query, deep-frozen.
+ * @returns The prepared query.
  * @throws If `coins` is empty or not an array of non-empty strings.
  */
 export function prepareCaps(params: CapsParams): PreparedParams<MarketCap> {
   assertStringArray(params.coins, "coins");
   assert(params.coins.length > 0, "coins must not be empty");
-  return freezePrepared({
+  return {
     path: CAPS_PATH,
     requests: [{ coins: [...params.coins] }],
-    // Spread so freezing the prepared query never freezes the shared constant.
+    // Spread so the Query constructor's freeze never freezes the shared constant.
     schema: { ...CAPS_SCHEMA },
-  });
+  };
 }

@@ -91,20 +91,16 @@ describe("prepareRows", () => {
     });
   });
 
-  it("is sealed: neither the caller's arrays nor the prepared query can change", () => {
+  it("copies the caller's arrays: mutating them later cannot change the requests", () => {
     const products = ["BTCUSDT"];
     const columns: "close_price"[] = ["close_price"];
     const prepared = prepareRows("futures", { ...params, products, columns });
 
     products.push("ETHUSDT"); // would widen the request past what was validated
-    expect(prepared.requests[0]?.products).toEqual(["BTCUSDT"]);
+    columns.push("close_price");
 
-    // the prepared query is deep-frozen: mutating it throws in strict mode
-    expect(() => (prepared.requests as unknown[]).push({})).toThrow(TypeError);
-    expect(() => (prepared.requests[0]!.columns as string[]).push("open_price")).toThrow(TypeError);
-    expect(() => {
-      (prepared as { path: string }).path = "/elsewhere";
-    }).toThrow(TypeError);
+    expect(prepared.requests[0]?.products).toEqual(["BTCUSDT"]);
+    expect(prepared.requests[0]?.columns).toEqual(["close_price"]);
   });
 
   it("rejects invalid params before lowering, and over-wide queries while lowering", () => {

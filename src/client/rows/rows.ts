@@ -1,7 +1,6 @@
 import { ROWS_PATH } from "../../constants.js";
 import type { HttpParams } from "../../transport/http.js";
 import type { PreparedParams } from "../query.js";
-import { freezePrepared } from "../query.js";
 import type { TimeRange } from "./align.js";
 import { alignRange } from "./align.js";
 import { chunkRange } from "./chunk.js";
@@ -60,7 +59,7 @@ function toHttpParams(type: MarketType, params: AnyRowsParams, range: TimeRange)
  * @param type - The market the query targets, from the namespace that
  * created it.
  * @param params - The query params.
- * @returns The prepared query, deep-frozen.
+ * @returns The prepared query.
  * @throws If the params fail validation, or describe a query too wide to fit
  * even one bucket within the server's request budget.
  */
@@ -71,7 +70,8 @@ export function prepareRows<T extends MarketType, C extends Column<T>>(
   validateRowsParams(type, params);
   // Copy the caller's arrays once: the wire requests are built from the
   // copies, so mutating the originals after preparation cannot change what
-  // is sent — and freezePrepared freezes the copies, never the caller's.
+  // is sent — and the Query constructor freezes the copies, never the
+  // caller's arrays.
   // Branch on the selector so each arm builds one closed variant of the union.
   const copies = {
     columns: [...params.columns],
@@ -83,12 +83,12 @@ export function prepareRows<T extends MarketType, C extends Column<T>>(
       : { ...params, ...copies, products: [...params.products] };
 
   const range = alignRange({ begin: params.begin, end: params.end }, params.resolution);
-  return freezePrepared({
+  return {
     path: ROWS_PATH,
     requests: chunkRange(sealed, range).map((step) => toHttpParams(type, sealed, step)),
     schema: {
       ...ROWS_BASE_SCHEMA,
       ...Object.fromEntries(sealed.columns.map((column) => [column, "nullable-number"] as const)),
     },
-  });
+  };
 }

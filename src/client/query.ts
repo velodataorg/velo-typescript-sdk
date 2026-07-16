@@ -25,31 +25,6 @@ export interface PreparedParams<R extends CsvRow> {
 }
 
 /**
- * Freezes a prepared query in place — the requests, their arrays, the
- * schema, and the container — so the snapshot exposed via
- * {@link Query.prepared} cannot be mutated; the readonly types only stop
- * TypeScript callers.
- *
- * @remarks
- * Prepare functions must build requests from arrays they own (copies), never
- * the caller's: the arrays are frozen in place.
- *
- * @param prepared - The prepared query to freeze.
- * @returns The same object, deep-frozen.
- */
-export function freezePrepared<R extends CsvRow>(prepared: PreparedParams<R>): PreparedParams<R> {
-  for (const request of prepared.requests) {
-    for (const value of Object.values(request)) {
-      if (Array.isArray(value)) Object.freeze(value);
-    }
-    Object.freeze(request);
-  }
-  Object.freeze(prepared.requests);
-  Object.freeze(prepared.schema);
-  return Object.freeze(prepared);
-}
-
-/**
  * One prepared query bound to a transport, lazy: nothing is sent until
  * {@link Query.execute | execute()} or the stream's first `next()`.
  *
@@ -68,11 +43,12 @@ export class Query<R extends CsvRow> {
 
   /**
    * @param http - The transport requests are sent through.
-   * @param prepared - The lowered query, from an endpoint's prepare function.
+   * @param prepared - The lowered query, from an endpoint's prepare
+   * function; deep-frozen in place.
    */
   constructor(http: Http, prepared: PreparedParams<R>) {
     this.#http = http;
-    this.#prepared = prepared;
+    this.#prepared = Query.#freezePrepared(prepared);
   }
 
   /* The lowered query as it will be sent: `requests.length` is the number of
@@ -165,5 +141,30 @@ export class Query<R extends CsvRow> {
     // The cast is sound: decodeCsv validated every field against the schema,
     // and R is derived from that schema by the prepare function.
     return decodeCsv(body, schema, path) as R[];
+  }
+
+  /**
+   * Freezes a prepared query in place — the requests, their arrays, the
+   * schema, and the container — so the snapshot exposed via
+   * {@link Query.prepared} cannot be mutated; the readonly types only stop
+   * TypeScript callers.
+   *
+   * @remarks
+   * Prepare functions must build requests from arrays they own (copies),
+   * never the caller's: the arrays are frozen in place.
+   *
+   * @param prepared - The prepared query to freeze.
+   * @returns The same object, deep-frozen.
+   */
+  static #freezePrepared<T extends CsvRow>(prepared: PreparedParams<T>): PreparedParams<T> {
+    for (const request of prepared.requests) {
+      for (const value of Object.values(request)) {
+        if (Array.isArray(value)) Object.freeze(value);
+      }
+      Object.freeze(request);
+    }
+    Object.freeze(prepared.requests);
+    Object.freeze(prepared.schema);
+    return Object.freeze(prepared);
   }
 }

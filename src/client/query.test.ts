@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError } from "../errors.js";
 import { Http } from "../transport/http.js";
 import type { PreparedParams } from "./query.js";
-import { freezePrepared, Query } from "./query.js";
+import { Query } from "./query.js";
 
 /* The executor is endpoint-blind, so a made-up endpoint with placeholder
  * wire params exercises it fully; only requests.length and the schema matter.
@@ -13,17 +13,17 @@ type Point = { time: number; value: number | null };
 const SCHEMA = { time: "number", value: "nullable-number" } as const;
 
 /* Two requests: enough to observe ordering, prefetching, and teardown. */
-const PREPARED: PreparedParams<Point> = freezePrepared({
+const PREPARED: PreparedParams<Point> = {
   path: "/api/v1/test",
   requests: [{ step: 1 }, { step: 2 }],
   schema: { ...SCHEMA },
-});
+};
 
-const SINGLE: PreparedParams<Point> = freezePrepared({
+const SINGLE: PreparedParams<Point> = {
   path: "/api/v1/test",
   requests: [{ step: 1 }],
   schema: { ...SCHEMA },
-});
+};
 
 function http(fetchFn: typeof globalThis.fetch): Http {
   return new Http({ apiKey: "test_key", fetch: fetchFn });
@@ -76,10 +76,10 @@ describe("Query.execute", () => {
     );
   });
 
-  it("exposes the prepared query read-only", () => {
+  it("exposes the prepared query read-only, frozen at construction", () => {
     const query = new Query(http(countingFetch([])), PREPARED);
 
-    expect(query.prepared).toBe(PREPARED);
+    expect(query.prepared).toBe(PREPARED); // frozen in place, not copied
     expect(() => (query.prepared.requests as unknown[]).push({})).toThrow(TypeError);
     expect(() => {
       // @ts-expect-error prepared has no setter

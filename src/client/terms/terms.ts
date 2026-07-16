@@ -2,7 +2,6 @@ import { TERMS_PATH } from "../../constants.js";
 import { assert, assertStringArray } from "../../util/assert.js";
 import type { CsvSchema, FromSchema } from "../../util/csv.js";
 import type { PreparedParams } from "../query.js";
-import { freezePrepared } from "../query.js";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];
@@ -36,7 +35,7 @@ export type TermPoint = FromSchema<typeof TERMS_SCHEMA>;
  * Validates and lowers a /terms query — always a single request.
  *
  * @param params - The terms params.
- * @returns The prepared query, deep-frozen.
+ * @returns The prepared query.
  * @throws If `coins` is empty or contains an unsupported coin.
  */
 export function prepareTerms(params: TermsParams): PreparedParams<TermPoint> {
@@ -46,10 +45,10 @@ export function prepareTerms(params: TermsParams): PreparedParams<TermPoint> {
     params.coins.every((coin) => TERMS_COINS.includes(coin)),
     `terms coins must be among ${TERMS_COINS.join(", ")}`,
   );
-  return freezePrepared({
+  return {
     path: TERMS_PATH,
     requests: [{ coins: [...params.coins] }],
-    // Spread so freezing the prepared query never freezes the shared constant.
+    // Spread so the Query constructor's freeze never freezes the shared constant.
     schema: { ...TERMS_SCHEMA },
-  });
+  };
 }
