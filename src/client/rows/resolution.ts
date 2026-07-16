@@ -1,4 +1,4 @@
-import { assert } from "../util/assert.js";
+import { assert } from "../../util/assert.js";
 
 export type ResolutionValue =
   | { unit: "minutes"; count: number }

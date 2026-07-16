@@ -1,10 +1,10 @@
 import { DateTime } from "luxon";
 
-import type { TimeRange } from "../resolution/align.js";
-import { resolutionValue } from "../resolution/resolution.js";
-import { assert } from "../util/assert.js";
-import type { RowsParams } from "./rows-params.js";
-import { isBasisQuery } from "./rows-params.js";
+import { assert } from "../../util/assert.js";
+import type { TimeRange } from "./align.js";
+import type { AnyRowsParams } from "./params.js";
+import { isBasisQuery } from "./params.js";
+import { resolutionValue } from "./resolution.js";
 
 /* Maximum number of cells the server accepts in a single request. */
 export const MAX_CELLS_PER_REQUEST = 22_500;
@@ -29,7 +29,7 @@ const BASIS_EXCHANGE_COUNT = 3;
  * @throws If `range` is empty or inverted, or if `params` describes a query
  * too wide to fit even one bucket within the cell budget.
  */
-export function chunkRange(params: RowsParams, range: TimeRange): TimeRange[] {
+export function chunkRange(params: AnyRowsParams, range: TimeRange): TimeRange[] {
   assert(
     range.begin < range.end,
     `invalid range [${range.begin}, ${range.end}): begin must be before end`,

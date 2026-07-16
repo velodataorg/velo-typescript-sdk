@@ -1,12 +1,11 @@
-import type { MarketType, TermsCoin } from "../constants.js";
-import { TERMS_COINS, TERMS_PATH } from "../constants.js";
-import type { Http, RequestOptions } from "../transport/http.js";
-import { assert } from "../util/assert.js";
-import { decodeCsv } from "../util/csv.js";
-import type { Column, QueryParamsCoins, QueryParamsProducts } from "./query-params.js";
+import type { Http } from "../transport/http.js";
 import { Query } from "./query.js";
-import type { TermPoint } from "./result.js";
-import { TERMS_SCHEMA } from "./result.js";
+import type { Column, MarketType } from "./rows/markets.js";
+import type { RowsParamsCoins, RowsParamsProducts } from "./rows/params.js";
+import type { Row } from "./rows/result.js";
+import { prepareRows } from "./rows/rows.js";
+import type { TermPoint, TermsParams } from "./terms/terms.js";
+import { prepareTerms } from "./terms/terms.js";
 
 /**
  * Entry point for querying one market namespace.
@@ -27,14 +26,17 @@ export class Market<T extends MarketType> {
   }
 
   /**
-   * Creates a market-data query (`/api/v1/rows`).
+   * Creates a market-data query (`/api/v1/rows`), validated and lowered to
+   * wire requests; nothing is sent until execute() or stream().
    *
    * @param params - Query params selecting either products or coins.
    * @returns An unexecuted {@link Query} typed by the requested columns.
    * @throws If the params fail validation.
    */
-  query<C extends Column<T>>(params: QueryParamsProducts<T, C> | QueryParamsCoins<T, C>): Query<C> {
-    return new Query(this.http, { ...params, type: this.type });
+  query<C extends Column<T>>(
+    params: RowsParamsProducts<T, C> | RowsParamsCoins<T, C>,
+  ): Query<Row<C>> {
+    return new Query(this.http, prepareRows(this.type, params));
   }
 }
 
@@ -48,22 +50,14 @@ export class OptionsMarket extends Market<"options"> {
   }
 
   /**
-   * Queries the options term structure (`/api/v1/terms`).
+   * Creates an options term-structure query (`/api/v1/terms`), validated;
+   * nothing is sent until execute() or stream().
    *
-   * @param coins - Coins to fetch the term structure for; only BTC and ETH
-   * are supported.
-   * @param options - Per-request transport options.
-   * @returns The term-structure points for the requested coins.
+   * @param params - The terms params; only BTC and ETH are supported.
+   * @returns An unexecuted {@link Query} over the term-structure points.
    * @throws If `coins` is empty or contains an unsupported coin.
    */
-  async terms(coins: readonly TermsCoin[], options?: RequestOptions): Promise<TermPoint[]> {
-    assert(coins.length > 0, "coins must not be empty");
-    assert(
-      coins.every((coin) => TERMS_COINS.includes(coin)),
-      `terms coins must be among ${TERMS_COINS.join(", ")}`,
-    );
-    const body = await this.http.text(TERMS_PATH, { coins }, options);
-    // The cast is sound: decodeCsv validated every field against the schema.
-    return decodeCsv(body, TERMS_SCHEMA, TERMS_PATH) as TermPoint[];
+  terms(params: TermsParams): Query<TermPoint> {
+    return new Query(this.http, prepareTerms(params));
   }
 }

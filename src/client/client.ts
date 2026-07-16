@@ -1,11 +1,9 @@
-import { CAPS_PATH } from "../constants.js";
 import { Http } from "../transport/http.js";
-import type { HttpConfig, RequestOptions } from "../transport/http.js";
-import { assert } from "../util/assert.js";
-import { decodeCsv } from "../util/csv.js";
+import type { HttpConfig } from "../transport/http.js";
+import type { CapsParams, MarketCap } from "./caps/caps.js";
+import { prepareCaps } from "./caps/caps.js";
 import { Market, OptionsMarket } from "./market.js";
-import type { MarketCap } from "./result.js";
-import { CAPS_SCHEMA } from "./result.js";
+import { Query } from "./query.js";
 
 export type VeloConfig = HttpConfig;
 
@@ -22,11 +20,15 @@ export class Velo {
     this.spot = new Market(this.http, "spot");
   }
 
-  /* Query market caps (/api/v1/caps). */
-  async caps(coins: readonly string[], options?: RequestOptions): Promise<MarketCap[]> {
-    assert(coins.length > 0, "coins must not be empty");
-    const body = await this.http.text(CAPS_PATH, { coins }, options);
-    // The cast is sound: decodeCsv validated every field against the schema.
-    return decodeCsv(body, CAPS_SCHEMA, CAPS_PATH) as MarketCap[];
+  /**
+   * Creates a market-caps query (`/api/v1/caps`), validated; nothing is sent
+   * until execute() or stream().
+   *
+   * @param params - The caps params.
+   * @returns An unexecuted {@link Query} over the market caps.
+   * @throws If `coins` is empty or not an array of non-empty strings.
+   */
+  caps(params: CapsParams): Query<MarketCap> {
+    return new Query(this.http, prepareCaps(params));
   }
 }

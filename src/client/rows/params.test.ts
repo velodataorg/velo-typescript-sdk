@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { QueryParamsProducts, QueryParams } from "./query-params.js";
+import type { RowsParams, RowsParamsProducts } from "./params.js";
 
 const base = {
   exchanges: ["binance-futures"],
@@ -10,19 +10,19 @@ const base = {
 } as const;
 
 // products and coins each select on their own
-const byProducts: QueryParams = {
+const byProducts: RowsParams = {
   ...base,
   columns: ["open_price", "funding_rate"],
   products: ["BTCUSDT"],
 };
-const byCoins: QueryParams = {
+const byCoins: RowsParams = {
   ...base,
   columns: ["funding_rate"],
   coins: ["BTC"],
 };
 
 // @ts-expect-error products and coins are mutually exclusive
-const both: QueryParams = {
+const both: RowsParams = {
   ...base,
   columns: ["open_price"],
   products: ["BTCUSDT"],
@@ -30,9 +30,9 @@ const both: QueryParams = {
 };
 
 // @ts-expect-error one of products or coins is required
-const neither: QueryParams = { ...base, columns: ["open_price"] };
+const neither: RowsParams = { ...base, columns: ["open_price"] };
 
-const wrongColumn: QueryParamsProducts<"spot"> = {
+const wrongColumn: RowsParamsProducts<"spot"> = {
   ...base,
   exchanges: ["binance"],
   // @ts-expect-error funding_rate is a futures column, not a spot column
@@ -40,7 +40,7 @@ const wrongColumn: QueryParamsProducts<"spot"> = {
   products: ["BTCUSDT"],
 };
 
-const wrongExchange: QueryParamsProducts<"spot"> = {
+const wrongExchange: RowsParamsProducts<"spot"> = {
   ...base,
   // @ts-expect-error binance-futures is a futures exchange, not a spot exchange
   exchanges: ["binance-futures"],
@@ -48,7 +48,7 @@ const wrongExchange: QueryParamsProducts<"spot"> = {
   products: ["BTCUSDT"],
 };
 
-describe("QueryParams", () => {
+describe("RowsParams", () => {
   it("compiles the valid shapes above", () => {
     expect(byProducts.products).toEqual(["BTCUSDT"]);
     expect(byCoins.coins).toEqual(["BTC"]);
