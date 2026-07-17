@@ -2,11 +2,11 @@ import { csvParse } from "d3-dsv";
 
 import { assert } from "./assert.js";
 
-export type CsvValue = string | number | null;
+export type CsvValue = string | number | boolean | null;
 export type CsvRow = Record<string, CsvValue>;
 
 /* How to decode one column's cells; "nullable-number" admits SQL NULL. */
-export type CsvCellType = "string" | "number" | "nullable-number";
+export type CsvCellType = "string" | "number" | "nullable-number" | "boolean";
 
 /* Expected response columns in wire order, each with its cell type. Key order
  * is significant: the header is asserted against it. (Insertion order is
@@ -19,6 +19,7 @@ export type CellOf<T extends CsvCellType> = {
   string: string;
   number: number;
   "nullable-number": number | null;
+  boolean: boolean;
 }[T];
 
 /* The row type a schema decodes to. Row types are derived from their schema
@@ -46,6 +47,14 @@ function decodeCsvCell(raw: string, type: CsvCellType, column: string, path: str
   if (type === "string") {
     assert(raw !== "", () => `unexpected ${path} response: column ${column} is empty`);
     return raw;
+  }
+  if (type === "boolean") {
+    assert(
+      raw === "true" || raw === "false",
+      () =>
+        `unexpected ${path} response: column ${column} expected a boolean, got ${JSON.stringify(raw)}`,
+    );
+    return raw === "true";
   }
   if (type === "nullable-number" && (raw === "" || raw === "null")) return null;
   const n = Number(raw);

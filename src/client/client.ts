@@ -4,6 +4,8 @@ import { WebSocketTransport } from "../transport/websocket.js";
 import type { WebSocketFactory } from "../transport/websocket.js";
 import type { CapsParams, MarketCap } from "./caps/caps.js";
 import { prepareCaps } from "./caps/caps.js";
+import type { Catalog } from "./catalog/catalog.js";
+import { createCatalog } from "./catalog/catalog.js";
 import type { News } from "./news/news.js";
 import { createNews } from "./news/news.js";
 import { Query } from "./query.js";
@@ -23,6 +25,7 @@ export class Velo {
   readonly #futures: Market<"futures">;
   readonly #spot: Market<"spot">;
   readonly #options: OptionsMarket;
+  readonly #catalog: Catalog;
   readonly #news: News;
   readonly #http: Http;
 
@@ -30,6 +33,7 @@ export class Velo {
     this.#http = new Http(config);
     const webSocket = new WebSocketTransport(config, config.webSocketFactory);
     this.#news = createNews(this.#http, webSocket);
+    this.#catalog = createCatalog(this.#http);
     this.#futures = this.#market("futures");
     this.#spot = this.#market("spot");
     this.#options = {
@@ -52,6 +56,10 @@ export class Velo {
 
   get news(): News {
     return this.#news;
+  }
+
+  get catalog(): Catalog {
+    return this.#catalog;
   }
 
   /**

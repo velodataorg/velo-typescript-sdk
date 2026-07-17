@@ -75,6 +75,22 @@ describe("decodeCsv", () => {
     expect(decodeCsv(missing, ROWS_SCHEMA, "/rows")[0]?.close_price).toBeNull();
   });
 
+  it("decodes exact boolean cells", () => {
+    const schema: CsvSchema = { product: "string", depth: "boolean" };
+    expect(decodeCsv("product,depth\nBTCUSDT,true\nETHUSDT,false\n", schema, "/futures")).toEqual([
+      { product: "BTCUSDT", depth: true },
+      { product: "ETHUSDT", depth: false },
+    ]);
+  });
+
+  it("rejects non-boolean cells in boolean columns", () => {
+    const schema: CsvSchema = { product: "string", depth: "boolean" };
+    for (const depth of ["TRUE", "False", "1", "yes", "null", ""]) {
+      const text = `product,depth\nBTCUSDT,${depth}\n`;
+      expect(() => decodeCsv(text, schema, "/futures")).toThrow(/column depth expected a boolean/);
+    }
+  });
+
   it("rejects non-numeric or null cells in number columns", () => {
     for (const time of ["not-a-time", "null", ""]) {
       const text = `exchange,coin,product,time,close_price\nbinance,BTC,BTCUSDT,${time},2\n`;
