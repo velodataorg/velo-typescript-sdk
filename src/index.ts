@@ -2,6 +2,7 @@ export type { CapsParams, MarketCap } from "./client/caps/caps.js";
 export { CAPS_COLUMNS } from "./client/caps/caps.js";
 export type { Market, OptionsMarket, VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
+export type { News, NewsStoriesParams, NewsStory } from "./client/news/news.js";
 export type { PreparedParams } from "./client/query.js";
 export { Query } from "./client/query.js";
 export type { TimeRange } from "./client/rows/align.js";
@@ -35,7 +36,7 @@ export {
 } from "./client/rows/types.js";
 export type { TermPoint, TermsCoin, TermsParams } from "./client/terms/terms.js";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/terms/terms.js";
-export { BASE_URL, CAPS_PATH, ROWS_PATH, TERMS_PATH } from "./constants.js";
+export { BASE_URL, CAPS_PATH, NEWS_PATH, ROWS_PATH, TERMS_PATH } from "./constants.js";
 export {
   VeloAuthError,
   VeloBadRequestError,

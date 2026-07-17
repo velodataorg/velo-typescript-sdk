@@ -101,6 +101,43 @@ describe("Http", () => {
     expect(calls[0]?.url).toBe("https://api.velo.xyz/api/v1/rows?type=spot");
   });
 
+  it("parses successful JSON responses without asserting an endpoint type", async () => {
+    const t = http([() => new Response('{"stories":[{"id":1}]}')]);
+    const value: unknown = await t.json("/api/n/news", { begin: 0 });
+    expect(value).toEqual({ stories: [{ id: 1 }] });
+  });
+
+  it("wraps invalid JSON with the body, URL, and parse failure", async () => {
+    const calls: Call[] = [];
+    const t = http([() => new Response("{not json")], calls);
+    const error = await t.json("/api/n/news", { begin: 10 }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(VeloError);
+    expect((error as VeloError).body).toBe("{not json");
+    expect((error as VeloError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("reports the URL actually sent if JSON params are later mutated", async () => {
+    let respond: ((response: Response) => void) | undefined;
+    const t = new Http({
+      apiKey: "test_key",
+      fetch: () =>
+        new Promise((resolve) => {
+          respond = resolve;
+        }),
+    });
+    const params = { begin: 10 };
+    const pending = t.json("/api/n/news", params);
+
+    params.begin = 20;
+    respond?.(new Response("{not json"));
+    const error = await pending.catch((e: unknown) => e);
+
+    expect((error as VeloError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
+  });
+
   it("maps statuses to typed errors without retrying non-retryable ones", async () => {
     for (const [status, expected] of [
       [400, VeloBadRequestError],

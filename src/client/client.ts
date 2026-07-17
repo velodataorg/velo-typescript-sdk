@@ -2,6 +2,8 @@ import { Http } from "../transport/http.js";
 import type { HttpConfig } from "../transport/http.js";
 import type { CapsParams, MarketCap } from "./caps/caps.js";
 import { prepareCaps } from "./caps/caps.js";
+import type { News } from "./news/news.js";
+import { createNews } from "./news/news.js";
 import { Query } from "./query.js";
 import type { RowsParams } from "./rows/params.js";
 import { prepareRows } from "./rows/prepare.js";
@@ -16,10 +18,12 @@ export class Velo {
   readonly #futures: Market<"futures">;
   readonly #spot: Market<"spot">;
   readonly #options: OptionsMarket;
+  readonly #news: News;
   readonly #http: Http;
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
+    this.#news = createNews(this.#http);
     this.#futures = this.#market("futures");
     this.#spot = this.#market("spot");
     this.#options = {
@@ -38,6 +42,10 @@ export class Velo {
 
   get options(): OptionsMarket {
     return this.#options;
+  }
+
+  get news(): News {
+    return this.#news;
   }
 
   /**

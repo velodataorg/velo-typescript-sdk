@@ -36,3 +36,26 @@ async function main() {
 
 main();
 ```
+
+## News
+
+Fetch historical stories published after a millisecond timestamp:
+
+```ts
+import { Velo } from "../src/index.js";
+
+const apiKey = process.env.VELO_API_KEY;
+if (!apiKey) throw new Error("VELO_API_KEY not set");
+
+const velo = new Velo({ apiKey });
+const stories = await velo.news.stories({
+  // Fetch stories from the last 24h
+  begin: Date.now() - 24 * 60 * 60 * 1000,
+});
+
+for (const story of stories) {
+  console.log(story);
+}
+```
+
+Omit `begin` to use the API default and request the full history from timestamp `0`.

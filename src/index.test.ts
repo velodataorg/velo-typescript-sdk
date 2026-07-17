@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { EXCHANGES, FUTURES_COLUMNS, VeloError, VeloRateLimitError } from "./index.js";
+import { EXCHANGES, FUTURES_COLUMNS, NEWS_PATH, VeloError, VeloRateLimitError } from "./index.js";
 
 describe("public entry", () => {
   it("exports API constants", () => {
     expect(EXCHANGES).toContain("binance-futures");
     expect(FUTURES_COLUMNS).toContain("funding_rate");
+    expect(NEWS_PATH).toBe("/api/n/news");
   });
 
   it("exports the error hierarchy", () => {
