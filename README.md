@@ -59,3 +59,25 @@ for (const story of stories) {
 ```
 
 Omit `begin` to use the API default and request the full history from timestamp `0`.
+
+Watch new, edited, and deleted stories in real time:
+
+```ts
+import { Velo } from "../src/index.js";
+
+async function main() {
+  const apiKey = process.env.VELO_API_KEY;
+  if (!apiKey) throw new Error("VELO_API_KEY not set");
+
+  const velo = new Velo({ apiKey });
+  const watcher = velo.news.watch()
+    .on("story", (story) => console.log("new", story))
+    .on("edit", (story) => console.log("edit", story))
+    .on("delete", ({ id }) => console.log("delete", id))
+    .on("error", (error) => console.error(error))
+    .on("close", ({ code, reason }) => console.log("closed", code, reason));
+  await watcher.connect();
+}
+
+main();
+```

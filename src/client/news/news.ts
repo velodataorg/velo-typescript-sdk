@@ -3,35 +3,29 @@ import { z } from "zod";
 import { NEWS_PATH } from "../../constants.js";
 import { VeloError } from "../../errors.js";
 import type { Http, HttpParams, RequestOptions } from "../../transport/http.js";
+import type { WebSocketTransport } from "../../transport/websocket.js";
 import { assert } from "../../util/assert.js";
+import { NewsResponseSchema } from "./schema.js";
+import type { NewsStory } from "./schema.js";
+import { NewsWatcherController } from "./watch.js";
+import type { NewsWatcher, NewsWatchOptions } from "./watch.js";
 
-const TimestampSchema = z.int().nonnegative();
-
-const NewsStorySchema = z.object({
-  id: z.int(),
-  time: TimestampSchema,
-  effectiveTime: TimestampSchema,
-  effectivePrice: z.number().nullable(),
-  headline: z.string(),
-  source: z.string().nullable(),
-  priority: z.int(),
-  coins: z.array(z.string()),
-  summary: z.string().nullable(),
-  link: z.string().nullable(),
-});
-
-const NewsResponseSchema = z.object({
-  stories: z.array(NewsStorySchema),
-});
+export type { NewsStory } from "./schema.js";
+export type {
+  NewsClose,
+  NewsDelete,
+  NewsWatcher,
+  NewsWatcherEvents,
+  NewsWatcherListener,
+  NewsWatcherState,
+  NewsWatchOptions,
+} from "./watch.js";
 
 /* Parameters for fetching historical news stories. */
 export interface NewsStoriesParams {
   /* Only return stories published after this millisecond timestamp. Defaults to 0. */
   readonly begin?: number;
 }
-
-/* One historical news story returned by `/api/n/news`. */
-export type NewsStory = z.infer<typeof NewsStorySchema>;
 
 /* Entry point for the News API. */
 export interface News {
@@ -45,19 +39,34 @@ export interface News {
    * rejects if the request fails or the response does not match the contract.
    */
   stories(params?: NewsStoriesParams, options?: RequestOptions): Promise<NewsStory[]>;
+
+  /**
+   * Creates a disconnected watcher for validated live News events.
+   *
+   * Register listeners with `on()` before explicitly calling `connect()`.
+   * The watcher owns one socket and cannot reconnect after it closes.
+   *
+   * @param options - Cancellation and heartbeat-timeout options.
+   * @returns A disconnected watcher for new, edited, and deleted stories.
+   */
+  watch(options?: NewsWatchOptions): NewsWatcher;
 }
 
 /**
  * Binds the News namespace to an HTTP transport.
  *
- * @param http - The authenticated transport.
+ * @param http - The authenticated HTTP transport.
+ * @param webSocket - The authenticated WebSocket transport.
  * @returns The News namespace.
  */
-export function createNews(http: Http): News {
+export function createNews(http: Http, webSocket: WebSocketTransport): News {
   return {
     stories(params = {}, options) {
       const request = prepareNewsStories(params);
       return http.json(NEWS_PATH, request, options).then(decodeNewsStories);
+    },
+    watch(options = {}) {
+      return new NewsWatcherController(webSocket, options);
     },
   };
 }

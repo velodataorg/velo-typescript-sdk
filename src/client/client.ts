@@ -1,5 +1,7 @@
 import { Http } from "../transport/http.js";
 import type { HttpConfig } from "../transport/http.js";
+import { WebSocketTransport } from "../transport/websocket.js";
+import type { WebSocketFactory } from "../transport/websocket.js";
 import type { CapsParams, MarketCap } from "./caps/caps.js";
 import { prepareCaps } from "./caps/caps.js";
 import type { News } from "./news/news.js";
@@ -12,7 +14,10 @@ import type { Column, MarketType } from "./rows/types.js";
 import type { TermPoint, TermsParams } from "./terms/terms.js";
 import { prepareTerms } from "./terms/terms.js";
 
-export type VeloConfig = HttpConfig;
+export interface VeloConfig extends HttpConfig {
+  /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
+  readonly webSocketFactory?: WebSocketFactory;
+}
 
 export class Velo {
   readonly #futures: Market<"futures">;
@@ -23,7 +28,8 @@ export class Velo {
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
-    this.#news = createNews(this.#http);
+    const webSocket = new WebSocketTransport(config, config.webSocketFactory);
+    this.#news = createNews(this.#http, webSocket);
     this.#futures = this.#market("futures");
     this.#spot = this.#market("spot");
     this.#options = {

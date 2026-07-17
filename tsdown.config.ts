@@ -5,6 +5,7 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   sourcemap: true,
-  // No Node builtins are used — the SDK targets any runtime with fetch/WebSocket.
+  // The Node-only `ws` adapter is dynamically loaded; other runtimes use
+  // their native WebSocket, so the public bundle remains platform-neutral.
   platform: "neutral",
 });
