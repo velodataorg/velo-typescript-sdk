@@ -3,6 +3,37 @@ export type { MarketCap } from "./client/caps/schema.js";
 export { CAPS_COLUMNS } from "./client/caps/schema.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
+export type {
+  BasisCoin,
+  Futures,
+  FuturesBasisParams,
+  FuturesColumn,
+  FuturesExchange,
+  FuturesParams,
+  FuturesRow,
+  FuturesStandardColumn,
+  FuturesStandardParams,
+} from "./client/rows/futures.js";
+export {
+  BASIS_COINS,
+  BASIS_COLUMN,
+  FUTURES_COLUMNS,
+  FUTURES_EXCHANGES,
+} from "./client/rows/futures.js";
+export type {
+  Options,
+  OptionsColumn,
+  OptionsExchange,
+  OptionsParams,
+  OptionsRow,
+} from "./client/rows/options.js";
+export { OPTIONS_COLUMNS, OPTIONS_EXCHANGES } from "./client/rows/options.js";
+export type { Resolution, ResolutionValue } from "./client/rows/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/rows/resolution.js";
+export { ROWS_BASE_COLUMNS } from "./client/rows/schema.js";
+export type { Spot, SpotColumn, SpotExchange, SpotParams, SpotRow } from "./client/rows/spot.js";
+export { SPOT_COLUMNS, SPOT_EXCHANGES } from "./client/rows/spot.js";
+export type { MarketType, Row, RowBase } from "./client/rows/types.js";
 export {
   BASE_URL,
   CAPS_PATH,
