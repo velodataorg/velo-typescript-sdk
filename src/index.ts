@@ -57,6 +57,9 @@ export { ROWS_BASE_COLUMNS } from "./client/rows/schema.js";
 export type { Spot, SpotColumn, SpotExchange, SpotParams, SpotRow } from "./client/rows/spot.js";
 export { SPOT_COLUMNS, SPOT_EXCHANGES } from "./client/rows/spot.js";
 export type { MarketType, Row, RowBase } from "./client/rows/types.js";
+export type { TermPoint, TermsCoin } from "./client/terms/schema.js";
+export { TERMS_COINS, TERMS_COLUMNS } from "./client/terms/schema.js";
+export type { TermsParams } from "./client/terms/terms.js";
 export {
   BASE_URL,
   CAPS_PATH,

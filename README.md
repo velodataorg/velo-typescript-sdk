@@ -6,7 +6,7 @@
 </p>
 <br />
 
-This repository contains the TypeScript SDK for the Velo API. It exposes lazy, typed queries for fetching market data.
+This repository contains the TypeScript SDK for the Velo API. It exposes typed queries for fetching market data.
 
 ## Usage
 
@@ -37,7 +37,7 @@ async function main() {
 main();
 ```
 
-## Catalog
+### Catalog
 
 Fetch and locally search the active product catalogs:
 
@@ -47,28 +47,25 @@ const spot = await velo.catalog.spot({ coin: "BTC" });
 const options = await velo.catalog.options({ coin: "BTC" });
 ```
 
-Futures products also report whether order-book depth is available:
+### Options term structure
+
+Fetch the current BTC and ETH options term structures:
 
 ```ts
-const productsWithDepth = futures.filter((product) => product.depth);
-```
+const points = await velo.options.terms({ coins: ["BTC", "ETH"] }).execute();
 
-Select the delisted-only futures or spot catalog with `delisted: true`:
-
-```ts
-const delisted = await velo.catalog.futures({
-  exchange: "binance-futures",
-  delisted: true,
-});
-
-for (const product of delisted) {
-  console.log(product.begin, product.end);
+for (const point of points) {
+  console.log(point.time, point.at_the_money_iv, point.fwd_iv);
 }
 ```
 
-## News
+The term-structure endpoint supports BTC and ETH. Implied-volatility fields are `null` when the API
+has no value for an expiry.
 
-Fetch historical stories published after a millisecond timestamp:
+### News
+
+Fetch historical stories published after a millisecond timestamp.
+Omit `begin` to use the API default and request the full history from timestamp `0`.
 
 ```ts
 const stories = await velo.news.stories({
@@ -80,9 +77,7 @@ for (const story of stories) {
 }
 ```
 
-Omit `begin` to use the API default and request the full history from timestamp `0`.
-
-Watch new, edited, and deleted stories in real time:
+It is possible to watch new, edited, and deleted stories in real time:
 
 ```ts
 const watcher = velo.news
@@ -95,5 +90,3 @@ const watcher = velo.news
 
 await watcher.connect();
 ```
-
-Each watcher owns one connection. Once closed, create a new watcher instead of reconnecting it.

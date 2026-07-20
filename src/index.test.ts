@@ -11,6 +11,9 @@ import {
   ROWS_BASE_COLUMNS,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
+  TERMS_COINS,
+  TERMS_COLUMNS,
+  TERMS_PATH,
 } from "./index.js";
 import type {
   FuturesRow,
@@ -23,6 +26,9 @@ import type {
   OptionProduct,
   SpotParams,
   SpotProduct,
+  TermPoint,
+  TermsCoin,
+  TermsParams,
 } from "./index.js";
 
 describe("rows public exports", () => {
@@ -57,6 +63,17 @@ describe("catalog public exports", () => {
     expectTypeOf<SpotProduct["exchange"]>().toEqualTypeOf<(typeof SPOT_EXCHANGES)[number]>();
     expectTypeOf<SpotProduct["end"]>().toEqualTypeOf<number | undefined>();
     expectTypeOf<OptionProduct["exchange"]>().toEqualTypeOf<(typeof OPTIONS_EXCHANGES)[number]>();
+  });
+});
+
+describe("terms public exports", () => {
+  it("exports the endpoint contract and inferred result types", () => {
+    expect(TERMS_PATH).toBe("/api/v1/terms");
+    expect(TERMS_COINS).toEqual(["BTC", "ETH"]);
+    expect(TERMS_COLUMNS).toEqual(["coin", "time", "at_the_money_iv", "dte", "fwd_iv"]);
+    expectTypeOf<TermsParams["coins"][number]>().toEqualTypeOf<TermsCoin>();
+    expectTypeOf<TermPoint["coin"]>().toEqualTypeOf<TermsCoin>();
+    expectTypeOf<TermPoint["fwd_iv"]>().toEqualTypeOf<number | null>();
   });
 });
 

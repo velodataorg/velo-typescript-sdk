@@ -3,6 +3,9 @@ import { z } from "zod";
 import { VeloError } from "../../errors.js";
 import type { Http } from "../../transport/http.js";
 import type { Query } from "../query.js";
+import type { TermPoint } from "../terms/schema.js";
+import type { TermsParams } from "../terms/terms.js";
+import { createTermsQuery } from "../terms/terms.js";
 import type { RowsParams } from "./params.js";
 import { createRowsParamsSchema } from "./params.js";
 import { createRowsQuery } from "./prepare.js";
@@ -47,13 +50,17 @@ export type OptionsRow<C extends OptionsColumn> = Row<OptionsExchange, C>;
 export type OptionsParams<C extends OptionsColumn = OptionsColumn> = RowsParams<OptionsExchange, C>;
 
 export interface Options {
+  /** Creates an options market-data query (`/api/v1/rows`). */
   query<C extends OptionsColumn>(params: OptionsParams<C>): Query<OptionsRow<C>>;
+
+  /** Creates an options term-structure query (`/api/v1/terms`). */
+  terms(params: TermsParams): Query<TermPoint>;
 }
 
 const ParamsSchema = createRowsParamsSchema(OPTIONS_EXCHANGES, OPTIONS_COLUMNS);
 
 /**
- * Creates the options `/rows` namespace bound to an HTTP transport.
+ * Creates the options namespace bound to an HTTP transport.
  */
 export function createOptions(http: Http): Options {
   return {
@@ -65,6 +72,9 @@ export function createOptions(http: Http): Options {
       return createRowsQuery(http, "options", parsed.data, OPTIONS_EXCHANGES) as Query<
         OptionsRow<C>
       >;
+    },
+    terms(params: TermsParams): Query<TermPoint> {
+      return createTermsQuery(http, params);
     },
   };
 }
