@@ -30,6 +30,24 @@ void validSearches;
 const invalidSearch: CatalogSearchParams = { coin: "BTC", product: "BTCUSDT" };
 void invalidSearch;
 
+// @ts-expect-error exchange must be a known Exchange
+const invalidExchange: CatalogSearchParams = { exchange: "unknown" };
+void invalidExchange;
+
+const futuresSearch: CatalogSearchParams<FuturesExchange> = { exchange: "binance-futures" };
+void futuresSearch;
+
+// @ts-expect-error spot exchanges are not valid futures catalog filters
+const invalidFuturesExchange: CatalogSearchParams<FuturesExchange> = { exchange: "coinbase" };
+void invalidFuturesExchange;
+
+const spotSearch: CatalogSearchParams<SpotExchange> = { exchange: "coinbase" };
+void spotSearch;
+
+// @ts-expect-error futures exchanges are not valid spot catalog filters
+const invalidSpotExchange: CatalogSearchParams<SpotExchange> = { exchange: "binance-futures" };
+void invalidSpotExchange;
+
 /** A Velo client whose fetch returns `body` and records request URLs. */
 function velo(body: string, urls: string[] = []) {
   const fetchFn: typeof globalThis.fetch = async (input) => {
@@ -90,14 +108,17 @@ describe("Velo.catalog.futures", () => {
     await expect(client.catalog.futures({ product: "btcusdt" })).resolves.toEqual([
       expect.objectContaining({ exchange: "binance-futures", product: "BTCUSDT" }),
     ]);
-    await expect(client.catalog.futures({ exchange: "BINANCE-FUTURES" })).resolves.toEqual([
-      expect.objectContaining({ exchange: "binance-futures" }),
-    ]);
-    await expect(client.catalog.futures({ coin: "BTC", exchange: "HYPERLIQUID" })).resolves.toEqual(
-      [expect.objectContaining({ product: "BTC-USD" })],
-    );
     await expect(
-      client.catalog.futures({ product: "BTCUSDT", exchange: "BINANCE-FUTURES" }),
+      client.catalog.futures({ exchange: "BINANCE-FUTURES" as FuturesExchange }),
+    ).resolves.toEqual([expect.objectContaining({ exchange: "binance-futures" })]);
+    await expect(
+      client.catalog.futures({ coin: "BTC", exchange: "HYPERLIQUID" as FuturesExchange }),
+    ).resolves.toEqual([expect.objectContaining({ product: "BTC-USD" })]);
+    await expect(
+      client.catalog.futures({
+        product: "BTCUSDT",
+        exchange: "BINANCE-FUTURES" as FuturesExchange,
+      }),
     ).resolves.toEqual([expect.objectContaining({ coin: "BTC" })]);
     await expect(client.catalog.futures({ product: "missing" })).resolves.toEqual([]);
 
@@ -207,7 +228,10 @@ describe("Velo.catalog.futures", () => {
 describe("Velo.catalog.spot", () => {
   it("fetches active spot products and searches the four-field shape", async () => {
     const { velo: client, urls } = velo(SPOT_CSV);
-    const rows = await client.catalog.spot({ coin: "btc", exchange: "COINBASE" });
+    const rows = await client.catalog.spot({
+      coin: "btc",
+      exchange: "COINBASE" as SpotExchange,
+    });
 
     const url = new URL(urls[0] as string);
     expect(url.pathname).toBe("/api/v1/spot");

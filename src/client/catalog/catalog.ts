@@ -3,27 +3,27 @@ import type { Http, RequestOptions } from "../../transport/http.js";
 import { assert } from "../../util/assert.js";
 import type { CsvSchema, FromSchema } from "../../util/csv.js";
 import { decodeCsv } from "../../util/csv.js";
-import type { FuturesExchange, SpotExchange } from "../rows/types.js";
+import type { Exchange, FuturesExchange, SpotExchange } from "../rows/types.js";
 import { FUTURES_EXCHANGES, SPOT_EXCHANGES } from "../rows/types.js";
 
-export type CatalogSearchParams =
+export type CatalogSearchParams<E extends Exchange = Exchange> =
   | {
       readonly coin: string;
       readonly product?: never;
-      readonly exchange?: string;
+      readonly exchange?: E;
     }
   | {
       readonly product: string;
       readonly coin?: never;
-      readonly exchange?: string;
+      readonly exchange?: E;
     }
   | {
       readonly coin?: never;
       readonly product?: never;
-      readonly exchange?: string;
+      readonly exchange?: E;
     };
 
-export interface CatalogFuture {
+export interface FutureProduct {
   exchange: FuturesExchange;
   coin: string;
   product: string;
@@ -31,7 +31,7 @@ export interface CatalogFuture {
   depth: boolean;
 }
 
-export interface CatalogSpot {
+export interface SpotProduct {
   exchange: SpotExchange;
   coin: string;
   product: string;
@@ -47,7 +47,10 @@ export interface Catalog {
    * @returns The matching active futures.
    * @throws Synchronously if params are invalid; rejects if the request or response is invalid.
    */
-  futures(params?: CatalogSearchParams, options?: RequestOptions): Promise<CatalogFuture[]>;
+  futures(
+    params?: CatalogSearchParams<FuturesExchange>,
+    options?: RequestOptions,
+  ): Promise<FutureProduct[]>;
 
   /**
    * Fetches and searches the active spot catalog (`/api/v1/spot`).
@@ -57,7 +60,10 @@ export interface Catalog {
    * @returns The matching active spot products.
    * @throws Synchronously if params are invalid; rejects if the request or response is invalid.
    */
-  spot(params?: CatalogSearchParams, options?: RequestOptions): Promise<CatalogSpot[]>;
+  spot(
+    params?: CatalogSearchParams<SpotExchange>,
+    options?: RequestOptions,
+  ): Promise<SpotProduct[]>;
 }
 
 const FUTURES_CATALOG_SCHEMA = {
@@ -75,8 +81,8 @@ const SPOT_CATALOG_SCHEMA = {
   begin: "number",
 } as const satisfies CsvSchema;
 
-type CatalogFutureWire = FromSchema<typeof FUTURES_CATALOG_SCHEMA>;
-type CatalogSpotWire = FromSchema<typeof SPOT_CATALOG_SCHEMA>;
+type FutureProductWire = FromSchema<typeof FUTURES_CATALOG_SCHEMA>;
+type SpotProductWire = FromSchema<typeof SPOT_CATALOG_SCHEMA>;
 
 interface PreparedCatalogSearch {
   readonly coin?: string;
@@ -143,8 +149,8 @@ function prepareFilter(value: unknown, field: string): string {
   return value.toLowerCase();
 }
 
-function decodeCatalogFutures(text: string): CatalogFuture[] {
-  const rows = decodeCsv(text, FUTURES_CATALOG_SCHEMA, FUTURES_CATALOG_PATH) as CatalogFutureWire[];
+function decodeCatalogFutures(text: string): FutureProduct[] {
+  const rows = decodeCsv(text, FUTURES_CATALOG_SCHEMA, FUTURES_CATALOG_PATH) as FutureProductWire[];
 
   return rows.map((row) => {
     assertExchange(row.exchange, FUTURES_EXCHANGES, FUTURES_CATALOG_PATH);
@@ -153,8 +159,8 @@ function decodeCatalogFutures(text: string): CatalogFuture[] {
   });
 }
 
-function decodeCatalogSpot(text: string): CatalogSpot[] {
-  const rows = decodeCsv(text, SPOT_CATALOG_SCHEMA, SPOT_CATALOG_PATH) as CatalogSpotWire[];
+function decodeCatalogSpot(text: string): SpotProduct[] {
+  const rows = decodeCsv(text, SPOT_CATALOG_SCHEMA, SPOT_CATALOG_PATH) as SpotProductWire[];
 
   return rows.map((row) => {
     assertExchange(row.exchange, SPOT_EXCHANGES, SPOT_CATALOG_PATH);
@@ -182,7 +188,7 @@ function assertBegin(begin: number, path: string): void {
   );
 }
 
-function filterCatalog<T extends CatalogFuture | CatalogSpot>(
+function filterCatalog<T extends FutureProduct | SpotProduct>(
   rows: T[],
   search: PreparedCatalogSearch,
 ): T[] {

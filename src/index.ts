@@ -2,9 +2,9 @@ export type { CapsParams, MarketCap } from "./client/caps/caps.js";
 export { CAPS_COLUMNS } from "./client/caps/caps.js";
 export type {
   Catalog,
-  CatalogFuture,
   CatalogSearchParams,
-  CatalogSpot,
+  FutureProduct,
+  SpotProduct,
 } from "./client/catalog/catalog.js";
 export type { Market, OptionsMarket, VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";

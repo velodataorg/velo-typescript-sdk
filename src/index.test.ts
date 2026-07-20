@@ -12,12 +12,14 @@ import {
   VeloRateLimitError,
 } from "./index.js";
 import type {
-  CatalogFuture,
+  Catalog,
   CatalogSearchParams,
-  CatalogSpot,
+  Exchange,
+  FutureProduct,
   FuturesExchange,
   NewsWatcherEvents,
   NewsWatcherListener,
+  SpotProduct,
   SpotExchange,
   WebSocketFactory,
 } from "./index.js";
@@ -52,9 +54,16 @@ describe("public entry", () => {
   });
 
   it("exports the catalog result and mutually exclusive search types", () => {
-    expectTypeOf<CatalogFuture["exchange"]>().toEqualTypeOf<FuturesExchange>();
-    expectTypeOf<CatalogSpot["exchange"]>().toEqualTypeOf<SpotExchange>();
-    expectTypeOf<CatalogFuture["depth"]>().toEqualTypeOf<boolean>();
+    expectTypeOf<FutureProduct["exchange"]>().toEqualTypeOf<FuturesExchange>();
+    expectTypeOf<SpotProduct["exchange"]>().toEqualTypeOf<SpotExchange>();
+    expectTypeOf<FutureProduct["depth"]>().toEqualTypeOf<boolean>();
+    expectTypeOf<CatalogSearchParams["exchange"]>().toEqualTypeOf<Exchange | undefined>();
+    expectTypeOf<Parameters<Catalog["futures"]>[0]>().toEqualTypeOf<
+      CatalogSearchParams<FuturesExchange> | undefined
+    >();
+    expectTypeOf<Parameters<Catalog["spot"]>[0]>().toEqualTypeOf<
+      CatalogSearchParams<SpotExchange> | undefined
+    >();
 
     const searches: CatalogSearchParams[] = [
       {},
