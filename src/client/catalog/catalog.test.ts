@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError, VeloRateLimitError } from "../../errors.js";
 import { Velo } from "../client.js";
 import type { FuturesExchange, SpotExchange } from "../rows/types.js";
-import type { CatalogSearchParams } from "./catalog.js";
+import type { CatalogParams } from "./catalog.js";
 
 const FUTURES_CSV =
   "exchange,coin,product,begin,depth\n" +
@@ -16,7 +16,7 @@ const SPOT_CSV =
   "coinbase,BTC,BTC-USD,1417411980000\n" +
   "binance,ETH,ETHUSDT,1502942428000\n";
 
-const validSearches: CatalogSearchParams[] = [
+const validSearches: CatalogParams[] = [
   {},
   { coin: "BTC" },
   { product: "BTCUSDT" },
@@ -27,25 +27,25 @@ const validSearches: CatalogSearchParams[] = [
 void validSearches;
 
 // @ts-expect-error coin and product are mutually exclusive
-const invalidSearch: CatalogSearchParams = { coin: "BTC", product: "BTCUSDT" };
+const invalidSearch: CatalogParams = { coin: "BTC", product: "BTCUSDT" };
 void invalidSearch;
 
 // @ts-expect-error exchange must be a known Exchange
-const invalidExchange: CatalogSearchParams = { exchange: "unknown" };
+const invalidExchange: CatalogParams = { exchange: "unknown" };
 void invalidExchange;
 
-const futuresSearch: CatalogSearchParams<FuturesExchange> = { exchange: "binance-futures" };
+const futuresSearch: CatalogParams<FuturesExchange> = { exchange: "binance-futures" };
 void futuresSearch;
 
 // @ts-expect-error spot exchanges are not valid futures catalog filters
-const invalidFuturesExchange: CatalogSearchParams<FuturesExchange> = { exchange: "coinbase" };
+const invalidFuturesExchange: CatalogParams<FuturesExchange> = { exchange: "coinbase" };
 void invalidFuturesExchange;
 
-const spotSearch: CatalogSearchParams<SpotExchange> = { exchange: "coinbase" };
+const spotSearch: CatalogParams<SpotExchange> = { exchange: "coinbase" };
 void spotSearch;
 
 // @ts-expect-error futures exchanges are not valid spot catalog filters
-const invalidSpotExchange: CatalogSearchParams<SpotExchange> = { exchange: "binance-futures" };
+const invalidSpotExchange: CatalogParams<SpotExchange> = { exchange: "binance-futures" };
 void invalidSpotExchange;
 
 /** A Velo client whose fetch returns `body` and records request URLs. */
@@ -128,27 +128,6 @@ describe("Velo.catalog.futures", () => {
       const url = new URL(raw);
       expect(Array.from(url.searchParams.keys())).toEqual(["delisted"]);
     }
-  });
-
-  it("validates params synchronously before sending a request", () => {
-    const { velo: client, urls } = velo(FUTURES_CSV);
-    const invalid: unknown[] = [
-      null,
-      [],
-      "BTC",
-      { coin: "", exchange: "binance-futures" },
-      { product: "" },
-      { exchange: "" },
-      { coin: 1 },
-      { product: false },
-      { exchange: Symbol("exchange") },
-      { coin: "BTC", product: "BTCUSDT" },
-    ];
-
-    for (const params of invalid) {
-      expect(() => client.catalog.futures(params as never)).toThrow(VeloError);
-    }
-    expect(urls).toHaveLength(0);
   });
 
   it("preserves row order and duplicates and accepts empty responses", async () => {

@@ -1,5 +1,7 @@
 import { csvParse } from "d3-dsv";
+import { z } from "zod";
 
+import { VeloError } from "../errors.js";
 import { assert } from "./assert.js";
 
 export type CsvValue = string | number | boolean | null;
@@ -92,6 +94,35 @@ export function decodeCsv(text: string, schema: CsvSchema, path: string): CsvRow
       ]),
     ),
   );
+}
+
+/**
+ * Parses CSV rows through a Zod schema whose inputs are raw cell strings.
+ *
+ * @param text - The header-first CSV body.
+ * @param schema - The Zod schema for one raw row.
+ * @param path - The endpoint path, for failure messages.
+ * @returns The parsed schema outputs.
+ * @throws If the header or any row does not match the schema.
+ */
+export function parseCsv<S extends z.ZodObject>(
+  text: string,
+  schema: S,
+  path: string,
+): z.output<S>[] {
+  const parsed = csvParse(text);
+  assertCsvHeader(parsed.columns, Object.keys(schema.shape), path);
+
+  const rows = Array.from(parsed, (raw) =>
+    Object.fromEntries(parsed.columns.map((column) => [column, raw[column] ?? ""])),
+  );
+  const result = z.array(schema).safeParse(rows);
+  if (!result.success) {
+    throw new VeloError(`unexpected ${path} response:\n${z.prettifyError(result.error)}`, {
+      cause: result.error,
+    });
+  }
+  return result.data;
 }
 
 /**

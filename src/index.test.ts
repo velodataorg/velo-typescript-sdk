@@ -13,7 +13,7 @@ import {
 } from "./index.js";
 import type {
   Catalog,
-  CatalogSearchParams,
+  CatalogParams,
   Exchange,
   FutureProduct,
   FuturesExchange,
@@ -57,15 +57,15 @@ describe("public entry", () => {
     expectTypeOf<FutureProduct["exchange"]>().toEqualTypeOf<FuturesExchange>();
     expectTypeOf<SpotProduct["exchange"]>().toEqualTypeOf<SpotExchange>();
     expectTypeOf<FutureProduct["depth"]>().toEqualTypeOf<boolean>();
-    expectTypeOf<CatalogSearchParams["exchange"]>().toEqualTypeOf<Exchange | undefined>();
+    expectTypeOf<CatalogParams["exchange"]>().toEqualTypeOf<Exchange | undefined>();
     expectTypeOf<Parameters<Catalog["futures"]>[0]>().toEqualTypeOf<
-      CatalogSearchParams<FuturesExchange> | undefined
+      CatalogParams<FuturesExchange> | undefined
     >();
     expectTypeOf<Parameters<Catalog["spot"]>[0]>().toEqualTypeOf<
-      CatalogSearchParams<SpotExchange> | undefined
+      CatalogParams<SpotExchange> | undefined
     >();
 
-    const searches: CatalogSearchParams[] = [
+    const searches: CatalogParams[] = [
       {},
       { coin: "BTC" },
       { product: "BTCUSDT" },
