@@ -7,6 +7,7 @@ import {
   VeloConnectionError,
   VeloError,
   VeloRateLimitError,
+  VeloRequestError,
   VeloServerError,
   VeloTimeoutError,
 } from "../errors.js";
@@ -107,14 +108,14 @@ describe("Http", () => {
     expect(value).toEqual({ stories: [{ id: 1 }] });
   });
 
-  it("wraps invalid JSON with the body, URL, and parse failure", async () => {
+  it("wraps invalid JSON with the URL and parse failure", async () => {
     const calls: Call[] = [];
     const t = http([() => new Response("{not json")], calls);
     const error = await t.json("/api/n/news", { begin: 10 }).catch((e: unknown) => e);
 
-    expect(error).toBeInstanceOf(VeloError);
-    expect((error as VeloError).body).toBe("{not json");
-    expect((error as VeloError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
+    expect(error).toBeInstanceOf(VeloRequestError);
+    expect(error).not.toHaveProperty("body");
+    expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
     expect((error as Error).cause).toBeInstanceOf(SyntaxError);
     expect(calls).toHaveLength(1);
   });
@@ -135,7 +136,7 @@ describe("Http", () => {
     respond?.(new Response("{not json"));
     const error = await pending.catch((e: unknown) => e);
 
-    expect((error as VeloError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
+    expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
   });
 
   it("maps statuses to typed errors without retrying non-retryable ones", async () => {

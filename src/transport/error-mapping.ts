@@ -2,7 +2,7 @@ import {
   VeloAuthError,
   VeloBadRequestError,
   VeloConnectionError,
-  VeloError,
+  VeloHttpError,
   VeloRateLimitError,
   VeloServerError,
   VeloTimeoutError,
@@ -16,8 +16,8 @@ import {
  * @param url - The request URL.
  * @param headers - The response headers.
  * @param retryAfterMs - Parsed Retry-After header, for 429 responses.
- * @returns The VeloError subclass for the status; plain VeloError for
- * statuses with no mapping.
+ * @returns The VeloHttpError subclass for the status; plain VeloHttpError
+ * for statuses with no specialized mapping.
  */
 export function toError(
   status: number,
@@ -25,14 +25,14 @@ export function toError(
   url: string,
   headers: Record<string, string>,
   retryAfterMs?: number,
-): VeloError {
+): VeloHttpError {
   const message = `Velo API ${status}: ${body || "(empty body)"}`;
   const details = { status, body, url, headers };
   if (status === 400) return new VeloBadRequestError(message, details);
   if (status === 401 || status === 403) return new VeloAuthError(message, details);
   if (status === 429) return new VeloRateLimitError(message, { ...details, retryAfterMs });
   if (status >= 500) return new VeloServerError(message, details);
-  return new VeloError(message, details);
+  return new VeloHttpError(message, details);
 }
 
 /**

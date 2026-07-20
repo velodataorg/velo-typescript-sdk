@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloBadRequestError, VeloError } from "../errors.js";
+import { VeloError } from "../errors.js";
 import { assert } from "./assert.js";
+
+class CustomError extends VeloError {}
 
 describe("assert", () => {
   it("passes truthy conditions through", () => {
@@ -29,7 +31,7 @@ describe("assert", () => {
   });
 
   it("throws the provided error class instead of VeloError", () => {
-    expect(() => assert(false, "bad", VeloBadRequestError)).toThrow(VeloBadRequestError);
+    expect(() => assert(false, "bad", CustomError)).toThrow(CustomError);
   });
 
   it("narrows types", () => {

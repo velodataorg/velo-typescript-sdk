@@ -1,4 +1,4 @@
-import { VeloConnectionError, VeloError } from "../errors.js";
+import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.js";
 import { assert } from "../util/assert.js";
 
 export interface RetryOptions {
@@ -133,6 +133,5 @@ export function isRetryable(
   retryableStatuses: readonly number[] = DEFAULT_RETRYABLE_STATUSES,
 ): boolean {
   if (error instanceof VeloConnectionError) return true;
-  const { status } = error;
-  return status !== undefined && retryableStatuses.includes(status);
+  return error instanceof VeloHttpError && retryableStatuses.includes(error.status);
 }

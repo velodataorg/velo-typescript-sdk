@@ -1,47 +1,59 @@
-import { CAPS_PATH } from "../../constants.js";
-import { assert, assertStringArray } from "../../util/assert.js";
-import type { CsvSchema, FromSchema } from "../../util/csv.js";
-import type { PreparedParams } from "../query.js";
+import { z } from "zod";
 
-/* Parameters for one market-caps query (`/api/v1/caps`). */
+import { CAPS_PATH } from "../../constants.js";
+import { decode } from "../../decode/decode.js";
+import { VeloError } from "../../errors.js";
+import type { Http } from "../../transport/http.js";
+import { Query } from "../query.js";
+import { MarketCapSchema } from "./schema.js";
+import type { MarketCap } from "./schema.js";
+
+const ParamsSchema = z.strictObject({
+  coins: z.array(z.string().min(1)).min(1),
+});
+
 export interface CapsParams {
-  /* Coins to fetch caps for, e.g. "BTC". */
   readonly coins: readonly string[];
 }
 
-/* Cell types of the /caps response columns, in wire order. */
-export const CAPS_SCHEMA = {
-  coin: "string",
-  /* Per-coin "as of" millisecond timestamp (not bucket-aligned). */
-  time: "number",
-  circ: "nullable-number",
-  circ_dollars: "nullable-number",
-  fdv: "nullable-number",
-  fdv_dollars: "nullable-number",
-} as const satisfies CsvSchema;
-
-/* The /caps response columns, in wire order. */
-export const CAPS_COLUMNS = Object.keys(CAPS_SCHEMA) as (keyof typeof CAPS_SCHEMA)[];
-
-/* One `/caps` row: a coin's market capitalization. A data field is null where
- * the server has no value (SQL NULL in the CSV).
- */
-export type MarketCap = FromSchema<typeof CAPS_SCHEMA>;
+export interface Caps {
+  query(params: CapsParams): Query<MarketCap>;
+}
 
 /**
- * Validates and lowers a /caps query — always a single request.
+ * Creates the market-caps endpoint bound to an HTTP transport.
  *
- * @param params - The caps params.
- * @returns The prepared query.
- * @throws If `coins` is empty or not an array of non-empty strings.
+ * @param http - The transport used by caps queries.
+ * @returns The market-caps endpoint.
  */
-export function prepareCaps(params: CapsParams): PreparedParams<MarketCap> {
-  assertStringArray(params.coins, "coins");
-  assert(params.coins.length > 0, "coins must not be empty");
+export function createCaps(http: Http): Caps {
   return {
-    path: CAPS_PATH,
-    requests: [{ coins: [...params.coins] }],
-    // Spread so the Query constructor's freeze never freezes the shared constant.
-    schema: { ...CAPS_SCHEMA },
+    query(params: CapsParams): Query<MarketCap> {
+      const parsed = ParamsSchema.safeParse(params);
+      if (!parsed.success) {
+        throw new VeloError(`Invalid caps params:\n${z.prettifyError(parsed.error)}`);
+      }
+
+      return new Query(http, {
+        requests: [
+          {
+            path: CAPS_PATH,
+            params: { coins: parsed.data.coins },
+          },
+        ],
+        decode: _decodeCaps,
+      });
+    },
   };
+}
+
+/**
+ * Decodes a caps response and adds endpoint context to malformed data errors.
+ */
+function _decodeCaps(body: string): MarketCap[] {
+  try {
+    return decode(body, MarketCapSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${CAPS_PATH} response`, { cause });
+  }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloConnectionError, VeloError } from "../errors.js";
+import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.js";
 import {
   backoffMs,
   DEFAULT_RETRY,
@@ -10,13 +10,20 @@ import {
   validateRetryOptions,
 } from "./retry.js";
 
-function errorWithStatus(status?: number): VeloError {
-  return new VeloError(`Velo API ${status ?? "failure"}`, { status });
+function errorWithStatus(status: number): VeloHttpError {
+  return new VeloHttpError(`Velo API ${status}`, {
+    status,
+    body: "",
+    url: "https://example.test",
+    headers: {},
+  });
 }
 
 describe("isRetryable", () => {
   it("retries connection errors regardless of the status list", () => {
-    const error = new VeloConnectionError("socket hang up");
+    const error = new VeloConnectionError("socket hang up", {
+      url: "https://example.test",
+    });
     expect(isRetryable(error)).toBe(true);
     expect(isRetryable(error, [])).toBe(true);
   });
@@ -31,7 +38,7 @@ describe("isRetryable", () => {
   });
 
   it("never retries errors without a status", () => {
-    expect(isRetryable(errorWithStatus())).toBe(false);
+    expect(isRetryable(new VeloError("failure"))).toBe(false);
   });
 
   it("accepts an explicit list of status codes", () => {

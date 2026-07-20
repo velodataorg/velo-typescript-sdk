@@ -2,7 +2,7 @@ import queryString from "query-string";
 
 import { version } from "../../package.json";
 import { BASE_URL } from "../constants.js";
-import { VeloError } from "../errors.js";
+import { VeloError, VeloRequestError } from "../errors.js";
 import { assert } from "../util/assert.js";
 import { toConnectionError, toError } from "./error-mapping.js";
 import {
@@ -44,7 +44,7 @@ export interface HttpConfig {
   timeout?: number;
 }
 
-export interface RequestOptions {
+export interface HttpRequestOptions {
   signal?: AbortSignal;
   timeout?: number;
   retry?: Partial<RetryOptions>;
@@ -106,7 +106,11 @@ export class Http {
    * @throws A VeloError subclass once the failure is not retryable or the
    * retry budget is exhausted.
    */
-  async text(path: string, params: HttpParams = {}, options: RequestOptions = {}): Promise<string> {
+  async text(
+    path: string,
+    params: HttpParams = {},
+    options: HttpRequestOptions = {},
+  ): Promise<string> {
     const url = this.url(path, params);
     // Validate the merged values: an override can corrupt a valid config,
     // e.g. an explicit `retries: undefined` would spread over the default.
@@ -166,7 +170,7 @@ export class Http {
   async json(
     path: string,
     params: HttpParams = {},
-    options: RequestOptions = {},
+    options: HttpRequestOptions = {},
   ): Promise<unknown> {
     // Snapshot this before awaiting so a caller mutating its params cannot
     // make an invalid-JSON error point at a URL different from the one sent.
@@ -175,7 +179,7 @@ export class Http {
     try {
       return JSON.parse(body) as unknown;
     } catch (cause) {
-      throw new VeloError(`Velo API returned invalid JSON: ${url}`, { body, url, cause });
+      throw new VeloRequestError(`Velo API returned invalid JSON: ${url}`, { url, cause });
     }
   }
 }

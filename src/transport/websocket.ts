@@ -106,7 +106,9 @@ export async function defaultWebSocketFactory(
 
   const NativeWebSocket = scope.WebSocket;
   if (typeof NativeWebSocket !== "function") {
-    throw new VeloConnectionError("WebSocket is unavailable in this runtime");
+    throw new VeloConnectionError("WebSocket is unavailable in this runtime", {
+      url: target.url,
+    });
   }
   return new NativeWebSocket(target.authenticatedUrl) as WebSocketConnection;
 }
