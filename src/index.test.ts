@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
   OPTIONS_COLUMNS,
@@ -10,7 +11,15 @@ import {
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
 } from "./index.js";
-import type { FuturesRow, FuturesStandardParams, OptionsParams, SpotParams } from "./index.js";
+import type {
+  FuturesRow,
+  FuturesStandardParams,
+  NewsStory,
+  NewsWatcherEvents,
+  NewsWatcherListener,
+  OptionsParams,
+  SpotParams,
+} from "./index.js";
 
 describe("rows public exports", () => {
   it("exports market vocabularies and row metadata", () => {
@@ -33,5 +42,23 @@ describe("rows public exports", () => {
       (typeof OPTIONS_COLUMNS)[number]
     >();
     expectTypeOf<FuturesRow<"close_price">["close_price"]>().toEqualTypeOf<number | null>();
+  });
+});
+
+describe("news public exports", () => {
+  it("exports watcher constants and typed events", () => {
+    expect(DEFAULT_NEWS_HEARTBEAT_TIMEOUT).toBe(300_000);
+
+    const listener: NewsWatcherListener<"delete"> = (event) => {
+      const id: number = event.id;
+      expect(id).toBe(1);
+    };
+    const event: NewsWatcherEvents["delete"] = { id: 1 };
+    listener(event);
+  });
+
+  it("exports the validated story type", () => {
+    expectTypeOf<NewsStory["effectivePrice"]>().toEqualTypeOf<number | null>();
+    expectTypeOf<NewsStory["coins"]>().toEqualTypeOf<string[]>();
   });
 });

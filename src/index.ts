@@ -4,6 +4,19 @@ export { CAPS_COLUMNS } from "./client/caps/schema.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
 export type {
+  News,
+  NewsClose,
+  NewsDelete,
+  NewsStoriesParams,
+  NewsStory,
+  NewsWatcher,
+  NewsWatcherEvents,
+  NewsWatcherListener,
+  NewsWatcherState,
+  NewsWatchOptions,
+} from "./client/news/news.js";
+export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/news/watch.js";
+export type {
   BasisCoin,
   Futures,
   FuturesBasisParams,
