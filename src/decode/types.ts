@@ -13,6 +13,8 @@ export const number = z.string().transform((raw, context) => {
 
 export const timestamp = number.pipe(z.int().nonnegative());
 
+export const boolean = z.enum(["true", "false"]).transform((value) => value === "true");
+
 export const numberOrNull = z.string().transform((raw, context) => {
   if (raw === "" || raw === "null") return null;
 

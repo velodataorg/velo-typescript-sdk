@@ -4,6 +4,7 @@ import {
   DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
+  OPTIONS_CATALOG_PATH,
   OPTIONS_COLUMNS,
   OPTIONS_EXCHANGES,
   RESOLUTIONS,
@@ -14,11 +15,14 @@ import {
 import type {
   FuturesRow,
   FuturesStandardParams,
+  FutureProduct,
   NewsStory,
   NewsWatcherEvents,
   NewsWatcherListener,
   OptionsParams,
+  OptionProduct,
   SpotParams,
+  SpotProduct,
 } from "./index.js";
 
 describe("rows public exports", () => {
@@ -42,6 +46,17 @@ describe("rows public exports", () => {
       (typeof OPTIONS_COLUMNS)[number]
     >();
     expectTypeOf<FuturesRow<"close_price">["close_price"]>().toEqualTypeOf<number | null>();
+  });
+});
+
+describe("catalog public exports", () => {
+  it("exports the options catalog path and product types", () => {
+    expect(OPTIONS_CATALOG_PATH).toBe("/api/v1/options");
+    expectTypeOf<FutureProduct["depth"]>().toEqualTypeOf<boolean>();
+    expectTypeOf<FutureProduct["end"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<SpotProduct["exchange"]>().toEqualTypeOf<(typeof SPOT_EXCHANGES)[number]>();
+    expectTypeOf<SpotProduct["end"]>().toEqualTypeOf<number | undefined>();
+    expectTypeOf<OptionProduct["exchange"]>().toEqualTypeOf<(typeof OPTIONS_EXCHANGES)[number]>();
   });
 });
 

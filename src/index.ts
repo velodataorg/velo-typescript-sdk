@@ -1,6 +1,16 @@
 export type { Caps, CapsParams } from "./client/caps/caps.js";
 export type { MarketCap } from "./client/caps/schema.js";
 export { CAPS_COLUMNS } from "./client/caps/schema.js";
+export type {
+  Catalog,
+  CatalogParams,
+  FutureProduct,
+  FuturesCatalogParams,
+  OptionProduct,
+  OptionsCatalogParams,
+  SpotCatalogParams,
+  SpotProduct,
+} from "./client/catalog/catalog.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
 export type {
@@ -53,6 +63,7 @@ export {
   FUTURES_CATALOG_PATH,
   NEWS_PATH,
   NEWS_WEBSOCKET_PATH,
+  OPTIONS_CATALOG_PATH,
   ROWS_PATH,
   SPOT_CATALOG_PATH,
   TERMS_PATH,
