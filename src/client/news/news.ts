@@ -44,7 +44,9 @@ export interface News {
    * Creates a disconnected watcher for validated live News events.
    *
    * Register listeners with `on()` before explicitly calling `connect()`.
-   * The watcher owns one socket and cannot reconnect after it closes.
+   * After an unexpected connection loss, call `connect()` again to reconnect
+   * the same watcher. `disconnect()` intentionally pauses it for later reuse;
+   * explicitly closing or aborting it remains permanent.
    *
    * @param options - Cancellation and heartbeat-timeout options.
    * @returns A disconnected watcher for new, edited, and deleted stories.

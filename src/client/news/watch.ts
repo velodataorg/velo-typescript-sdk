@@ -41,7 +41,7 @@ export interface NewsWatchOptions {
   readonly heartbeatTimeout?: number;
 }
 
-export type NewsWatcherState = "idle" | "connecting" | "open" | "closed";
+export type NewsWatcherState = "idle" | "connecting" | "open" | "disconnected" | "closed";
 
 export interface NewsDelete {
   readonly id: number;
@@ -79,12 +79,18 @@ export interface NewsWatcher {
   off<K extends keyof NewsWatcherEvents>(type: K, listener: NewsWatcherListener<K>): this;
 
   /**
-   * Opens the single owned socket and subscribes to live News.
+   * Opens a socket and subscribes to live News.
    *
-   * Concurrent calls share one connection attempt. Once closed, a watcher
-   * cannot reconnect; create a new watcher instead.
+   * Concurrent calls share one connection attempt. After an unexpected
+   * connection loss, call `connect()` again to reconnect this watcher.
    */
   connect(): Promise<void>;
+
+  /**
+   * Intentionally closes the current connection while keeping this watcher
+   * and its listeners reusable.
+   */
+  disconnect(): void;
 
   /* Permanently closes this watcher. Safe to call more than once. */
   close(): void;
@@ -107,10 +113,10 @@ const TEXT_DECODER = new TextDecoder();
 const IGNORE_SOCKET_ERROR = (): void => {};
 
 /**
- * A disconnected, one-shot controller for the live News WebSocket.
+ * A disconnected controller for the live News WebSocket.
  *
- * The watcher deliberately never reconnects: without a server cursor,
- * reconnecting could silently lose edits or deletions.
+ * Reconnection is always explicit: without a server cursor, automatically
+ * reconnecting could conceal stories, edits, or deletions missed while offline.
  */
 export class NewsWatcherController implements NewsWatcher {
   readonly #heartbeatTimeout: number;
@@ -125,7 +131,9 @@ export class NewsWatcherController implements NewsWatcher {
   };
 
   #connectPromise: Promise<void> | undefined;
+  #connectionAttempt = 0;
   #heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
+  #listeningForAbort = false;
   #rejectConnect: ((reason?: unknown) => void) | undefined;
   #resolveConnect: (() => void) | undefined;
   #socket: WebSocketConnection | undefined;
@@ -161,21 +169,24 @@ export class NewsWatcherController implements NewsWatcher {
       return Promise.reject(new VeloError("News watcher is closed"));
     }
 
+    this.#subscribed = false;
     this.#state = "connecting";
-    this.#connectPromise = new Promise<void>((resolve, reject) => {
+    const connectPromise = new Promise<void>((resolve, reject) => {
       this.#resolveConnect = resolve;
       this.#rejectConnect = reject;
     });
+    this.#connectPromise = connectPromise;
 
     if (this.#signal?.aborted) {
       this.#cancel(abortReason(this.#signal));
-      return this.#connectPromise;
+      return connectPromise;
     }
-    this.#signal?.addEventListener("abort", this.#onAbort, { once: true });
+    this.#listenForAbort();
 
+    const attempt = ++this.#connectionAttempt;
     void this.#transport.connect().then(
       (socket) => {
-        if (this.#state === "closed") {
+        if (this.#state !== "connecting" || this.#connectionAttempt !== attempt) {
           closeSocket(socket);
           return;
         }
@@ -189,7 +200,7 @@ export class NewsWatcherController implements NewsWatcher {
         }
       },
       (cause: unknown) => {
-        if (this.#state !== "connecting") return;
+        if (this.#state !== "connecting" || this.#connectionAttempt !== attempt) return;
         const error =
           cause instanceof VeloError
             ? cause
@@ -198,7 +209,16 @@ export class NewsWatcherController implements NewsWatcher {
       },
     );
 
-    return this.#connectPromise;
+    return connectPromise;
+  }
+
+  disconnect(): void {
+    if (this.#state === "closed" || this.#state === "idle") return;
+    if (this.#state === "disconnected") {
+      this.#state = "idle";
+      return;
+    }
+    this.#disconnect(new DOMException("The News watcher was disconnected.", "AbortError"));
   }
 
   close(): void {
@@ -306,11 +326,12 @@ export class NewsWatcherController implements NewsWatcher {
   }
 
   #fail(error: VeloError, close: NewsClose): void {
+    if (this.#state !== "connecting" && this.#state !== "open") return;
     const emitError = this.#state === "open";
-    if (this.#state === "closed") return;
 
     const reject = this.#rejectConnect;
-    this.#state = "closed";
+    this.#state = "disconnected";
+    this.#connectPromise = undefined;
     this.#resolveConnect = undefined;
     this.#rejectConnect = undefined;
     this.#cleanup(true);
@@ -318,7 +339,18 @@ export class NewsWatcherController implements NewsWatcher {
 
     if (emitError) this.#emit("error", error);
     this.#emit("close", close);
-    this.#clearListeners();
+  }
+
+  #disconnect(reason: unknown): void {
+    const reject = this.#rejectConnect;
+    this.#state = "idle";
+    this.#connectPromise = undefined;
+    this.#resolveConnect = undefined;
+    this.#rejectConnect = undefined;
+    this.#cleanup(true);
+    reject?.(reason);
+
+    this.#emit("close", cleanClose());
   }
 
   #cancel(reason: unknown): void {
@@ -326,9 +358,11 @@ export class NewsWatcherController implements NewsWatcher {
 
     const reject = this.#rejectConnect;
     this.#state = "closed";
+    this.#connectPromise = undefined;
     this.#resolveConnect = undefined;
     this.#rejectConnect = undefined;
     this.#cleanup(true);
+    this.#stopListeningForAbort();
     reject?.(reason);
 
     this.#emit("close", cleanClose());
@@ -340,11 +374,7 @@ export class NewsWatcherController implements NewsWatcher {
       clearTimeout(this.#heartbeatTimer);
       this.#heartbeatTimer = undefined;
     }
-    try {
-      this.#signal?.removeEventListener("abort", this.#onAbort);
-    } catch {
-      // Cleanup cannot change the watcher's terminal state.
-    }
+    this.#subscribed = false;
 
     const socket = this.#socket;
     this.#socket = undefined;
@@ -355,6 +385,22 @@ export class NewsWatcherController implements NewsWatcher {
     removeSocketListener(socket, "error", this.#onError);
     removeSocketListener(socket, "close", this.#onClose);
     if (close) closeSocket(socket);
+  }
+
+  #listenForAbort(): void {
+    if (this.#signal === undefined || this.#listeningForAbort) return;
+    this.#signal.addEventListener("abort", this.#onAbort, { once: true });
+    this.#listeningForAbort = true;
+  }
+
+  #stopListeningForAbort(): void {
+    if (this.#signal === undefined || !this.#listeningForAbort) return;
+    try {
+      this.#signal.removeEventListener("abort", this.#onAbort);
+    } catch {
+      // Cleanup cannot change the watcher's terminal state.
+    }
+    this.#listeningForAbort = false;
   }
 
   #emit<K extends keyof NewsWatcherEvents>(type: K, event: NewsWatcherEvents[K]): void {

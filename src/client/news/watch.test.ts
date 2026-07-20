@@ -288,11 +288,11 @@ describe("Velo.news.watch", () => {
       .on("error", (error) => {
         order.push("error");
         surfaced = error;
-        expect(watcher.state).toBe("closed");
+        expect(watcher.state).toBe("disconnected");
       })
       .on("close", () => {
         order.push("close");
-        expect(watcher.state).toBe("closed");
+        expect(watcher.state).toBe("disconnected");
       });
     const socket = await openWatcher(watcher, sockets);
 
@@ -319,7 +319,7 @@ describe("Velo.news.watch", () => {
     watcher.on("error", errors).on("close", closes);
 
     await expect(watcher.connect()).rejects.toThrow(/cannot connect/);
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(errors).not.toHaveBeenCalled();
     expect(closes).toHaveBeenCalledWith({ code: 1006, reason: "", wasClean: false });
   });
@@ -337,7 +337,7 @@ describe("Velo.news.watch", () => {
     socket.open();
 
     await expect(connected).rejects.toThrow(/cannot subscribe/);
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(errors).not.toHaveBeenCalled();
     expect(closes).toHaveBeenCalledOnce();
     expect(socket.closeCalls).toHaveLength(1);
@@ -353,7 +353,7 @@ describe("Velo.news.watch", () => {
 
     await expect(watcher.connect()).rejects.toThrow(/cannot attach listeners/);
 
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(errors).not.toHaveBeenCalled();
     expect(closes).toHaveBeenCalledWith({ code: 1006, reason: "", wasClean: false });
     expect(socket.closeCalls).toHaveLength(1);
@@ -382,7 +382,7 @@ describe("Velo.news.watch", () => {
     expect(surfaced).not.toContain(target.headers.authorization);
   });
 
-  it("settles an error/close race once and never reconnects", async () => {
+  it("settles an error/close race once and does not reconnect automatically", async () => {
     const { client, sockets } = harness();
     const watcher = client.news.watch();
     const order: string[] = [];
@@ -393,10 +393,40 @@ describe("Velo.news.watch", () => {
     socket.remoteClose(1006, "gone");
 
     expect(order).toEqual(["error", "close"]);
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(sockets).toHaveLength(1);
     expect(socket.closeCalls).toHaveLength(1);
-    await expect(watcher.connect()).rejects.toThrow(/closed/);
+    await flushConnection();
+    expect(sockets).toHaveLength(1);
+  });
+
+  it("reconnects explicitly from a close listener and preserves listeners", async () => {
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const stories = vi.fn();
+    let reconnected: Promise<void> | undefined;
+    watcher.on("story", stories).on("close", () => {
+      if (watcher.state === "disconnected") {
+        reconnected = watcher.connect();
+      }
+    });
+    const firstSocket = await openWatcher(watcher, sockets);
+
+    firstSocket.remoteClose(1006, "gone");
+
+    expect(watcher.state).toBe("connecting");
+    await flushConnection();
+    expect(sockets).toHaveLength(2);
+    const secondSocket = sockets[1] as FakeSocket;
+    secondSocket.open();
+    await expect(reconnected).resolves.toBeUndefined();
+    expect(watcher.state).toBe("open");
+    expect(secondSocket.sent).toEqual(["subscribe news_priority"]);
+
+    secondSocket.message(story(2));
+    expect(stories).toHaveBeenCalledWith({ ...STORY, id: 2 });
+
+    watcher.close();
   });
 
   it("keeps independent watchers and listener sets", async () => {
@@ -445,6 +475,80 @@ describe("Velo.news.watch", () => {
 });
 
 describe("News watcher lifecycle", () => {
+  it("disconnects intentionally, preserves listeners, and reconnects from idle", async () => {
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const stories = vi.fn();
+    const closes: NewsClose[] = [];
+    const closeListener = (event: NewsClose): void => {
+      closes.push(event);
+      expect(watcher.state).toBe("idle");
+    };
+    watcher.on("story", stories).on("close", closeListener);
+    const firstSocket = await openWatcher(watcher, sockets);
+
+    watcher.disconnect();
+    watcher.disconnect();
+    firstSocket.message(story(1));
+
+    expect(watcher.state).toBe("idle");
+    expect(firstSocket.closeCalls).toHaveLength(1);
+    expect(firstSocket.listenerCount("message")).toBe(0);
+    expect(closes).toEqual([{ code: 1000, reason: "", wasClean: true }]);
+    expect(stories).not.toHaveBeenCalled();
+    await flushConnection();
+    expect(sockets).toHaveLength(1);
+
+    const reconnected = watcher.connect();
+    await flushConnection();
+    const secondSocket = sockets[1] as FakeSocket;
+    secondSocket.open();
+    await reconnected;
+    secondSocket.message(story(2));
+
+    expect(watcher.state).toBe("open");
+    expect(secondSocket.sent).toEqual(["subscribe news_priority"]);
+    expect(stories).toHaveBeenCalledWith({ ...STORY, id: 2 });
+
+    watcher.off("close", closeListener);
+    watcher.close();
+  });
+
+  it("rejects a disconnected connection attempt and ignores its late socket", async () => {
+    const resolvers: ((socket: WebSocketConnection) => void)[] = [];
+    const factory: WebSocketFactory = () =>
+      new Promise((resolve) => {
+        resolvers.push(resolve);
+      });
+    const { client } = harness(factory);
+    const watcher = client.news.watch();
+    const first = watcher.connect();
+
+    watcher.disconnect();
+
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    expect(watcher.state).toBe("idle");
+
+    const second = watcher.connect();
+    const staleSocket = new FakeSocket();
+    resolvers[0]?.(staleSocket);
+    await flushConnection();
+
+    expect(staleSocket.closeCalls).toHaveLength(1);
+    expect(watcher.state).toBe("connecting");
+
+    const currentSocket = new FakeSocket();
+    resolvers[1]?.(currentSocket);
+    await flushConnection();
+    currentSocket.open();
+    await second;
+
+    expect(watcher.state).toBe("open");
+    expect(currentSocket.sent).toEqual(["subscribe news_priority"]);
+
+    watcher.close();
+  });
+
   it("closes cleanly from idle and cannot connect afterward", async () => {
     const { client, sockets } = harness();
     const watcher = client.news.watch();
@@ -575,7 +679,7 @@ describe("News watcher lifecycle", () => {
     expect(watcher.state).toBe("open");
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(events[0]).toMatch(/300000 milliseconds/);
     expect(events[1]).toBe("close");
     expect(socket.closeCalls).toHaveLength(1);
@@ -600,7 +704,7 @@ describe("News watcher lifecycle", () => {
     socket.message(story());
     expect(stories).toHaveBeenCalledOnce();
     await vi.advanceTimersByTimeAsync(1);
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(errors).toHaveBeenCalledOnce();
   });
 
@@ -614,7 +718,7 @@ describe("News watcher lifecycle", () => {
     expect(watcher.state).toBe("open");
     await vi.advanceTimersByTimeAsync(1);
 
-    expect(watcher.state).toBe("closed");
+    expect(watcher.state).toBe("disconnected");
     expect(socket.closeCalls).toHaveLength(1);
   });
 
