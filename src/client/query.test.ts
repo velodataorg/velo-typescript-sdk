@@ -94,6 +94,18 @@ describe("Query.execute", () => {
     );
     expect(calls).toBe(0);
   });
+
+  it("shapes the result with collect and keeps it in the snapshot", async () => {
+    const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
+    const options: QueryOptions<Point, number> = {
+      ...OPTIONS,
+      collect: (points) => points.reduce((sum, point) => sum + point.value, 0),
+    };
+    const query = new Query(http(fetch), options);
+
+    expect(query.options.collect).toBe(options.collect);
+    await expect(query.execute()).resolves.toBe(30);
+  });
 });
 
 describe("Query options", () => {

@@ -28,7 +28,7 @@ describe("Velo.options", () => {
     const { velo, urls } = client(body);
     expect(velo.options).toBe(velo.options);
 
-    const rows = await velo.options.query(params).execute();
+    const rows = (await velo.options.query(params).execute()).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("options");
 
     const exchange: "deribit" = rows[0]!.exchange;

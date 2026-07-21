@@ -15,10 +15,18 @@ export interface QueryRequest {
  * Everything a query needs to execute and decode its responses.
  *
  * @typeParam T - One decoded response item.
+ * @typeParam D - The value {@link Query.execute | execute()} resolves to.
  */
-export interface QueryOptions<T> {
+export interface QueryOptions<T, D = T[]> {
   readonly requests: readonly QueryRequest[];
   readonly decode: (body: string) => readonly T[];
+
+  /**
+   * Shapes the collected items into the executed result.
+   *
+   * When omitted, `D` must be `T[]` and the items are returned as-is.
+   */
+  collect?(items: T[]): D;
 }
 
 /**
@@ -28,16 +36,17 @@ export interface QueryOptions<T> {
  * iterator returned by {@link Query.stream | stream()} is advanced.
  *
  * @typeParam T - One decoded response item.
+ * @typeParam D - The value {@link Query.execute | execute()} resolves to.
  */
-export class Query<T> {
+export class Query<T, D = T[]> {
   readonly #http: Http;
-  readonly #options: QueryOptions<T>;
+  readonly #options: QueryOptions<T, D>;
 
   /**
    * @param http - The transport used to send the query's requests.
    * @param options - The requests and endpoint-specific response decoder.
    */
-  constructor(http: Http, options: QueryOptions<T>) {
+  constructor(http: Http, options: QueryOptions<T, D>) {
     this.#http = http;
     this.#options = Query.#snapshot(options);
   }
@@ -45,7 +54,7 @@ export class Query<T> {
   /**
    * The immutable options captured when this query was constructed.
    */
-  get options(): QueryOptions<T> {
+  get options(): QueryOptions<T, D> {
     return this.#options;
   }
 
@@ -53,14 +62,17 @@ export class Query<T> {
    * Executes every request and collects its decoded rows.
    *
    * @param options - Per-request transport options.
-   * @returns All decoded rows in request order.
+   * @returns All decoded rows in request order, shaped by the query's
+   * `collect` option when present.
    */
-  async execute(options?: HttpRequestOptions): Promise<T[]> {
+  async execute(options?: HttpRequestOptions): Promise<D> {
     const rows: T[] = [];
     for await (const row of this.stream(options)) {
       rows.push(row);
     }
-    return rows;
+    const { collect } = this.#options;
+    /* The cast is sound: collect omitted implies D = T[]. */
+    return collect ? collect(rows) : (rows as T[] & D);
   }
 
   /**
@@ -116,7 +128,7 @@ export class Query<T> {
    * Copying prevents the query from freezing caller-owned arrays and ensures
    * later mutations cannot change the request that will be sent.
    */
-  static #snapshot<T>(options: QueryOptions<T>): QueryOptions<T> {
+  static #snapshot<T, D>(options: QueryOptions<T, D>): QueryOptions<T, D> {
     const requests = options.requests.map((request) => {
       const params: HttpParams = {};
 
@@ -131,6 +143,10 @@ export class Query<T> {
     });
 
     Object.freeze(requests);
-    return Object.freeze({ requests, decode: options.decode });
+    return Object.freeze({
+      requests,
+      decode: options.decode,
+      ...(options.collect ? { collect: options.collect } : {}),
+    });
   }
 }

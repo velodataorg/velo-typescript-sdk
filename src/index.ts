@@ -26,6 +26,9 @@ export type {
   NewsWatchOptions,
 } from "./client/news/news.js";
 export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/news/watch.js";
+export type { CanCandle, Candle, CandlesUnavailable, OhlcColumn } from "./client/rows/candles.js";
+export { Data } from "./client/rows/data.js";
+export type { RowColumns, SeriesColumns, SeriesKey } from "./client/rows/data.js";
 export type {
   BasisCoin,
   Futures,

@@ -10,6 +10,8 @@ This repository contains the TypeScript SDK for the Velo API. It exposes typed q
 
 ## Usage
 
+### Overview
+
 ```ts
 import { Velo } from "../src/index.js";
 
@@ -18,7 +20,7 @@ async function main() {
   if (!apiKey) throw new Error("VELO_API_KEY not set");
 
   const velo = new Velo({ apiKey });
-  const rows = await velo.futures
+  const data = await velo.futures
     .query({
       exchanges: ["binance-futures", "bybit"],
       products: ["BTCUSDT"],
@@ -29,13 +31,37 @@ async function main() {
     })
     .execute();
 
-  for (const row of rows) {
+  for (const row of data.rows()) {
     console.log(row);
   }
 }
 
 main();
 ```
+
+### Result views
+
+`execute()` resolves to a `Data` object: lazily computed views over the fetched rows.
+
+```ts
+const data = await velo.spot
+  .query({
+    exchanges: ["coinbase", "binance"],
+    coins: ["BTC"],
+    columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
+    begin: Date.now() - 60 * 60 * 1000,
+    end: Date.now(),
+    resolution: "1m",
+  })
+  .execute();
+
+data.rows(); // flat rows, series interleaved by time
+data.series(); // Map keyed "exchange:product" -> one series' rows
+data.columns(); // per series: { time: Float64Array, values: { close_price: Float64Array, ... } }
+data.candles(); // per series: { time, open, high, low, close, volume } per bucket
+```
+
+`candles()` is only available when the requested columns are the four OHLC prices plus at most one volume column; buckets without trades are skipped. When accumulating rows from `stream()` instead, build the same views with `Data.from(rows)`.
 
 ### Catalog
 

@@ -6,6 +6,7 @@ import type { Query } from "../query.js";
 import type { TermPoint } from "../terms/schema.js";
 import type { TermsParams } from "../terms/terms.js";
 import { createTermsQuery } from "../terms/terms.js";
+import type { Data } from "./data.js";
 import type { RowsParams } from "./params.js";
 import { createRowsParamsSchema } from "./params.js";
 import { createRowsQuery } from "./prepare.js";
@@ -51,7 +52,9 @@ export type OptionsParams<C extends OptionsColumn = OptionsColumn> = RowsParams<
 
 export interface Options {
   /** Creates an options market-data query (`/api/v1/rows`). */
-  query<C extends OptionsColumn>(params: OptionsParams<C>): Query<OptionsRow<C>>;
+  query<C extends OptionsColumn>(
+    params: OptionsParams<C>,
+  ): Query<OptionsRow<C>, Data<OptionsExchange, C>>;
 
   /** Creates an options term-structure query (`/api/v1/terms`). */
   terms(params: TermsParams): Query<TermPoint>;
@@ -64,13 +67,16 @@ const ParamsSchema = createRowsParamsSchema(OPTIONS_EXCHANGES, OPTIONS_COLUMNS);
  */
 export function createOptions(http: Http): Options {
   return {
-    query<C extends OptionsColumn>(params: OptionsParams<C>): Query<OptionsRow<C>> {
+    query<C extends OptionsColumn>(
+      params: OptionsParams<C>,
+    ): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
       const parsed = ParamsSchema.safeParse(params);
       if (!parsed.success) {
         throw new VeloError(`Invalid options params:\n${z.prettifyError(parsed.error)}`);
       }
       return createRowsQuery(http, "options", parsed.data, OPTIONS_EXCHANGES) as Query<
-        OptionsRow<C>
+        OptionsRow<C>,
+        Data<OptionsExchange, C>
       >;
     },
     terms(params: TermsParams): Query<TermPoint> {

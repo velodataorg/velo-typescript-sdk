@@ -3,6 +3,7 @@ import { z } from "zod";
 import { VeloError } from "../../errors.js";
 import type { Http } from "../../transport/http.js";
 import type { Query } from "../query.js";
+import type { Data } from "./data.js";
 import type { RowsParams } from "./params.js";
 import { TimestampParamSchema, createRowsParamsSchema, uniqueArray } from "./params.js";
 import { createRowsQuery } from "./prepare.js";
@@ -81,8 +82,12 @@ export interface FuturesBasisParams {
 export type FuturesParams = FuturesStandardParams | FuturesBasisParams;
 
 export interface Futures {
-  query(params: FuturesBasisParams): Query<FuturesRow<typeof BASIS_COLUMN>>;
-  query<C extends FuturesStandardColumn>(params: FuturesStandardParams<C>): Query<FuturesRow<C>>;
+  query(
+    params: FuturesBasisParams,
+  ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>>;
+  query<C extends FuturesStandardColumn>(
+    params: FuturesStandardParams<C>,
+  ): Query<FuturesRow<C>, Data<FuturesExchange, C>>;
 }
 
 const StandardParamsSchema = createRowsParamsSchema(FUTURES_EXCHANGES, FUTURES_STANDARD_COLUMNS);
@@ -106,11 +111,13 @@ const ParamsSchema = z.union([StandardParamsSchema, BasisParamsSchema]);
  * Creates the futures `/rows` namespace bound to an HTTP transport.
  */
 export function createFutures(http: Http): Futures {
-  function query(params: FuturesBasisParams): Query<FuturesRow<typeof BASIS_COLUMN>>;
+  function query(
+    params: FuturesBasisParams,
+  ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>>;
   function query<C extends FuturesStandardColumn>(
     params: FuturesStandardParams<C>,
-  ): Query<FuturesRow<C>>;
-  function query(params: FuturesParams): Query<unknown> {
+  ): Query<FuturesRow<C>, Data<FuturesExchange, C>>;
+  function query(params: FuturesParams): Query<unknown, unknown> {
     const parsed = ParamsSchema.safeParse(params);
     if (!parsed.success) {
       throw new VeloError(`Invalid futures params:\n${z.prettifyError(parsed.error)}`);

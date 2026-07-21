@@ -28,7 +28,7 @@ describe("Velo.spot", () => {
     const { velo, urls } = client(body);
     expect(velo.spot).toBe(velo.spot);
 
-    const rows = await velo.spot.query(params).execute();
+    const rows = (await velo.spot.query(params).execute()).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("spot");
 
     const exchange: "binance" | "bybit-spot" | "coinbase" | "okex" = rows[0]!.exchange;

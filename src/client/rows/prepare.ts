@@ -6,6 +6,7 @@ import { Query } from "../query.js";
 import { alignRange } from "./align.js";
 import type { TimeRange } from "./align.js";
 import { chunkRange } from "./chunk.js";
+import { Data } from "./data.js";
 import type { ValidatedRowsParams } from "./params.js";
 import type { Resolution } from "./resolution.js";
 import { toResolutionValue } from "./resolution.js";
@@ -21,7 +22,7 @@ export function createRowsQuery<E extends string, C extends string>(
   type: MarketType,
   params: ValidatedRowsParams & { readonly columns: readonly C[] },
   responseExchanges: readonly [E, ...E[]],
-): Query<Row<E, C>> {
+): Query<Row<E, C>, Data<E, C>> {
   const range = alignRange({ begin: params.begin, end: params.end }, params.resolution);
   const requests = chunkRange(params, range).map((chunk) => ({
     path: ROWS_PATH,
@@ -38,6 +39,7 @@ export function createRowsQuery<E extends string, C extends string>(
         throw new VeloError(`Unexpected ${ROWS_PATH} response`, { cause });
       }
     },
+    collect: (rows) => new Data(rows),
   });
 }
 

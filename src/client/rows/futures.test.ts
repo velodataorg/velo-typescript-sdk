@@ -41,7 +41,7 @@ describe("Velo.futures", () => {
     const query = velo.futures.query(params);
     expect(urls).toHaveLength(0);
 
-    const rows = await query.execute();
+    const rows = (await query.execute()).rows();
     expect(urls).toHaveLength(1);
     expect(rows).toEqual([
       {
@@ -115,7 +115,7 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,3m_basis_ann\n" +
       "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
     const { velo, urls } = client(body);
-    const rows = await velo.futures
+    const data = await velo.futures
       .query({
         columns: ["3m_basis_ann"],
         coins: ["BTC", "ETH"],
@@ -125,7 +125,7 @@ describe("Velo.futures", () => {
       })
       .execute();
 
-    expect(rows[0]?.["3m_basis_ann"]).toBe(0.0395);
+    expect(data.rows()[0]?.["3m_basis_ann"]).toBe(0.0395);
     const sent = search(urls[0] as string);
     expect(sent.get("coins")).toBe("BTC,ETH");
     expect(sent.get("exchanges")).toBeNull();
@@ -162,7 +162,7 @@ describe("Velo.futures", () => {
       );
     };
     const begin = Date.UTC(2026, 0, 1);
-    const rows = await new Velo({ apiKey: "test_key", fetch }).futures
+    const data = await new Velo({ apiKey: "test_key", fetch }).futures
       .query({
         exchanges: ["binance-futures"],
         products: ["BTCUSDT"],
@@ -175,7 +175,7 @@ describe("Velo.futures", () => {
 
     expect(urls).toHaveLength(2);
     expect(search(urls[1] as string).get("begin")).toBe(search(urls[0] as string).get("end"));
-    expect(rows.map((row) => row.close_price)).toEqual([10, 20]);
+    expect(data.rows().map((row) => row.close_price)).toEqual([10, 20]);
   });
 
   it("rejects invalid params before sending anything", () => {
@@ -219,7 +219,8 @@ describe("Velo.futures", () => {
   });
 
   it("accepts empty responses and rejects malformed responses", async () => {
-    await expect(client("").velo.futures.query(params).execute()).resolves.toEqual([]);
+    const empty = await client("").velo.futures.query(params).execute();
+    expect(empty.rows()).toEqual([]);
 
     for (const body of [
       "exchange,coin,product,time,close_price\nbinance-futures,BTC,BTCUSDT,1,2\n",
