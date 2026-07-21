@@ -1,6 +1,6 @@
-export type { Caps, CapsParams } from "./client/caps/caps.js";
-export type { MarketCap } from "./client/caps/schema.js";
-export { CAPS_COLUMNS } from "./client/caps/schema.js";
+export type { Caps, CapsParams } from "./client/routes/caps/caps.js";
+export type { MarketCap } from "./client/routes/caps/schema.js";
+export { CAPS_COLUMNS } from "./client/routes/caps/schema.js";
 export type {
   Catalog,
   CatalogParams,
@@ -10,7 +10,7 @@ export type {
   OptionsCatalogParams,
   SpotCatalogParams,
   SpotProduct,
-} from "./client/catalog/catalog.js";
+} from "./client/routes/catalog/catalog.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
 export type {
@@ -24,59 +24,54 @@ export type {
   NewsWatcherListener,
   NewsWatcherState,
   NewsWatchOptions,
-} from "./client/news/news.js";
-export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/news/watch.js";
+} from "./client/routes/news/news.js";
+export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/routes/news/watch.js";
 export { MAX_REQUESTS_PER_QUERY } from "./client/query.js";
-export { Data } from "./client/rows/data.js";
-export type { RowColumns, SeriesColumns } from "./client/rows/data.js";
+export { Data } from "./client/routes/rows/data.js";
+export type { Row, RowBase, RowColumns, SeriesColumns } from "./client/routes/rows/data.js";
+export type { Exchange, FuturesExchange, OptionsExchange, SpotExchange } from "./exchange.js";
+export { FUTURES_EXCHANGES, OPTIONS_EXCHANGES, SPOT_EXCHANGES } from "./exchange.js";
+export type {
+  FuturesBuilder,
+  FuturesOpenInterestMetric,
+  FuturesOpenInterestPart,
+  FuturesPricePart,
+  LastDuration,
+} from "./client/routes/rows/futures/futures-builder.js";
+export type { Futures } from "./client/routes/rows/futures/futures.js";
 export type {
   BasisCoin,
-  Futures,
   FuturesBasisParams,
   FuturesColumn,
-  FuturesExchange,
   FuturesParams,
   FuturesRow,
   FuturesStandardColumn,
   FuturesStandardParams,
-} from "./client/rows/futures/futures.js";
-export {
-  BASIS_COINS,
-  BASIS_COLUMN,
-  FUTURES_COLUMNS,
-  FUTURES_EXCHANGES,
-} from "./client/rows/futures/futures.js";
+} from "./client/routes/rows/futures/params.js";
+export { BASIS_COINS, BASIS_COLUMN, FUTURES_COLUMNS } from "./client/routes/rows/futures/params.js";
 export type {
   Options,
   OptionsColumn,
-  OptionsExchange,
   OptionsParams,
   OptionsRow,
-} from "./client/rows/options/options.js";
-export { OPTIONS_COLUMNS, OPTIONS_EXCHANGES } from "./client/rows/options/options.js";
-export { ROWS_BASE_COLUMNS } from "./client/rows/schema.js";
-export type {
-  Spot,
-  SpotColumn,
-  SpotExchange,
-  SpotParams,
-  SpotRow,
-} from "./client/rows/spot/spot.js";
-export { SPOT_COLUMNS, SPOT_EXCHANGES } from "./client/rows/spot/spot.js";
-export type { MarketType, Row, RowBase } from "./client/rows/types.js";
+} from "./client/routes/rows/options/options.js";
+export { OPTIONS_COLUMNS } from "./client/routes/rows/options/options.js";
+export type { MarketType } from "./client/routes/rows/params.js";
+export type { Spot, SpotColumn, SpotParams, SpotRow } from "./client/routes/rows/spot/spot.js";
+export { SPOT_COLUMNS } from "./client/routes/rows/spot/spot.js";
 export type {
   CanCandle,
   Candle,
   CandlesUnavailable,
   OhlcColumn,
-} from "./client/rows/util/candles.js";
-export type { Resolution, ResolutionValue } from "./client/rows/util/resolution.js";
-export { RESOLUTIONS, toResolutionValue } from "./client/rows/util/resolution.js";
-export type { ProductKey } from "./client/rows/util/product-key.js";
-export { formatProductKey, parseProductKey } from "./client/rows/util/product-key.js";
-export type { TermPoint, TermsCoin } from "./client/terms/schema.js";
-export { TERMS_COINS, TERMS_COLUMNS } from "./client/terms/schema.js";
-export type { TermsParams } from "./client/terms/terms.js";
+} from "./client/routes/rows/util/candles.js";
+export type { Resolution, ResolutionValue } from "./client/routes/rows/util/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/routes/rows/util/resolution.js";
+export type { ProductKey } from "./client/routes/rows/util/product-key.js";
+export { formatProductKey, parseProductKey } from "./client/routes/rows/util/product-key.js";
+export type { TermPoint, TermsCoin } from "./client/routes/terms/schema.js";
+export { TERMS_COINS, TERMS_COLUMNS } from "./client/routes/terms/schema.js";
+export type { TermsParams } from "./client/routes/terms/terms.js";
 export {
   BASE_URL,
   CAPS_PATH,

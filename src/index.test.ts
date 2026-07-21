@@ -8,7 +8,6 @@ import {
   OPTIONS_COLUMNS,
   OPTIONS_EXCHANGES,
   RESOLUTIONS,
-  ROWS_BASE_COLUMNS,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
   TERMS_COINS,
@@ -16,9 +15,14 @@ import {
   TERMS_PATH,
 } from "./index.js";
 import type {
+  Exchange,
+  FuturesBuilder,
+  FuturesOpenInterestMetric,
+  FuturesPricePart,
   FuturesRow,
   FuturesStandardParams,
   FutureProduct,
+  LastDuration,
   NewsStory,
   NewsWatcherEvents,
   NewsWatcherListener,
@@ -39,11 +43,13 @@ describe("rows public exports", () => {
     expect(FUTURES_COLUMNS).toContain("funding_rate");
     expect(OPTIONS_COLUMNS).toContain("iv_1m");
     expect(SPOT_COLUMNS).toContain("close_price");
-    expect(ROWS_BASE_COLUMNS).toEqual(["exchange", "coin", "product", "time"]);
     expect(RESOLUTIONS["1M"]).toEqual({ unit: "months", count: 1 });
   });
 
   it("exports market-specific parameter and inferred row types", () => {
+    expectTypeOf<(typeof FUTURES_EXCHANGES)[number]>().toMatchTypeOf<Exchange>();
+    expectTypeOf<(typeof OPTIONS_EXCHANGES)[number]>().toMatchTypeOf<Exchange>();
+    expectTypeOf<(typeof SPOT_EXCHANGES)[number]>().toMatchTypeOf<Exchange>();
     expectTypeOf<FuturesStandardParams["exchanges"][number]>().toEqualTypeOf<
       (typeof FUTURES_EXCHANGES)[number]
     >();
@@ -52,6 +58,12 @@ describe("rows public exports", () => {
       (typeof OPTIONS_COLUMNS)[number]
     >();
     expectTypeOf<FuturesRow<"close_price">["close_price"]>().toEqualTypeOf<number | null>();
+    expectTypeOf<FuturesPricePart>().toEqualTypeOf<"open" | "high" | "low" | "close">();
+    expectTypeOf<FuturesOpenInterestMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<"11m">().toMatchTypeOf<LastDuration>();
+    expectTypeOf<
+      ReturnType<FuturesBuilder<"open_price">["params"]>["columns"][number]
+    >().toEqualTypeOf<"open_price">();
   });
 });
 

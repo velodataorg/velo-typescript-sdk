@@ -2,18 +2,18 @@ import { Http } from "../transport/http.js";
 import type { HttpConfig } from "../transport/http.js";
 import { WebSocketTransport } from "../transport/websocket.js";
 import type { WebSocketFactory } from "../transport/websocket.js";
-import type { Caps } from "./caps/caps.js";
-import { createCaps } from "./caps/caps.js";
-import type { Catalog } from "./catalog/catalog.js";
-import { createCatalog } from "./catalog/catalog.js";
-import type { News } from "./news/news.js";
-import { createNews } from "./news/news.js";
-import type { Futures } from "./rows/futures/futures.js";
-import { createFutures } from "./rows/futures/futures.js";
-import type { Options } from "./rows/options/options.js";
-import { createOptions } from "./rows/options/options.js";
-import type { Spot } from "./rows/spot/spot.js";
-import { createSpot } from "./rows/spot/spot.js";
+import type { Caps } from "./routes/caps/caps.js";
+import { createCaps } from "./routes/caps/caps.js";
+import type { Catalog } from "./routes/catalog/catalog.js";
+import { createCatalog } from "./routes/catalog/catalog.js";
+import type { News } from "./routes/news/news.js";
+import { createNews } from "./routes/news/news.js";
+import type { Futures } from "./routes/rows/futures/futures.js";
+import { FuturesNamespace } from "./routes/rows/futures/futures.js";
+import type { Options } from "./routes/rows/options/options.js";
+import { createOptions } from "./routes/rows/options/options.js";
+import type { Spot } from "./routes/rows/spot/spot.js";
+import { createSpot } from "./routes/rows/spot/spot.js";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
@@ -35,7 +35,7 @@ export class Velo {
     this.#caps = createCaps(this.#http);
     this.#catalog = createCatalog(this.#http);
     this.#news = createNews(this.#http, webSocket);
-    this.#futures = createFutures(this.#http);
+    this.#futures = new FuturesNamespace(this.#http);
     this.#options = createOptions(this.#http);
     this.#spot = createSpot(this.#http);
   }
