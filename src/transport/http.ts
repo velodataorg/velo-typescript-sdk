@@ -61,6 +61,7 @@ export class Http {
   private readonly authHeader: string;
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly retry: RetryOptions;
+  private readonly secrets: readonly string[];
   private readonly timeout: number;
 
   /**
@@ -71,10 +72,12 @@ export class Http {
    */
   constructor(config: HttpConfig) {
     assert(config.apiKey, "apiKey is required");
-    this.baseUrl = config.baseUrl ?? BASE_URL;
-    this.authHeader = `Basic ${btoa(`api:${config.apiKey}`)}`;
+    this.baseUrl = (config.baseUrl ?? BASE_URL).replace(/\/+$/, "");
+    const authToken = btoa(`api:${config.apiKey}`);
+    this.authHeader = `Basic ${authToken}`;
     this.fetchFn = config.fetch ?? globalThis.fetch;
     this.retry = { ...DEFAULT_RETRY, ...config.retry };
+    this.secrets = [this.authHeader, authToken, config.apiKey].sort((a, b) => b.length - a.length);
     validateRetryOptions(this.retry);
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT;
     validateTimeout(this.timeout);
@@ -145,7 +148,9 @@ export class Http {
           );
         }
       } catch (thrown) {
-        failure = toConnectionError(thrown, url, timeout, options.signal);
+        failure = toConnectionError(thrown, url, timeout, options.signal, (value) =>
+          this.#redact(value),
+        );
       }
 
       if (!isRetryable(failure) || attempt >= retry.retries) throw failure;
@@ -181,5 +186,11 @@ export class Http {
     } catch (cause) {
       throw new VeloRequestError(`Velo API returned invalid JSON: ${url}`, { url, cause });
     }
+  }
+
+  #redact(value: string): string {
+    let safe = value;
+    for (const secret of this.secrets) safe = safe.split(secret).join("[REDACTED]");
+    return safe;
   }
 }

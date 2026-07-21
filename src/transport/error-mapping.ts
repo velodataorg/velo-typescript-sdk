@@ -42,25 +42,34 @@ export function toError(
  * @param url - The request URL.
  * @param timeout - The per-attempt timeout in milliseconds.
  * @param signal - The caller's abort signal, if any.
+ * @param redact - Removes request credentials from surfaced error text.
  * @returns A VeloTimeoutError for timeouts, a VeloConnectionError otherwise.
- * @throws The original `thrown` when it was an abort — cancellation must
- * never be mistaken for an API failure.
+ * @throws The caller's original abort reason when its signal is aborted, or a
+ * credential-safe AbortError for adapter-originated cancellation.
  */
 export function toConnectionError(
   thrown: unknown,
   url: string,
   timeout: number,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  redact: (value: string) => string,
 ): VeloConnectionError {
-  if (signal?.aborted) throw thrown;
+  if (signal?.aborted && thrown === signal.reason) throw thrown;
   if (thrown instanceof Error && thrown.name === "TimeoutError") {
     return new VeloTimeoutError(`Velo API request timed out after ${timeout}ms: ${url}`, {
       url,
       timeout,
-      cause: thrown,
+      cause: safeError(thrown, redact),
     });
   }
-  if (thrown instanceof Error && thrown.name === "AbortError") throw thrown;
-  const reason = thrown instanceof Error ? thrown.message : String(thrown);
-  return new VeloConnectionError(`Velo API request failed: ${reason}`, { url, cause: thrown });
+  if (thrown instanceof Error && thrown.name === "AbortError") throw safeError(thrown, redact);
+  const cause = safeError(thrown, redact);
+  return new VeloConnectionError(`Velo API request failed: ${cause.message}`, { url, cause });
+}
+
+function safeError(value: unknown, redact: (value: string) => string): Error {
+  const message = redact(value instanceof Error ? value.message : String(value));
+  const error = value instanceof TypeError ? new TypeError(message) : new Error(message);
+  if (value instanceof Error) error.name = redact(value.name);
+  return error;
 }

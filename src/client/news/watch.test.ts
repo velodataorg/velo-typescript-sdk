@@ -101,6 +101,13 @@ class ThrowingSendSocket extends FakeSocket {
   }
 }
 
+class SynchronouslyFailingSendSocket extends FakeSocket {
+  override send(data: string): void {
+    super.send(data);
+    this.error(new Error("synchronous send failure"));
+  }
+}
+
 class ThrowingAttachSocket extends FakeSocket {
   override addEventListener<K extends keyof WebSocketEvents>(
     _type: K,
@@ -343,6 +350,29 @@ describe("Velo.news.watch", () => {
     expect(socket.closeCalls).toHaveLength(1);
   });
 
+  it("does not revive a connection that fails synchronously during send", async () => {
+    const firstSocket = new SynchronouslyFailingSendSocket();
+    const secondSocket = new FakeSocket();
+    let attempts = 0;
+    const { client } = harness(() => (attempts++ === 0 ? firstSocket : secondSocket));
+    const watcher = client.news.watch();
+
+    const connected = watcher.connect();
+    await flushConnection();
+    firstSocket.open();
+
+    await expect(connected).rejects.toThrow(/synchronous send failure/);
+    expect(watcher.state).toBe("disconnected");
+    expect(firstSocket.closeCalls).toHaveLength(1);
+
+    const reconnected = watcher.connect();
+    await flushConnection();
+    secondSocket.open();
+    await expect(reconnected).resolves.toBeUndefined();
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
   it("rejects a socket attachment failure instead of leaving connect pending", async () => {
     const socket = new ThrowingAttachSocket();
     const { client } = harness(() => socket);
@@ -469,6 +499,28 @@ describe("Velo.news.watch", () => {
     socket.message(story());
 
     expect(reportError).toHaveBeenCalledWith(thrown);
+    expect(later).toHaveBeenCalledWith(STORY);
+    expect(watcher.state).toBe("open");
+  });
+
+  it("reports rejected listener promises without failing the watcher", async () => {
+    const reportError = vi.fn();
+    vi.stubGlobal("reportError", reportError);
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const later = vi.fn();
+    const rejected = new Error("async consumer failed");
+    watcher
+      .on("story", async () => {
+        throw rejected;
+      })
+      .on("story", later);
+    const socket = await openWatcher(watcher, sockets);
+
+    socket.message(story());
+    await flushConnection();
+
+    expect(reportError).toHaveBeenCalledWith(rejected);
     expect(later).toHaveBeenCalledWith(STORY);
     expect(watcher.state).toBe("open");
   });

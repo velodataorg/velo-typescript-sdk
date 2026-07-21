@@ -94,6 +94,13 @@ describe("Http", () => {
     );
   });
 
+  it("normalizes trailing slashes in a custom base URL", () => {
+    for (const baseUrl of ["https://example.test/", "https://example.test///"]) {
+      const t = new Http({ apiKey: "k", baseUrl });
+      expect(t.url("/api/v1/rows")).toBe("https://example.test/api/v1/rows");
+    }
+  });
+
   it("sends basic auth as api:<key> and returns the body", async () => {
     const calls: Call[] = [];
     const t = http([() => new Response("a,b\n1,2\n")], calls);
@@ -234,6 +241,39 @@ describe("Http", () => {
     expect(error).toBeInstanceOf(VeloConnectionError);
     expect((error as VeloConnectionError).url).toBe("https://api.velo.xyz/x");
     expect((error as Error).cause).toBeInstanceOf(TypeError);
+  });
+
+  it("redacts credentials from custom fetch errors and their causes", async () => {
+    const apiKey = "test/key";
+    const authToken = btoa(`api:${apiKey}`);
+    const authorization = `Basic ${authToken}`;
+    const t = new Http({
+      apiKey,
+      retry: { retries: 0 },
+      fetch: async () => {
+        const failure = Object.assign(
+          new Error(`adapter failed with ${apiKey}, ${authorization}, and ${authToken}`),
+          { headers: { authorization } },
+        );
+        failure.name = `Adapter${authToken}`;
+        throw failure;
+      },
+    });
+
+    const error = await t.text("/x").catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(VeloConnectionError);
+    const cause = (error as Error).cause as Error;
+    const surfaced = [
+      (error as Error).message,
+      (error as Error).stack,
+      cause.name,
+      cause.message,
+      cause.stack,
+    ].join("\n");
+    expect(surfaced).toContain("[REDACTED]");
+    expect(surfaced).not.toContain(apiKey);
+    expect(surfaced).not.toContain(authToken);
+    expect(cause).not.toHaveProperty("headers");
   });
 
   it("times out a hung attempt and maps it to VeloTimeoutError", async () => {

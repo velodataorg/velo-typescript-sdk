@@ -107,7 +107,7 @@ interface PreparedNewsWatchOptions {
   readonly heartbeatTimeout: number;
 }
 
-type UntypedListener = (event: unknown) => void;
+type UntypedListener = (event: unknown) => unknown;
 
 const TEXT_DECODER = new TextDecoder();
 const IGNORE_SOCKET_ERROR = (): void => {};
@@ -233,14 +233,26 @@ export class NewsWatcherController implements NewsWatcher {
 
   readonly #onOpen = (): void => {
     if (this.#state !== "connecting" || this.#subscribed) return;
+    const socket = this.#socket;
+    if (!socket) {
+      this.#fail(
+        this.#transport.connectionError("subscription failed: missing socket"),
+        abnormalClose(),
+      );
+      return;
+    }
     this.#subscribed = true;
 
     try {
-      this.#socket?.send(SUBSCRIBE_NEWS);
+      socket.send(SUBSCRIBE_NEWS);
     } catch (cause) {
       this.#fail(this.#transport.connectionError("subscription failed", cause), abnormalClose());
       return;
     }
+
+    // A custom socket may synchronously emit `error` or `close` from send().
+    // Do not revive a connection that #fail() already made terminal.
+    if (this.#state !== "connecting" || this.#socket !== socket || !this.#subscribed) return;
 
     this.#state = "open";
     this.#resetHeartbeat();
@@ -406,7 +418,8 @@ export class NewsWatcherController implements NewsWatcher {
   #emit<K extends keyof NewsWatcherEvents>(type: K, event: NewsWatcherEvents[K]): void {
     for (const listener of Array.from(this.#listeners[type])) {
       try {
-        listener(event);
+        const result = listener(event);
+        if (isPromiseLike(result)) void Promise.resolve(result).catch(reportListenerError);
       } catch (cause) {
         reportListenerError(cause);
       }
@@ -555,6 +568,13 @@ function isAbortSignal(value: unknown): value is AbortSignal {
     typeof candidate.aborted === "boolean" &&
     typeof candidate.addEventListener === "function" &&
     typeof candidate.removeEventListener === "function"
+  );
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return (
+    ((typeof value === "object" && value !== null) || typeof value === "function") &&
+    typeof (value as { readonly then?: unknown }).then === "function"
   );
 }
 
