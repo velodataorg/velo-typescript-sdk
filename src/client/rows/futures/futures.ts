@@ -1,15 +1,15 @@
 import { z } from "zod";
 
-import { VeloError } from "../../errors.js";
-import type { Http } from "../../transport/http.js";
-import type { Query } from "../query.js";
-import type { Data } from "./data.js";
-import type { RowsParams } from "./params.js";
-import { TimestampParamSchema, createRowsParamsSchema, uniqueArray } from "./params.js";
-import { createRowsQuery } from "./prepare.js";
-import type { Resolution } from "./resolution.js";
-import { ResolutionSchema } from "./resolution.js";
-import type { Row } from "./types.js";
+import { VeloError } from "../../../errors.js";
+import type { Http } from "../../../transport/http.js";
+import type { Query } from "../../query.js";
+import type { Data } from "../data.js";
+import type { RowsParams } from "../params.js";
+import { TimestampParamSchema, createRowsParamsSchema, uniqueArray } from "../params.js";
+import { createRowsQuery } from "../prepare.js";
+import type { Row } from "../types.js";
+import type { Resolution } from "../util/resolution.js";
+import { ResolutionSchema } from "../util/resolution.js";
 
 export const FUTURES_EXCHANGES = [
   "binance-coin-margin",

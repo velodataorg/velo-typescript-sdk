@@ -27,9 +27,8 @@ export type {
 } from "./client/news/news.js";
 export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/news/watch.js";
 export { MAX_REQUESTS_PER_QUERY } from "./client/query.js";
-export type { CanCandle, Candle, CandlesUnavailable, OhlcColumn } from "./client/rows/candles.js";
 export { Data } from "./client/rows/data.js";
-export type { RowColumns, SeriesColumns, SeriesKey } from "./client/rows/data.js";
+export type { RowColumns, SeriesColumns } from "./client/rows/data.js";
 export type {
   BasisCoin,
   Futures,
@@ -40,27 +39,41 @@ export type {
   FuturesRow,
   FuturesStandardColumn,
   FuturesStandardParams,
-} from "./client/rows/futures.js";
+} from "./client/rows/futures/futures.js";
 export {
   BASIS_COINS,
   BASIS_COLUMN,
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
-} from "./client/rows/futures.js";
+} from "./client/rows/futures/futures.js";
 export type {
   Options,
   OptionsColumn,
   OptionsExchange,
   OptionsParams,
   OptionsRow,
-} from "./client/rows/options.js";
-export { OPTIONS_COLUMNS, OPTIONS_EXCHANGES } from "./client/rows/options.js";
-export type { Resolution, ResolutionValue } from "./client/rows/resolution.js";
-export { RESOLUTIONS, toResolutionValue } from "./client/rows/resolution.js";
+} from "./client/rows/options/options.js";
+export { OPTIONS_COLUMNS, OPTIONS_EXCHANGES } from "./client/rows/options/options.js";
 export { ROWS_BASE_COLUMNS } from "./client/rows/schema.js";
-export type { Spot, SpotColumn, SpotExchange, SpotParams, SpotRow } from "./client/rows/spot.js";
-export { SPOT_COLUMNS, SPOT_EXCHANGES } from "./client/rows/spot.js";
+export type {
+  Spot,
+  SpotColumn,
+  SpotExchange,
+  SpotParams,
+  SpotRow,
+} from "./client/rows/spot/spot.js";
+export { SPOT_COLUMNS, SPOT_EXCHANGES } from "./client/rows/spot/spot.js";
 export type { MarketType, Row, RowBase } from "./client/rows/types.js";
+export type {
+  CanCandle,
+  Candle,
+  CandlesUnavailable,
+  OhlcColumn,
+} from "./client/rows/util/candles.js";
+export type { Resolution, ResolutionValue } from "./client/rows/util/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/rows/util/resolution.js";
+export type { ProductKey } from "./client/rows/util/product-key.js";
+export { formatProductKey, parseProductKey } from "./client/rows/util/product-key.js";
 export type { TermPoint, TermsCoin } from "./client/terms/schema.js";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/terms/schema.js";
 export type { TermsParams } from "./client/terms/terms.js";

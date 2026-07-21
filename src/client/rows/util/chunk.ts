@@ -1,9 +1,9 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../util/assert.js";
-import { MAX_REQUESTS_PER_QUERY } from "../query.js";
+import { assert } from "../../../util/assert.js";
+import { MAX_REQUESTS_PER_QUERY } from "../../query.js";
+import type { ValidatedRowsParams } from "../params.js";
 import type { TimeRange } from "./align.js";
-import type { ValidatedRowsParams } from "./params.js";
 import { toResolutionValue } from "./resolution.js";
 
 export const MAX_CELLS_PER_REQUEST = 22_500;

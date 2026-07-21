@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../errors.js";
+import { VeloError } from "../../../errors.js";
 import { RESOLUTIONS, toResolutionValue } from "./resolution.js";
 
 describe("rows resolutions", () => {

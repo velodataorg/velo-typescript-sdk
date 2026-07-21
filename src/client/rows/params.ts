@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import type { Resolution } from "./resolution.js";
-import { ResolutionSchema } from "./resolution.js";
+import type { Resolution } from "./util/resolution.js";
+import { ResolutionSchema } from "./util/resolution.js";
 
 export const MAX_TIMESTAMP_MS = 8.64e15;
 

@@ -5,8 +5,8 @@ import { decode } from "../../decode/decode.js";
 import { timestamp } from "../../decode/types.js";
 import { VeloError } from "../../errors.js";
 import type { Http, HttpRequestOptions } from "../../transport/http.js";
-import { OPTIONS_EXCHANGES } from "../rows/options.js";
-import type { OptionsExchange } from "../rows/options.js";
+import { OPTIONS_EXCHANGES } from "../rows/options/options.js";
+import type { OptionsExchange } from "../rows/options/options.js";
 import { filterCatalog, prepareCatalogParams } from "./params.js";
 import type { CatalogParams } from "./params.js";
 

@@ -8,12 +8,12 @@ import type { Catalog } from "./catalog/catalog.js";
 import { createCatalog } from "./catalog/catalog.js";
 import type { News } from "./news/news.js";
 import { createNews } from "./news/news.js";
-import type { Futures } from "./rows/futures.js";
-import { createFutures } from "./rows/futures.js";
-import type { Options } from "./rows/options.js";
-import { createOptions } from "./rows/options.js";
-import type { Spot } from "./rows/spot.js";
-import { createSpot } from "./rows/spot.js";
+import type { Futures } from "./rows/futures/futures.js";
+import { createFutures } from "./rows/futures/futures.js";
+import type { Options } from "./rows/options/options.js";
+import { createOptions } from "./rows/options/options.js";
+import type { Spot } from "./rows/spot/spot.js";
+import { createSpot } from "./rows/spot/spot.js";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */

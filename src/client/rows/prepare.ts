@@ -3,16 +3,16 @@ import { decode } from "../../decode/decode.js";
 import { VeloError } from "../../errors.js";
 import type { Http, HttpParams } from "../../transport/http.js";
 import { Query } from "../query.js";
-import { alignRange } from "./align.js";
-import type { TimeRange } from "./align.js";
-import { chunkRange } from "./chunk.js";
 import { Data } from "./data.js";
 import type { ValidatedRowsParams } from "./params.js";
-import type { Resolution } from "./resolution.js";
-import { toResolutionValue } from "./resolution.js";
 import { createRowSchema } from "./schema.js";
 import type { MarketType } from "./types.js";
 import type { Row } from "./types.js";
+import { alignRange } from "./util/align.js";
+import type { TimeRange } from "./util/align.js";
+import { chunkRange } from "./util/chunk.js";
+import type { Resolution } from "./util/resolution.js";
+import { toResolutionValue } from "./util/resolution.js";
 
 /**
  * Creates a lazy query from already validated market-specific parameters.

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../errors.js";
-import { MAX_REQUESTS_PER_QUERY } from "../query.js";
+import { VeloError } from "../../../errors.js";
+import { MAX_REQUESTS_PER_QUERY } from "../../query.js";
+import { MAX_TIMESTAMP_MS } from "../params.js";
+import type { ValidatedRowsParams } from "../params.js";
 import { chunkRange, MAX_CELLS_PER_REQUEST } from "./chunk.js";
-import { MAX_TIMESTAMP_MS } from "./params.js";
-import type { ValidatedRowsParams } from "./params.js";
 
 const MINUTE = 60_000;
 

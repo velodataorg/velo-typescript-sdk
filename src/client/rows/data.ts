@@ -1,16 +1,10 @@
 import { assert } from "../../util/assert.js";
-import type { Candle, CanCandle, CandlesUnavailable } from "./candles.js";
-import { toCandles } from "./candles.js";
 import { ROWS_BASE_COLUMNS } from "./schema.js";
 import type { Row, RowBase } from "./types.js";
-
-/**
- * Identifies one time series within a rows result: `"exchange:product"`.
- * Exchange ids never contain `:`, so the first colon splits unambiguously.
- *
- * @typeParam E - Exchanges the market may return.
- */
-export type SeriesKey<E extends string = string> = `${E}:${string}`;
+import type { Candle, CanCandle, CandlesUnavailable } from "./util/candles.js";
+import { toCandles } from "./util/candles.js";
+import type { ProductKey } from "./util/product-key.js";
+import { formatProductKey } from "./util/product-key.js";
 
 /**
  * One series in columnar form. Each array holds one value per bucket,
@@ -44,9 +38,9 @@ export type RowColumns<R extends RowBase> = Extract<Exclude<keyof R, keyof RowBa
  */
 export class Data<E extends string, C extends string> implements Iterable<Row<E, C>> {
   readonly #rows: readonly Row<E, C>[];
-  #series: ReadonlyMap<SeriesKey<E>, readonly Row<E, C>[]> | undefined;
-  #columns: ReadonlyMap<SeriesKey<E>, SeriesColumns<E, C>> | undefined;
-  #candles: ReadonlyMap<SeriesKey<E>, readonly Candle[]> | undefined;
+  #series: ReadonlyMap<ProductKey<E>, readonly Row<E, C>[]> | undefined;
+  #columns: ReadonlyMap<ProductKey<E>, SeriesColumns<E, C>> | undefined;
+  #candles: ReadonlyMap<ProductKey<E>, readonly Candle[]> | undefined;
 
   /**
    * @param rows - Decoded rows; each series' rows must be time-ascending.
@@ -91,7 +85,7 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
    * Entries appear in first-appearance order; rows within an entry keep
    * their time-ascending response order.
    */
-  series(): ReadonlyMap<SeriesKey<E>, readonly Row<E, C>[]> {
+  series(): ReadonlyMap<ProductKey<E>, readonly Row<E, C>[]> {
     this.#series ??= groupSeries(this.#rows);
     return this.#series;
   }
@@ -99,7 +93,7 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
   /**
    * Converts every series to columnar form.
    */
-  columns(): ReadonlyMap<SeriesKey<E>, SeriesColumns<E, C>> {
+  columns(): ReadonlyMap<ProductKey<E>, SeriesColumns<E, C>> {
     this.#columns ??= mapSeries(this.series(), toSeriesColumns);
     return this.#columns;
   }
@@ -113,7 +107,7 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
    */
   candles(
     this: CanCandle<C> extends true ? Data<E, C> : CandlesUnavailable,
-  ): ReadonlyMap<SeriesKey<E>, readonly Candle[]> {
+  ): ReadonlyMap<ProductKey<E>, readonly Candle[]> {
     const data = this as Data<E, C>;
     data.#candles ??= mapSeries(data.series(), toCandles);
     return data.#candles;
@@ -125,10 +119,10 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
  */
 function groupSeries<E extends string, C extends string>(
   rows: readonly Row<E, C>[],
-): ReadonlyMap<SeriesKey<E>, readonly Row<E, C>[]> {
-  const series = new Map<SeriesKey<E>, Row<E, C>[]>();
+): ReadonlyMap<ProductKey<E>, readonly Row<E, C>[]> {
+  const series = new Map<ProductKey<E>, Row<E, C>[]>();
   for (const row of rows) {
-    const key: SeriesKey<E> = `${row.exchange}:${row.product}`;
+    const key = formatProductKey(row.exchange, row.product);
     const group = series.get(key);
     if (group === undefined) {
       series.set(key, [row]);
@@ -149,10 +143,10 @@ function groupSeries<E extends string, C extends string>(
  * Applies `transform` to every series, preserving key order.
  */
 function mapSeries<E extends string, C extends string, V>(
-  series: ReadonlyMap<SeriesKey<E>, readonly Row<E, C>[]>,
+  series: ReadonlyMap<ProductKey<E>, readonly Row<E, C>[]>,
   transform: (rows: readonly Row<E, C>[]) => V,
-): ReadonlyMap<SeriesKey<E>, V> {
-  const result = new Map<SeriesKey<E>, V>();
+): ReadonlyMap<ProductKey<E>, V> {
+  const result = new Map<ProductKey<E>, V>();
   for (const [key, rows] of series) {
     result.set(key, transform(rows));
   }

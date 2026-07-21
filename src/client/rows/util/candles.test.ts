@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Data } from "./data.js";
-import type { Row } from "./types.js";
+import { Data } from "../data.js";
+import type { Row } from "../types.js";
 
 type Ohlc = "open_price" | "high_price" | "low_price" | "close_price";
 
@@ -76,9 +76,9 @@ describe("Data.candles", () => {
       { ...ohlcRow(1, [10, 12, 9, 11]), coin_volume: 2, dollar_volume: 5000 },
     ] as unknown as Row<"binance", Ohlc>[]);
 
-    expect(() => missing.candles()).toThrow(/requires the open_price column/);
-    expect(() => extra.candles()).toThrow(/only OHLC and one volume column/);
-    expect(() => bothVolumes.candles()).toThrow(/only OHLC and one volume column/);
+    expect(() => missing.candles()).toThrow(/requires all four OHLC columns/);
+    expect(() => extra.candles()).toThrow(/Unrecognized key: "buy_trades"/);
+    expect(() => bothVolumes.candles()).toThrow(/mutually exclusive/);
   });
 
   it("compile-gates candles() on the requested columns", () => {

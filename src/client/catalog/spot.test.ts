@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../errors.js";
 import { Velo } from "../client.js";
-import type { SpotExchange } from "../rows/spot.js";
+import type { SpotExchange } from "../rows/spot/spot.js";
 
 const SPOT_CSV =
   "exchange,coin,product,begin\n" +

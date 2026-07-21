@@ -5,8 +5,8 @@ import { decode } from "../../decode/decode.js";
 import { boolean, timestamp } from "../../decode/types.js";
 import { VeloError } from "../../errors.js";
 import type { Http, HttpRequestOptions } from "../../transport/http.js";
-import { FUTURES_EXCHANGES } from "../rows/futures.js";
-import type { FuturesExchange } from "../rows/futures.js";
+import { FUTURES_EXCHANGES } from "../rows/futures/futures.js";
+import type { FuturesExchange } from "../rows/futures/futures.js";
 import { filterCatalog, prepareCatalogParams } from "./params.js";
 import type { CatalogParams } from "./params.js";
 

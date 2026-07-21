@@ -5,8 +5,8 @@ import { decode } from "../../decode/decode.js";
 import { timestamp } from "../../decode/types.js";
 import { VeloError } from "../../errors.js";
 import type { Http, HttpRequestOptions } from "../../transport/http.js";
-import { SPOT_EXCHANGES } from "../rows/spot.js";
-import type { SpotExchange } from "../rows/spot.js";
+import { SPOT_EXCHANGES } from "../rows/spot/spot.js";
+import type { SpotExchange } from "../rows/spot/spot.js";
 import { filterCatalog, prepareCatalogParams } from "./params.js";
 import type { CatalogParams } from "./params.js";
 

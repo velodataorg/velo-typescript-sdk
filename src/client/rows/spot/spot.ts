@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-import { VeloError } from "../../errors.js";
-import type { Http } from "../../transport/http.js";
-import type { Query } from "../query.js";
-import type { Data } from "./data.js";
-import type { RowsParams } from "./params.js";
-import { createRowsParamsSchema } from "./params.js";
-import { createRowsQuery } from "./prepare.js";
-import type { Row } from "./types.js";
+import { VeloError } from "../../../errors.js";
+import type { Http } from "../../../transport/http.js";
+import type { Query } from "../../query.js";
+import type { Data } from "../data.js";
+import type { RowsParams } from "../params.js";
+import { createRowsParamsSchema } from "../params.js";
+import { createRowsQuery } from "../prepare.js";
+import type { Row } from "../types.js";
 
 export const SPOT_EXCHANGES = ["binance", "bybit-spot", "coinbase", "okex"] as const;
 export type SpotExchange = (typeof SPOT_EXCHANGES)[number];

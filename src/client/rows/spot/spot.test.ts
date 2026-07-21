@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../errors.js";
-import { Velo } from "../client.js";
+import { VeloError } from "../../../errors.js";
+import { Velo } from "../../client.js";
 
 function client(body: string, urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {

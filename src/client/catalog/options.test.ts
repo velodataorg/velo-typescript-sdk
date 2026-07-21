@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../errors.js";
 import { Velo } from "../client.js";
-import type { OptionsExchange } from "../rows/options.js";
+import type { OptionsExchange } from "../rows/options/options.js";
 
 const OPTIONS_CSV =
   "exchange,coin,product,begin\n" +

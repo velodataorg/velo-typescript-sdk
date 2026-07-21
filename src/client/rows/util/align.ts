@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../util/assert.js";
-import { MAX_TIMESTAMP_MS } from "./params.js";
+import { assert } from "../../../util/assert.js";
+import { MAX_TIMESTAMP_MS } from "../params.js";
 import type { Resolution } from "./resolution.js";
 import { toResolutionValue } from "./resolution.js";
 

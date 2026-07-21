@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError, VeloRateLimitError } from "../../errors.js";
 import { Velo } from "../client.js";
-import type { FuturesExchange } from "../rows/futures.js";
+import type { FuturesExchange } from "../rows/futures/futures.js";
 
 const FUTURES_CSV =
   "exchange,coin,product,begin,depth\n" +
