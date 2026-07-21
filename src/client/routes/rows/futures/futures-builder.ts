@@ -13,25 +13,8 @@ import { FuturesParams, type FuturesRow, type FuturesStandardParams } from "./pa
 /** Price components selectable by the futures fluent query builder. */
 export type FuturesPricePart = "open" | "high" | "low" | "close";
 
-type SelectedPricePart<P extends readonly FuturesPricePart[]> = P extends readonly []
-  ? FuturesPricePart
-  : P[number];
-
 /** Open-interest components selectable by the futures fluent query builder. */
 export type FuturesOpenInterestPart = "high" | "low" | "close";
-
-type OpenInterestSelection =
-  | FuturesOpenInterestPart
-  | readonly FuturesOpenInterestPart[]
-  | undefined;
-
-type SelectedOpenInterestPart<P extends OpenInterestSelection> = P extends FuturesOpenInterestPart
-  ? P
-  : P extends readonly [] | undefined
-    ? FuturesOpenInterestPart
-    : P extends readonly FuturesOpenInterestPart[]
-      ? P[number]
-      : never;
 
 /** Unit used for open-interest columns. */
 export type FuturesOpenInterestMetric = "coin" | "dollar";
@@ -53,6 +36,8 @@ const LAST_UNITS = {
 /** A positive whole-number duration in minutes, hours, days, or weeks. */
 export type LastDuration = `${number}${keyof typeof LAST_UNITS}`;
 
+const LAST_PATTERN = /^(\d+)(m|h|D|W)$/;
+
 interface State {
   readonly columns: readonly FuturesStandardColumn[];
   readonly exchanges?: readonly FuturesExchange[];
@@ -64,8 +49,6 @@ interface State {
     | { readonly kind: "last"; readonly milliseconds: number };
   readonly resolution?: Resolution;
 }
-
-const LAST_PATTERN = /^(\d+)(m|h|D|W)$/;
 
 /**
  * An immutable fluent futures query under construction.
@@ -90,43 +73,33 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
    * @param parts - Price components to add; defaults to all components when omitted.
    * @returns A new builder typed with the accumulated columns.
    */
-  price<const P extends readonly FuturesPricePart[]>(
-    ...parts: P
-  ): FuturesBuilder<C | `${SelectedPricePart<P>}_price`> {
+  price<P extends FuturesPricePart = FuturesPricePart>(
+    ...parts: readonly P[]
+  ): FuturesBuilder<C | `${P}_price`> {
     const selected: readonly FuturesPricePart[] = parts.length === 0 ? PRICE_PARTS : parts;
-    return this.#withColumns(
-      selected.map((part) => `${part}_price` as `${SelectedPricePart<P>}_price`),
-    );
+    return this.#withColumns(selected.map((part) => `${part}_price` as `${P}_price`));
   }
 
   /**
-   * Adds one or more open-interest columns.
+   * Adds one open-interest column, or every open-interest column when the
+   * part is omitted.
    *
-   * @param parts - Open-interest components to add; defaults to all components when omitted or empty.
+   * @param part - Open-interest component to add; defaults to all components when omitted.
    * @param options - Column options; the metric defaults to `"dollar"`.
    * @returns A new builder typed with the accumulated columns.
    */
   openInterest<
-    const P extends OpenInterestSelection = undefined,
+    P extends FuturesOpenInterestPart = FuturesOpenInterestPart,
     M extends FuturesOpenInterestMetric = "dollar",
   >(
-    parts?: P,
+    part?: P,
     options?: { readonly metric: M },
-  ): FuturesBuilder<C | `${M}_open_interest_${SelectedOpenInterestPart<P>}`> {
-    let selected: readonly FuturesOpenInterestPart[];
-    if (parts === undefined || (typeof parts !== "string" && parts.length === 0)) {
-      selected = OPEN_INTEREST_PARTS;
-    } else if (typeof parts === "string") {
-      selected = [parts];
-    } else {
-      selected = parts;
-    }
+  ): FuturesBuilder<C | `${M}_open_interest_${P}`> {
+    const selected: readonly FuturesOpenInterestPart[] =
+      part === undefined ? OPEN_INTEREST_PARTS : [part];
     const metric = options?.metric ?? "dollar";
     return this.#withColumns(
-      selected.map(
-        (part) =>
-          `${metric}_open_interest_${part}` as `${M}_open_interest_${SelectedOpenInterestPart<P>}`,
-      ),
+      selected.map((added) => `${metric}_open_interest_${added}` as `${M}_open_interest_${P}`),
     );
   }
 

@@ -3,16 +3,28 @@ import { FuturesBuilder } from "./futures-builder.js";
 import { FuturesQuery } from "./futures-query.js";
 
 /** The futures `/rows` namespace exposed by {@link Velo}. */
-export type Futures = Omit<FuturesBuilder<never>, "params" | "build" | "execute"> & {
+export class Futures {
   readonly query: FuturesQuery["build"];
-};
-
-export class FuturesNamespace extends FuturesBuilder<never> {
-  readonly query: FuturesQuery["build"];
+  readonly price: FuturesBuilder<never>["price"];
+  readonly openInterest: FuturesBuilder<never>["openInterest"];
+  readonly exchanges: FuturesBuilder<never>["exchanges"];
+  readonly products: FuturesBuilder<never>["products"];
+  readonly coins: FuturesBuilder<never>["coins"];
+  readonly between: FuturesBuilder<never>["between"];
+  readonly last: FuturesBuilder<never>["last"];
+  readonly resolution: FuturesBuilder<never>["resolution"];
 
   constructor(http: Http) {
     const query = new FuturesQuery(http);
-    super(query);
+    const builder = new FuturesBuilder(query);
     this.query = query.build.bind(query);
+    this.price = builder.price.bind(builder);
+    this.openInterest = builder.openInterest.bind(builder);
+    this.exchanges = builder.exchanges.bind(builder);
+    this.products = builder.products.bind(builder);
+    this.coins = builder.coins.bind(builder);
+    this.between = builder.between.bind(builder);
+    this.last = builder.last.bind(builder);
+    this.resolution = builder.resolution.bind(builder);
   }
 }

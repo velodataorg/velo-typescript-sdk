@@ -22,12 +22,21 @@ describe("futures fluent builder", () => {
   const begin = Date.UTC(2026, 6, 13, 8);
   const end = Date.UTC(2026, 6, 13, 10);
 
+  it("keeps builder terminal methods off the futures namespace", () => {
+    const { futures } = client().velo;
+
+    expect(futures).not.toHaveProperty("params");
+    expect(futures).not.toHaveProperty("build");
+    expect(futures).not.toHaveProperty("execute");
+  });
+
   it("accumulates typed columns, deduplicates them, and preserves insertion order", () => {
     const { velo } = client();
     const builder = velo.futures
       .price("close", "open")
       .price("open", "high")
-      .openInterest(["close", "high"])
+      .openInterest("close")
+      .openInterest("high")
       .openInterest("low", { metric: "coin" })
       .products(["BTCUSDT"])
       .between(begin, end)
@@ -100,19 +109,6 @@ describe("futures fluent builder", () => {
         "dollar_open_interest_high" | "dollar_open_interest_low" | "dollar_open_interest_close"
       >
     >();
-
-    expect(
-      client()
-        .velo.futures.openInterest([])
-        .products(["BTCUSDT"])
-        .between(begin, end)
-        .resolution("1h")
-        .params().columns,
-    ).toEqual([
-      "dollar_open_interest_high",
-      "dollar_open_interest_low",
-      "dollar_open_interest_close",
-    ]);
   });
 
   it("snapshots caller-owned arrays and dates", () => {

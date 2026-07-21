@@ -8,8 +8,7 @@ import type { Catalog } from "./routes/catalog/catalog.js";
 import { createCatalog } from "./routes/catalog/catalog.js";
 import type { News } from "./routes/news/news.js";
 import { createNews } from "./routes/news/news.js";
-import type { Futures } from "./routes/rows/futures/futures.js";
-import { FuturesNamespace } from "./routes/rows/futures/futures.js";
+import { Futures } from "./routes/rows/futures/futures.js";
 import type { Options } from "./routes/rows/options/options.js";
 import { createOptions } from "./routes/rows/options/options.js";
 import type { Spot } from "./routes/rows/spot/spot.js";
@@ -35,7 +34,7 @@ export class Velo {
     this.#caps = createCaps(this.#http);
     this.#catalog = createCatalog(this.#http);
     this.#news = createNews(this.#http, webSocket);
-    this.#futures = new FuturesNamespace(this.#http);
+    this.#futures = new Futures(this.#http);
     this.#options = createOptions(this.#http);
     this.#spot = createSpot(this.#http);
   }
