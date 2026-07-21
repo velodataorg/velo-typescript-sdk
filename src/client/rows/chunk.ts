@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 
 import { assert } from "../../util/assert.js";
+import { MAX_REQUESTS_PER_QUERY } from "../query.js";
 import type { TimeRange } from "./align.js";
 import type { ValidatedRowsParams } from "./params.js";
 import { toResolutionValue } from "./resolution.js";
@@ -38,6 +39,9 @@ export function chunkRange(params: ValidatedRowsParams, range: TimeRange): TimeR
   );
 
   const stepMs = bucketsPerRequest * value.count * 60_000;
+  const requestCount = Math.ceil((range.end - range.begin) / stepMs);
+  assertRequestCount(requestCount);
+
   const chunks: TimeRange[] = [];
   for (let begin = range.begin; begin < range.end; begin += stepMs) {
     chunks.push({ begin, end: Math.min(begin + stepMs, range.end) });
@@ -50,6 +54,9 @@ function chunkMonths(range: TimeRange, count: number): TimeRange[] {
   let cursor = DateTime.fromMillis(range.begin, { zone: "utc" });
 
   while (cursor.toMillis() < range.end) {
+    assert(chunks.length < MAX_REQUESTS_PER_QUERY, () =>
+      rowsRequestLimitMessage(`more than ${MAX_REQUESTS_PER_QUERY}`),
+    );
     const next = cursor.plus({ months: count });
     chunks.push({
       begin: cursor.toMillis(),
@@ -58,4 +65,18 @@ function chunkMonths(range: TimeRange, count: number): TimeRange[] {
     cursor = next;
   }
   return chunks;
+}
+
+function assertRequestCount(requestCount: number): void {
+  assert(requestCount <= MAX_REQUESTS_PER_QUERY, () =>
+    rowsRequestLimitMessage(String(requestCount)),
+  );
+}
+
+function rowsRequestLimitMessage(requestCount: string): string {
+  return (
+    `Rows query requires ${requestCount} HTTP requests, exceeding the limit of ` +
+    `${MAX_REQUESTS_PER_QUERY}; narrow the time range, use a coarser resolution, or reduce ` +
+    `query width`
+  );
 }

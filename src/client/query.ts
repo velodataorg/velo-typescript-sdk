@@ -1,4 +1,8 @@
 import type { Http, HttpParams, HttpRequestOptions } from "../transport/http.js";
+import { assert } from "../util/assert.js";
+
+/** Maximum number of HTTP requests that one query may contain. */
+export const MAX_REQUESTS_PER_QUERY = 10_000;
 
 /**
  * One HTTP request made by a query.
@@ -47,6 +51,12 @@ export class Query<T, D = T[]> {
    * @param options - The requests and endpoint-specific response decoder.
    */
   constructor(http: Http, options: QueryOptions<T, D>) {
+    assert(
+      options.requests.length <= MAX_REQUESTS_PER_QUERY,
+      () =>
+        `Query has ${options.requests.length} HTTP requests, exceeding the limit of ` +
+        `${MAX_REQUESTS_PER_QUERY}`,
+    );
     this.#http = http;
     this.#options = Query.#snapshot(options);
   }

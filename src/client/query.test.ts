@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError } from "../errors.js";
 import { Http } from "../transport/http.js";
 import type { HttpParams } from "../transport/http.js";
-import { Query } from "./query.js";
+import { MAX_REQUESTS_PER_QUERY, Query } from "./query.js";
 import type { QueryOptions, QueryRequest } from "./query.js";
 
 interface Point {
@@ -109,6 +109,27 @@ describe("Query.execute", () => {
 });
 
 describe("Query options", () => {
+  it("rejects more than the maximum number of requests before snapshotting", () => {
+    const requests = Array.from({ length: MAX_REQUESTS_PER_QUERY + 1 }, (_, index) => ({
+      path: "/api/v1/test",
+      params: { step: index },
+    }));
+
+    expect(
+      () =>
+        new Query(
+          http(async () => response(1)),
+          {
+            requests,
+            decode: decodePoints,
+          },
+        ),
+    ).toThrow(
+      `Query has ${MAX_REQUESTS_PER_QUERY + 1} HTTP requests, exceeding the limit of ` +
+        `${MAX_REQUESTS_PER_QUERY}`,
+    );
+  });
+
   it("snapshots and freezes request params without freezing caller-owned data", () => {
     const products = ["BTCUSDT"];
     const params: HttpParams = { step: 1, products };

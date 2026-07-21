@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../errors.js";
+import { MAX_REQUESTS_PER_QUERY } from "../query.js";
 import { chunkRange, MAX_CELLS_PER_REQUEST } from "./chunk.js";
+import { MAX_TIMESTAMP_MS } from "./params.js";
 import type { ValidatedRowsParams } from "./params.js";
 
 const MINUTE = 60_000;
@@ -66,6 +68,31 @@ describe("chunkRange", () => {
       { begin: Date.UTC(2026, 1, 1), end: Date.UTC(2026, 2, 1) },
       { begin: Date.UTC(2026, 2, 1), end: Date.UTC(2026, 3, 1) },
     ]);
+  });
+
+  it("rejects an excessive minute-based request count before allocating chunks", () => {
+    expect(() => chunkRange(params(), { begin: 0, end: MAX_TIMESTAMP_MS })).toThrow(
+      `Rows query requires 6400000 HTTP requests, exceeding the limit of ` +
+        `${MAX_REQUESTS_PER_QUERY}`,
+    );
+  });
+
+  it("accepts the request-count boundary and rejects the next chunk", () => {
+    const end = MAX_REQUESTS_PER_QUERY * MAX_CELLS_PER_REQUEST * MINUTE;
+
+    expect(chunkRange(params(), { begin: 0, end })).toHaveLength(MAX_REQUESTS_PER_QUERY);
+    expect(() => chunkRange(params(), { begin: 0, end: end + MINUTE })).toThrow(
+      `Rows query requires ${MAX_REQUESTS_PER_QUERY + 1} HTTP requests`,
+    );
+  });
+
+  it("bounds calendar-month chunk allocation", () => {
+    expect(() =>
+      chunkRange(params({ resolution: "1M" }), {
+        begin: Date.UTC(1970, 0, 1),
+        end: Date.UTC(2803, 5, 1),
+      }),
+    ).toThrow(`Rows query requires more than ${MAX_REQUESTS_PER_QUERY} HTTP requests`);
   });
 
   it("rejects invalid ranges and over-wide buckets", () => {
