@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError } from "../../../../errors.js";
 import { FUTURES_EXCHANGES } from "../../../../exchange.js";
 import { Velo } from "../../../client.js";
-import { FUTURES_COLUMNS } from "./params.js";
+import { FUTURES_COLUMNS } from "../columns.js";
 
 const ROWS_CSV =
   "exchange,coin,product,time,close_price,funding_rate\n" +

@@ -4,26 +4,10 @@ import { VeloError } from "../../../../errors.js";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../../../exchange.js";
 import type { Http } from "../../../../transport/http.js";
 import type { Query } from "../../../query.js";
+import { SPOT_COLUMNS, type SpotColumn } from "../columns.js";
 import type { Data, Row } from "../data.js";
 import { RowsParams, RowsQuery } from "../params.js";
 
-export const SPOT_COLUMNS = [
-  "open_price",
-  "high_price",
-  "low_price",
-  "close_price",
-  "coin_volume",
-  "dollar_volume",
-  "buy_trades",
-  "sell_trades",
-  "total_trades",
-  "buy_coin_volume",
-  "sell_coin_volume",
-  "buy_dollar_volume",
-  "sell_dollar_volume",
-] as const;
-
-export type SpotColumn = (typeof SPOT_COLUMNS)[number];
 export type SpotRow<C extends SpotColumn> = Row<SpotExchange, C>;
 export type SpotParams<C extends SpotColumn = SpotColumn> = RowsParams<SpotExchange, C>;
 

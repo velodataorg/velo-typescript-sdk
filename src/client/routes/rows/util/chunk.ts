@@ -2,13 +2,13 @@ import { DateTime } from "luxon";
 
 import { assert } from "../../../../util/assert.js";
 import { MAX_REQUESTS_PER_QUERY } from "../../../query.js";
+import { BASIS_COLUMN } from "../columns.js";
 import type { RowsQueryParams } from "../params.js";
 import type { TimeRange } from "./align.js";
 import { toResolutionValue } from "./resolution.js";
 
 export const MAX_CELLS_PER_REQUEST = 22_500;
 
-const BASIS_COLUMN = "3m_basis_ann";
 const BASIS_EXCHANGE_COUNT = 3;
 
 /**

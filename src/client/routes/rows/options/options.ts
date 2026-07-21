@@ -7,41 +7,10 @@ import type { Query } from "../../../query.js";
 import type { TermPoint } from "../../terms/schema.js";
 import type { TermsParams } from "../../terms/terms.js";
 import { createTermsQuery } from "../../terms/terms.js";
+import { OPTIONS_COLUMNS, type OptionsColumn } from "../columns.js";
 import type { Data, Row } from "../data.js";
 import { RowsParams, RowsQuery } from "../params.js";
 
-export const OPTIONS_COLUMNS = [
-  "iv_1w",
-  "iv_1m",
-  "iv_3m",
-  "iv_6m",
-  "skew_1w",
-  "skew_1m",
-  "skew_3m",
-  "skew_6m",
-  "vega_coins",
-  "vega_dollars",
-  "call_delta_coins",
-  "call_delta_dollars",
-  "put_delta_coins",
-  "put_delta_dollars",
-  "gamma_coins",
-  "gamma_dollars",
-  "call_volume",
-  "call_premium",
-  "call_notional",
-  "put_volume",
-  "put_premium",
-  "put_notional",
-  "dollar_volume",
-  "dvol_open",
-  "dvol_high",
-  "dvol_low",
-  "dvol_close",
-  "index_price",
-] as const;
-
-export type OptionsColumn = (typeof OPTIONS_COLUMNS)[number];
 export type OptionsRow<C extends OptionsColumn> = Row<OptionsExchange, C>;
 export type OptionsParams<C extends OptionsColumn = OptionsColumn> = RowsParams<OptionsExchange, C>;
 

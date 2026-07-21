@@ -1,14 +1,13 @@
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../../../exchange.js";
 import type { Http } from "../../../../transport/http.js";
 import type { Query } from "../../../query.js";
+import { BASIS_COLUMN, type FuturesStandardColumn } from "../columns.js";
 import type { Data } from "../data.js";
 import { RowsQuery } from "../params.js";
 import {
-  BASIS_COLUMN,
   FuturesParams,
   type FuturesBasisParams,
   type FuturesRow,
-  type FuturesStandardColumn,
   type FuturesStandardParams,
 } from "./params.js";
 

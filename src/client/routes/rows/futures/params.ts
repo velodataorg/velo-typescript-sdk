@@ -3,49 +3,17 @@ import { z } from "zod";
 import { VeloError } from "../../../../errors.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../../../exchange.js";
 import { timestamp, uniqueArray } from "../../../../schema.js";
+import {
+  BASIS_COLUMN,
+  FUTURES_STANDARD_COLUMNS,
+  type FuturesColumn,
+  type FuturesStandardColumn,
+} from "../columns.js";
 import type { Row } from "../data.js";
 import { RowsParams } from "../params.js";
 import type { Resolution } from "../util/resolution.js";
 import { ResolutionSchema } from "../util/resolution.js";
 
-export const FUTURES_STANDARD_COLUMNS = [
-  "open_price",
-  "high_price",
-  "low_price",
-  "close_price",
-  "coin_volume",
-  "dollar_volume",
-  "buy_trades",
-  "sell_trades",
-  "total_trades",
-  "buy_coin_volume",
-  "sell_coin_volume",
-  "buy_dollar_volume",
-  "sell_dollar_volume",
-  "coin_open_interest_high",
-  "coin_open_interest_low",
-  "coin_open_interest_close",
-  "dollar_open_interest_high",
-  "dollar_open_interest_low",
-  "dollar_open_interest_close",
-  "funding_rate",
-  "funding_rate_avg",
-  "premium",
-  "buy_liquidations",
-  "sell_liquidations",
-  "buy_liquidations_coin_volume",
-  "sell_liquidations_coin_volume",
-  "liquidations_coin_volume",
-  "buy_liquidations_dollar_volume",
-  "sell_liquidations_dollar_volume",
-  "liquidations_dollar_volume",
-] as const;
-
-export const BASIS_COLUMN = "3m_basis_ann";
-export const FUTURES_COLUMNS = [...FUTURES_STANDARD_COLUMNS, BASIS_COLUMN] as const;
-
-export type FuturesColumn = (typeof FUTURES_COLUMNS)[number];
-export type FuturesStandardColumn = (typeof FUTURES_STANDARD_COLUMNS)[number];
 export type FuturesRow<C extends FuturesColumn> = Row<FuturesExchange, C>;
 export type FuturesStandardParams<C extends FuturesStandardColumn = FuturesStandardColumn> =
   RowsParams<FuturesExchange, C>;
