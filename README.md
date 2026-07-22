@@ -2,18 +2,51 @@
   <h1>Velo TypeScript SDK</h1>
 </div>
 <p align="center">
-  A TypeScript SDK for Velo API
+  TypeScript SDK for Velo API
 </p>
 <br />
 
-This repository contains the TypeScript SDK for the Velo API. It exposes typed queries for fetching market data.
+This repository contains the TypeScript SDK for the Velo API. It exposes a fluent builder and typed queries for fetching market data.
 
-## Usage
+## Quick start
 
-### Overview
+### Builder pattern
+
+The builder pattern is syntactic sugar on top of the core SDK.
 
 ```ts
-import { Velo } from "../src/index.js";
+import { Velo } from "./index.js";
+
+async function main() {
+  const apiKey = process.env.VELO_API_KEY;
+  if (!apiKey) throw new Error("VELO_API_KEY not set");
+
+  const velo = new Velo({ apiKey });
+  const data = await velo.futures
+    .price("close", "high") // Using `price()` with no params would select all OHLC
+    .openInterest("close", { metric: "dollar" }) // Choose the metric, e.g. `dollar` or `coin`
+    .volume("total")
+    .premium()
+    .trades("total")
+    .coins(["BTC"]) // `.coins(...)` accepts the Velo-aggregated symbols
+    .last("11m")
+    .resolution("1m")
+    .execute();
+
+  for (const row of data.rows()) {
+    console.log(row);
+  }
+}
+
+main();
+```
+
+### Query pattern
+
+The query pattern utilizes objects as params.
+
+```ts
+import { Velo } from "./index.js";
 
 async function main() {
   const apiKey = process.env.VELO_API_KEY;
@@ -39,14 +72,24 @@ async function main() {
 main();
 ```
 
+### Fetch list of available products
+
+Fetch and locally search the products catalog.
+
+```ts
+const futures = await velo.catalog.futures({ product: "BTCUSDT" });
+const spot = await velo.catalog.spot({ coin: "BTC" });
+const options = await velo.catalog.options({ coin: "BTC" });
+```
+
 ### Result views
 
 `execute()` resolves to a `Data` object: lazily computed views over the fetched rows.
 
 ```ts
-const data = await velo.spot
+const data = await velo.futures
   .query({
-    exchanges: ["coinbase", "binance"],
+    exchanges: ["binance-futures"],
     coins: ["BTC"],
     columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
     begin: Date.now() - 60 * 60 * 1000,
@@ -55,38 +98,14 @@ const data = await velo.spot
   })
   .execute();
 
-data.rows(); // flat rows, series interleaved by time
-data.series(); // Map keyed "exchange:product" -> one series' rows
-data.columns(); // per series: { time: Float64Array, values: { close_price: Float64Array, ... } }
-data.candles(); // per series: { time, open, high, low, close, volume } per bucket
+// Different ways to view the returned data
+const rows = data.rows();
+const series = data.series();
+const columns = data.columns();
+const candles = data.candles();
 ```
 
 `candles()` is only available when the requested columns are the four OHLC prices plus at most one volume column; buckets without trades are skipped. When accumulating rows from `stream()` instead, build the same views with `Data.from(rows)`.
-
-### Catalog
-
-Fetch and locally search the active product catalogs:
-
-```ts
-const futures = await velo.catalog.futures({ coin: "BTC" });
-const spot = await velo.catalog.spot({ coin: "BTC" });
-const options = await velo.catalog.options({ coin: "BTC" });
-```
-
-### Options term structure
-
-Fetch the current BTC and ETH options term structures:
-
-```ts
-const points = await velo.options.terms({ coins: ["BTC", "ETH"] }).execute();
-
-for (const point of points) {
-  console.log(point.time, point.at_the_money_iv, point.fwd_iv);
-}
-```
-
-The term-structure endpoint supports BTC and ETH. Implied-volatility fields are `null` when the API
-has no value for an expiry.
 
 ### News
 
