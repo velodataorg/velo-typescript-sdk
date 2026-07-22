@@ -1,7 +1,7 @@
 import queryString from "query-string";
 
 import { version } from "../../package.json";
-import { BASE_URL } from "../constants.js";
+import { BASE_URL } from "../constants/endpoints.js";
 import { VeloError, VeloRequestError } from "../errors.js";
 import { assert } from "../util/assert.js";
 import { toConnectionError, toError } from "./error-mapping.js";

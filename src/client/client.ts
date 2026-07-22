@@ -2,12 +2,12 @@ import { Http } from "../transport/http.js";
 import type { HttpConfig } from "../transport/http.js";
 import { WebSocketTransport } from "../transport/websocket.js";
 import type { WebSocketFactory } from "../transport/websocket.js";
-import { Caps } from "./routes/caps/caps.js";
-import { Catalog } from "./routes/catalog/catalog.js";
-import { News } from "./routes/news/news.js";
-import { Futures } from "./routes/rows/futures/futures.js";
-import { Options } from "./routes/rows/options/options.js";
-import { Spot } from "./routes/rows/spot/spot.js";
+import { Caps } from "./api/caps/caps.js";
+import { Catalog } from "./api/catalog/catalog.js";
+import { Futures } from "./api/futures/futures.js";
+import { News } from "./api/news/news.js";
+import { Options } from "./api/options/options.js";
+import { Spot } from "./api/spot/spot.js";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */

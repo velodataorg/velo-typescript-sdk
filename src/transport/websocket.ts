@@ -1,4 +1,4 @@
-import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants.js";
+import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.js";
 import { VeloConnectionError, VeloError } from "../errors.js";
 import { assert } from "../util/assert.js";
 

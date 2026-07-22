@@ -1,21 +1,33 @@
-export type { Caps } from "./client/routes/caps/caps.js";
-export type { CapsParams } from "./client/routes/caps/caps-query.js";
-export type { Catalog } from "./client/routes/catalog/catalog.js";
-export type {
-  FutureProduct,
-  FuturesCatalogParams,
-} from "./client/routes/catalog/futures-catalog-query.js";
-export type {
-  OptionProduct,
-  OptionsCatalogParams,
-} from "./client/routes/catalog/options-catalog-query.js";
-export type { CatalogParams } from "./client/routes/catalog/params.js";
-export type { SpotCatalogParams, SpotProduct } from "./client/routes/catalog/spot-catalog-query.js";
+export type { Caps } from "./client/api/caps/caps.js";
+export type { CapsParams } from "./client/api/caps/query.js";
+export type { MarketCap } from "./client/api/caps/validation.js";
+export { CAPS_COLUMNS } from "./client/api/caps/validation.js";
+export type { Catalog } from "./client/api/catalog/catalog.js";
+export type { FutureProduct, FuturesCatalogParams } from "./client/api/catalog/futures.js";
+export type { OptionProduct, OptionsCatalogParams } from "./client/api/catalog/options.js";
+export type { CatalogParams } from "./client/api/catalog/params.js";
+export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
-export type { News } from "./client/routes/news/news.js";
-export type { NewsStoriesParams } from "./client/routes/news/news-query.js";
-export type { NewsStory } from "./client/routes/news/schema.js";
+export type { FuturesBuilder } from "./client/api/futures/builder.js";
+export type {
+  FuturesOpenInterestMetric,
+  FuturesOpenInterestPart,
+  FuturesPricePart,
+  LastDuration,
+} from "./client/api/futures/builder.js";
+export type { Futures } from "./client/api/futures/futures.js";
+export type {
+  BasisCoin,
+  FuturesBasisParams,
+  FuturesParams,
+  FuturesStandardParams,
+} from "./client/api/futures/params.js";
+export { BASIS_COINS } from "./client/api/futures/params.js";
+export type { FuturesRow } from "./client/api/futures/query.js";
+export type { News } from "./client/api/news/news.js";
+export type { NewsStoriesParams } from "./client/api/news/stories.js";
+export type { NewsStory } from "./client/api/news/validation.js";
 export type {
   NewsClose,
   NewsDelete,
@@ -24,64 +36,15 @@ export type {
   NewsWatcherListener,
   NewsWatcherState,
   NewsWatchOptions,
-} from "./client/routes/news/watch.js";
-export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/routes/news/watch.js";
-export { MAX_REQUESTS_PER_QUERY } from "./client/query.js";
-export type {
-  FuturesColumn,
-  FuturesStandardColumn,
-  MarketCap,
-  OptionsColumn,
-  SpotColumn,
-  TermPoint,
-  TermsCoin,
-} from "./client/routes/rows/columns.js";
-export {
-  BASIS_COLUMN,
-  CAPS_COLUMNS,
-  FUTURES_COLUMNS,
-  OPTIONS_COLUMNS,
-  SPOT_COLUMNS,
-  TERMS_COINS,
-  TERMS_COLUMNS,
-} from "./client/routes/rows/columns.js";
-export { Data } from "./client/routes/rows/data.js";
-export type { Row, RowBase, RowColumns, SeriesColumns } from "./client/routes/rows/data.js";
-export type { Exchange, FuturesExchange, OptionsExchange, SpotExchange } from "./exchange.js";
-export { FUTURES_EXCHANGES, OPTIONS_EXCHANGES, SPOT_EXCHANGES } from "./exchange.js";
-export type {
-  FuturesBuilder,
-  FuturesOpenInterestMetric,
-  FuturesOpenInterestPart,
-  FuturesPricePart,
-  LastDuration,
-} from "./client/routes/rows/futures/futures-builder.js";
-export type { Futures } from "./client/routes/rows/futures/futures.js";
-export type {
-  BasisCoin,
-  FuturesBasisParams,
-  FuturesParams,
-  FuturesStandardParams,
-} from "./client/routes/rows/futures/params.js";
-export type { FuturesRow } from "./client/routes/rows/futures/futures-query.js";
-export { BASIS_COINS } from "./client/routes/rows/futures/params.js";
-export type { Options } from "./client/routes/rows/options/options.js";
-export type { OptionsParams, OptionsRow } from "./client/routes/rows/options/params.js";
-export type { MarketType } from "./client/routes/rows/params.js";
-export type { Spot } from "./client/routes/rows/spot/spot.js";
-export type { SpotParams } from "./client/routes/rows/spot/params.js";
-export type { SpotRow } from "./client/routes/rows/spot/spot-query.js";
-export type {
-  CanCandle,
-  Candle,
-  CandlesUnavailable,
-  OhlcColumn,
-} from "./client/routes/rows/util/candles.js";
-export type { Resolution, ResolutionValue } from "./client/routes/rows/util/resolution.js";
-export { RESOLUTIONS, toResolutionValue } from "./client/routes/rows/util/resolution.js";
-export type { ProductKey } from "./client/routes/rows/util/product-key.js";
-export { formatProductKey, parseProductKey } from "./client/routes/rows/util/product-key.js";
-export type { TermsParams } from "./client/routes/terms/terms-query.js";
+} from "./client/api/news/watcher.js";
+export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/api/news/watcher.js";
+export type { Options } from "./client/api/options/options.js";
+export type { OptionsParams, OptionsRow } from "./client/api/options/params.js";
+export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.js";
+export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.js";
+export type { SpotParams } from "./client/api/spot/params.js";
+export type { SpotRow } from "./client/api/spot/query.js";
+export type { Spot } from "./client/api/spot/spot.js";
 export {
   BASE_URL,
   CAPS_PATH,
@@ -92,7 +55,45 @@ export {
   ROWS_PATH,
   SPOT_CATALOG_PATH,
   TERMS_PATH,
-} from "./constants.js";
+} from "./constants/endpoints.js";
+export type {
+  FuturesColumn,
+  FuturesStandardColumn,
+  OptionsColumn,
+  SpotColumn,
+} from "./client/common/market/columns.js";
+export {
+  BASIS_COLUMN,
+  FUTURES_COLUMNS,
+  OPTIONS_COLUMNS,
+  SPOT_COLUMNS,
+} from "./client/common/market/columns.js";
+export { Data } from "./client/common/data/data.js";
+export type { SeriesColumns } from "./client/common/data/data.js";
+export type {
+  Exchange,
+  FuturesExchange,
+  OptionsExchange,
+  SpotExchange,
+} from "./client/common/market/exchanges.js";
+export {
+  FUTURES_EXCHANGES,
+  OPTIONS_EXCHANGES,
+  SPOT_EXCHANGES,
+} from "./client/common/market/exchanges.js";
+export type { MarketType } from "./client/common/rows/params.js";
+export type {
+  CanCandle,
+  Candle,
+  CandlesUnavailable,
+  OhlcColumn,
+} from "./client/common/data/candles.js";
+export type { ProductKey } from "./client/common/data/product-key.js";
+export { formatProductKey, parseProductKey } from "./client/common/data/product-key.js";
+export type { Resolution, ResolutionValue } from "./client/common/rows/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/common/rows/resolution.js";
+export type { Row, RowBase, RowColumns } from "./client/common/data/row.js";
+export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.js";
 export {
   VeloAuthError,
   VeloBadRequestError,
