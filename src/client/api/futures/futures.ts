@@ -1,10 +1,12 @@
 import type { Http } from "../../../transport/http.js";
+import { FuturesBasisBuilder } from "./basis.js";
 import { FuturesBuilder } from "./builder.js";
 import { FuturesQuery } from "./query.js";
 
 /** The futures `/rows` namespace exposed by {@link Velo}. */
 export class Futures {
   readonly query: FuturesQuery["build"];
+  readonly basis: () => FuturesBasisBuilder;
   readonly price: FuturesBuilder<never>["price"];
   readonly volume: FuturesBuilder<never>["volume"];
   readonly trades: FuturesBuilder<never>["trades"];
@@ -24,6 +26,7 @@ export class Futures {
     const query = new FuturesQuery(http);
     const builder = new FuturesBuilder(query);
     this.query = query.build.bind(query);
+    this.basis = () => new FuturesBasisBuilder(query);
     this.price = builder.price.bind(builder);
     this.volume = builder.volume.bind(builder);
     this.trades = builder.trades.bind(builder);

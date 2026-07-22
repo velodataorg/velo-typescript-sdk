@@ -1,7 +1,12 @@
-import { Duration, type DurationUnit } from "luxon";
-
 import type { HttpRequestOptions } from "../../../transport/http.js";
 import { assert } from "../../../util/assert.js";
+import {
+  betweenTime,
+  type BuilderTime,
+  lastTime,
+  type LastDuration,
+  lowerTime,
+} from "../../common/builder/time.js";
 import type { Data } from "../../common/data/data.js";
 import type { FuturesStandardColumn } from "../../common/market/columns.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
@@ -43,6 +48,7 @@ export type {
   FuturesVolumeMetric,
   FuturesVolumePart,
 } from "./selectors.js";
+export type { LastDuration } from "../../common/builder/time.js";
 
 const {
   price: PRICE_COLUMNS,
@@ -55,27 +61,13 @@ const {
   liquidationVolume: LIQUIDATION_VOLUME_COLUMNS,
 } = FUTURES_SELECTOR_COLUMNS;
 
-const LAST_UNITS = {
-  m: "minutes",
-  h: "hours",
-  D: "days",
-  W: "weeks",
-} as const satisfies Record<string, DurationUnit>;
-
-/** A positive whole-number duration in minutes, hours, days, or weeks. */
-export type LastDuration = `${number}${keyof typeof LAST_UNITS}`;
-
-const LAST_PATTERN = /^(\d+)(m|h|D|W)$/;
-
 interface State {
   readonly columns: readonly FuturesStandardColumn[];
   readonly exchanges?: readonly FuturesExchange[];
   readonly selection?:
     | { readonly kind: "products"; readonly values: readonly string[] }
     | { readonly kind: "coins"; readonly values: readonly string[] };
-  readonly time?:
-    | { readonly kind: "between"; readonly begin: number; readonly end: number }
-    | { readonly kind: "last"; readonly milliseconds: number };
+  readonly time?: BuilderTime;
   readonly resolution?: Resolution;
 }
 
@@ -258,13 +250,7 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
    * called.
    */
   between(begin: number | Date, end: number | Date): FuturesBuilder<C> {
-    return this.#with({
-      time: {
-        kind: "between",
-        begin: FuturesBuilder.#timestamp(begin),
-        end: FuturesBuilder.#timestamp(end),
-      },
-    });
+    return this.#with({ time: betweenTime(begin, end) });
   }
 
   /**
@@ -275,9 +261,7 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
    * {@link FuturesBuilder.execute | execute()}, rather than by this method.
    */
   last(duration: LastDuration): FuturesBuilder<C> {
-    return this.#with({
-      time: { kind: "last", milliseconds: FuturesBuilder.#duration(duration) },
-    });
+    return this.#with({ time: lastTime(duration) });
   }
 
   /** Replaces the query resolution. */
@@ -338,15 +322,6 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
           ? { products: [...selection.values] }
           : { coins: [...selection.values] };
 
-    const selectedTime = this.#state.time;
-    let time: Partial<{ readonly begin: number; readonly end: number }> = {};
-    if (selectedTime?.kind === "between") {
-      time = { begin: selectedTime.begin, end: selectedTime.end };
-    } else if (selectedTime?.kind === "last") {
-      const end = Date.now();
-      time = { begin: end - selectedTime.milliseconds, end };
-    }
-
     const resolution =
       this.#state.resolution === undefined ? {} : { resolution: this.#state.resolution };
 
@@ -355,32 +330,8 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
       exchanges: [...(this.#state.exchanges ?? FUTURES_EXCHANGES)],
       columns: [...this.#state.columns] as C[],
       ...target,
-      ...time,
+      ...lowerTime(this.#state.time),
       ...resolution,
     } as unknown as FuturesStandardParams<C>;
-  }
-
-  static #duration(duration: LastDuration): number {
-    const match = LAST_PATTERN.exec(duration);
-    assert(
-      match !== null,
-      `Invalid last duration ${JSON.stringify(duration)}: expected a positive integer followed by m, h, D, or W`,
-    );
-    const count = Number(match[1]);
-    assert(
-      count > 0 && Number.isSafeInteger(count),
-      `Invalid last duration ${JSON.stringify(duration)}: expected a positive safe duration`,
-    );
-    const unit = LAST_UNITS[match[2] as keyof typeof LAST_UNITS];
-    const milliseconds = Duration.fromObject({ [unit]: count }).toMillis();
-    assert(
-      Number.isSafeInteger(milliseconds),
-      `Invalid last duration ${JSON.stringify(duration)}: expected a positive safe duration`,
-    );
-    return milliseconds;
-  }
-
-  static #timestamp(value: number | Date): number {
-    return value instanceof Date ? value.getTime() : value;
   }
 }

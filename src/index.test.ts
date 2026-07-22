@@ -19,6 +19,7 @@ import {
 } from "./index.js";
 import type {
   Exchange,
+  FuturesBasisBuilder,
   FuturesBuilder,
   FuturesFundingRatePart,
   FuturesLiquidationPart,
@@ -92,6 +93,9 @@ describe("rows public exports", () => {
     expectTypeOf<
       ReturnType<FuturesBuilder<"open_price">["params"]>["columns"][number]
     >().toEqualTypeOf<"open_price">();
+    expectTypeOf<ReturnType<FuturesBasisBuilder["params"]>["columns"]>().toEqualTypeOf<
+      readonly ["3m_basis_ann"]
+    >();
   });
 
   it("exports futures fluent selector vocabularies", () => {

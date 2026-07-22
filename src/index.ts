@@ -9,6 +9,7 @@ export type { CatalogParams } from "./client/api/catalog/params.js";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.js";
 export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
+export type { FuturesBasisBuilder } from "./client/api/futures/basis.js";
 export type { FuturesBuilder } from "./client/api/futures/builder.js";
 export type {
   FuturesFundingRatePart,
