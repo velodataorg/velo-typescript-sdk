@@ -12,7 +12,7 @@ import type {
   WebSocketTransport,
 } from "../../../transport/websocket.js";
 import { assert } from "../../../util/assert.js";
-import { NewsStorySchema } from "./schema.js";
+import { newsStorySchema } from "./schema.js";
 import type { NewsStory } from "./schema.js";
 
 const SUBSCRIBE_NEWS = "subscribe news_priority";
@@ -30,7 +30,7 @@ const DeleteSchema = z.strictObject({
   id: z.int(),
   deleted: z.literal(true),
 });
-const EditSchema = NewsStorySchema.extend({
+const EditSchema = newsStorySchema.extend({
   edit: z.literal(true),
 });
 
@@ -491,10 +491,10 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
   if (marker === "edit") {
     const result = EditSchema.safeParse(value);
     if (!result.success) throw unexpectedMessage(result.error);
-    return { type: "edit", story: NewsStorySchema.parse(result.data) };
+    return { type: "edit", story: newsStorySchema.parse(result.data) };
   }
 
-  const result = NewsStorySchema.safeParse(value);
+  const result = newsStorySchema.safeParse(value);
   if (!result.success) throw unexpectedMessage(result.error);
   return { type: "story", story: result.data };
 }

@@ -7,8 +7,8 @@ import type { Query } from "../../../query.js";
 import type { FuturesStandardColumn } from "../columns.js";
 import type { Data } from "../data.js";
 import type { Resolution } from "../util/resolution.js";
-import { FuturesQuery } from "./futures-query.js";
-import { FuturesParams, type FuturesRow, type FuturesStandardParams } from "./params.js";
+import { FuturesQuery, type FuturesRow } from "./futures-query.js";
+import { FuturesParams, type FuturesStandardParams } from "./params.js";
 
 /** Price components selectable by the futures fluent query builder. */
 export type FuturesPricePart = "open" | "high" | "low" | "close";

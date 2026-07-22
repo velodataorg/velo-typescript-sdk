@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-const TimestampSchema = z.int().nonnegative();
+const timestampSchema = z.int().nonnegative();
 
-export const NewsStorySchema = z.object({
+export const newsStorySchema = z.object({
   id: z.int(),
-  time: TimestampSchema,
-  effectiveTime: TimestampSchema,
+  time: timestampSchema,
+  effectiveTime: timestampSchema,
   effectivePrice: z.number().nullable(),
   headline: z.string(),
   source: z.string().nullable(),
@@ -15,9 +15,9 @@ export const NewsStorySchema = z.object({
   link: z.string().nullable(),
 });
 
-export const NewsResponseSchema = z.object({
-  stories: z.array(NewsStorySchema),
+export const newsResponseSchema = z.object({
+  stories: z.array(newsStorySchema),
 });
 
 /* One news story returned by the historical and live News APIs. */
-export type NewsStory = z.infer<typeof NewsStorySchema>;
+export type NewsStory = z.infer<typeof newsStorySchema>;

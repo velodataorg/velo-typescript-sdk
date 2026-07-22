@@ -21,7 +21,7 @@ function client(body: string, urls: string[] = []) {
 }
 
 describe("Velo.catalog.spot", () => {
-  it("fetches, searches, and decodes the spot catalog", async () => {
+  it("fetches, searches, and decodes the spot product catalog", async () => {
     const { velo, urls } = client(SPOT_CSV);
     const products = await velo.catalog.spot({
       coin: "btc",

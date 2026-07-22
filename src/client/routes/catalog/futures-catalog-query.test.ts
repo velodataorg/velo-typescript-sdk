@@ -23,7 +23,7 @@ function client(body: string, urls: string[] = []) {
 }
 
 describe("Velo.catalog.futures", () => {
-  it("fetches active futures and decodes their exact shape", async () => {
+  it("fetches the active futures catalog and decodes its exact shape", async () => {
     const { velo, urls } = client(FUTURES_CSV);
     const products = await velo.catalog.futures();
 

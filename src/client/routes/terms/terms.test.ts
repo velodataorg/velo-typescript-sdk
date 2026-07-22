@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import { TERMS_COLUMNS } from "./schema.js";
-import type { TermsCoin } from "./schema.js";
+import { TERMS_COLUMNS, type TermsCoin } from "../rows/columns.js";
 
 const TERMS_CSV =
   "coin,time,at_the_money_iv,dte,fwd_iv\n" +

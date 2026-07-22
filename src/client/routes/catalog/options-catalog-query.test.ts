@@ -18,7 +18,7 @@ function client(body: string, urls: string[] = []) {
 }
 
 describe("Velo.catalog.options", () => {
-  it("fetches, searches, and decodes the options catalog", async () => {
+  it("fetches, searches, and decodes the options product catalog", async () => {
     const { velo, urls } = client(OPTIONS_CSV);
     const products = await velo.catalog.options({ product: "btc" });
 

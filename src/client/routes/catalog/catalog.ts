@@ -1,29 +1,20 @@
 import type { Http } from "../../../transport/http.js";
-import { createFuturesCatalog } from "./futures.js";
-import type { FuturesCatalog } from "./futures.js";
-import { createOptionsCatalog } from "./options.js";
-import type { OptionsCatalog } from "./options.js";
-import { createSpotCatalog } from "./spot.js";
-import type { SpotCatalog } from "./spot.js";
+import { FuturesCatalogQuery } from "./futures-catalog-query.js";
+import { OptionsCatalogQuery } from "./options-catalog-query.js";
+import { SpotCatalogQuery } from "./spot-catalog-query.js";
 
-export type { FutureProduct, FuturesCatalogParams } from "./futures.js";
-export type { OptionProduct, OptionsCatalogParams } from "./options.js";
-export type { CatalogParams } from "./params.js";
-export type { SpotCatalogParams, SpotProduct } from "./spot.js";
+/** The product-catalog namespace exposed by {@link Velo}. */
+export class Catalog {
+  readonly futures: FuturesCatalogQuery["build"];
+  readonly options: OptionsCatalogQuery["build"];
+  readonly spot: SpotCatalogQuery["build"];
 
-export interface Catalog {
-  readonly futures: FuturesCatalog;
-  readonly spot: SpotCatalog;
-  readonly options: OptionsCatalog;
-}
-
-/**
- * Creates the stable product-catalog namespace.
- */
-export function createCatalog(http: Http): Catalog {
-  return {
-    futures: createFuturesCatalog(http),
-    spot: createSpotCatalog(http),
-    options: createOptionsCatalog(http),
-  };
+  constructor(http: Http) {
+    const futures = new FuturesCatalogQuery(http);
+    const options = new OptionsCatalogQuery(http);
+    const spot = new SpotCatalogQuery(http);
+    this.futures = futures.build.bind(futures);
+    this.options = options.build.bind(options);
+    this.spot = spot.build.bind(spot);
+  }
 }

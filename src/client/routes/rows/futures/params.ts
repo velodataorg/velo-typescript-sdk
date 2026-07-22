@@ -3,18 +3,11 @@ import { z } from "zod";
 import { VeloError } from "../../../../errors.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../../../exchange.js";
 import { timestamp, uniqueArray } from "../../../../schema.js";
-import {
-  BASIS_COLUMN,
-  FUTURES_STANDARD_COLUMNS,
-  type FuturesColumn,
-  type FuturesStandardColumn,
-} from "../columns.js";
-import type { Row } from "../data.js";
+import { BASIS_COLUMN, FUTURES_STANDARD_COLUMNS, type FuturesStandardColumn } from "../columns.js";
 import { RowsParams } from "../params.js";
 import type { Resolution } from "../util/resolution.js";
 import { ResolutionSchema } from "../util/resolution.js";
 
-export type FuturesRow<C extends FuturesColumn> = Row<FuturesExchange, C>;
 export type FuturesStandardParams<C extends FuturesStandardColumn = FuturesStandardColumn> =
   RowsParams<FuturesExchange, C>;
 
@@ -33,9 +26,9 @@ export interface FuturesBasisParams {
 
 export type FuturesParams = FuturesStandardParams | FuturesBasisParams;
 
-const StandardParamsSchema = RowsParams.schema(FUTURES_EXCHANGES, FUTURES_STANDARD_COLUMNS);
+const FuturesStandardParamsSchema = RowsParams.schema(FUTURES_EXCHANGES, FUTURES_STANDARD_COLUMNS);
 
-const BasisParamsSchema = z
+const FuturesBasisParamsSchema = z
   .strictObject({
     columns: z.tuple([z.literal(BASIS_COLUMN)]),
     coins: uniqueArray(z.enum(BASIS_COINS)),
@@ -48,12 +41,12 @@ const BasisParamsSchema = z
     message: "must be a millisecond timestamp after begin",
   });
 
-const ParamsSchema = z.union([StandardParamsSchema, BasisParamsSchema]);
+const FuturesParamsSchema = z.union([FuturesStandardParamsSchema, FuturesBasisParamsSchema]);
 
 export const FuturesParams = Object.freeze({
   /** Validates futures parameters while preserving their static column selection. */
   parse<P extends FuturesParams>(params: P): P {
-    const parsed = ParamsSchema.safeParse(params);
+    const parsed = FuturesParamsSchema.safeParse(params);
     if (!parsed.success) {
       throw new VeloError(`Invalid futures params:\n${z.prettifyError(parsed.error)}`);
     }

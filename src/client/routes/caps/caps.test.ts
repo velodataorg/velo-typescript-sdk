@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import { CAPS_COLUMNS } from "./schema.js";
+import { CAPS_COLUMNS } from "../rows/columns.js";
 
 const CAPS_CSV =
   "coin,time,circ,circ_dollars,fdv,fdv_dollars\n" +

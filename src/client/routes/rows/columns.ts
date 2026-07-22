@@ -1,3 +1,35 @@
+import { z } from "zod";
+
+import { csvNumberOrNull, csvTimestamp } from "../../decode/schema.js";
+
+export const marketCapSchema = z.strictObject({
+  coin: z.string().min(1),
+  time: csvTimestamp,
+  circ: csvNumberOrNull,
+  circ_dollars: csvNumberOrNull,
+  fdv: csvNumberOrNull,
+  fdv_dollars: csvNumberOrNull,
+});
+
+export const CAPS_COLUMNS = Object.keys(marketCapSchema.shape) as (keyof MarketCap)[];
+
+export type MarketCap = z.output<typeof marketCapSchema>;
+
+export const TERMS_COINS = ["BTC", "ETH"] as const;
+export type TermsCoin = (typeof TERMS_COINS)[number];
+
+export const termPointSchema = z.strictObject({
+  coin: z.enum(TERMS_COINS),
+  time: csvTimestamp,
+  at_the_money_iv: csvNumberOrNull,
+  dte: csvNumberOrNull,
+  fwd_iv: csvNumberOrNull,
+});
+
+export const TERMS_COLUMNS = Object.keys(termPointSchema.shape) as (keyof TermPoint)[];
+
+export type TermPoint = z.output<typeof termPointSchema>;
+
 export const FUTURES_STANDARD_COLUMNS = [
   "open_price",
   "high_price",

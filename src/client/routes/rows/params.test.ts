@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { FuturesBasisParams, FuturesStandardParams } from "./futures/params.js";
-import type { OptionsParams } from "./options/options.js";
-import type { SpotParams } from "./spot/spot.js";
+import type { OptionsParams } from "./options/params.js";
+import type { SpotParams } from "./spot/params.js";
 
 const range = {
   begin: 1_767_225_600_000,

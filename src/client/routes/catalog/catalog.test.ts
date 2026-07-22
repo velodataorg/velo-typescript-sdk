@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { Velo } from "../../client.js";
-import type { FuturesCatalogParams, OptionsCatalogParams, SpotCatalogParams } from "./catalog.js";
+import type { FuturesCatalogParams } from "./futures-catalog-query.js";
+import type { OptionsCatalogParams } from "./options-catalog-query.js";
+import type { SpotCatalogParams } from "./spot-catalog-query.js";
 
 const validFuturesSearches: FuturesCatalogParams[] = [
   {},
