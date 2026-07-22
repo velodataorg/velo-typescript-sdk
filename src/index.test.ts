@@ -40,10 +40,26 @@ import type {
   NewsStory,
   NewsWatcherEvents,
   NewsWatcherListener,
+  OptionsBuilder,
+  OptionsDeltaMetric,
+  OptionsDeltaPart,
+  OptionsDvolPart,
+  OptionsGammaMetric,
+  OptionsIvTenor,
+  OptionsNotionalPart,
   OptionsParams,
+  OptionsPremiumPart,
+  OptionsSkewTenor,
+  OptionsVegaMetric,
+  OptionsVolumePart,
   OptionProduct,
   SpotParams,
+  SpotBuilder,
+  SpotPricePart,
   SpotProduct,
+  SpotTradePart,
+  SpotVolumeMetric,
+  SpotVolumePart,
   StatusResponse,
   TermPoint,
   TermsCoin,
@@ -85,9 +101,15 @@ describe("rows public exports", () => {
       (typeof FUTURES_EXCHANGES)[number]
     >();
     expectTypeOf<SpotParams["columns"][number]>().toEqualTypeOf<(typeof SPOT_COLUMNS)[number]>();
+    expectTypeOf<
+      ReturnType<SpotBuilder<"open_price">["params"]>["columns"][number]
+    >().toEqualTypeOf<"open_price">();
     expectTypeOf<OptionsParams["columns"][number]>().toEqualTypeOf<
       (typeof OPTIONS_COLUMNS)[number]
     >();
+    expectTypeOf<
+      ReturnType<OptionsBuilder<"iv_1m">["params"]>["columns"][number]
+    >().toEqualTypeOf<"iv_1m">();
     expectTypeOf<FuturesRow<"close_price">["close_price"]>().toEqualTypeOf<number | null>();
     expectTypeOf<"11m">().toMatchTypeOf<LastDuration>();
     expectTypeOf<
@@ -109,6 +131,26 @@ describe("rows public exports", () => {
     expectTypeOf<FuturesLiquidationPart>().toEqualTypeOf<"buy" | "sell">();
     expectTypeOf<FuturesLiquidationVolumeMetric>().toEqualTypeOf<"coin" | "dollar">();
     expectTypeOf<FuturesLiquidationVolumePart>().toEqualTypeOf<"buy" | "sell" | "total">();
+  });
+
+  it("exports spot fluent selector vocabularies", () => {
+    expectTypeOf<SpotPricePart>().toEqualTypeOf<"open" | "high" | "low" | "close">();
+    expectTypeOf<SpotVolumeMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<SpotVolumePart>().toEqualTypeOf<"total" | "buy" | "sell">();
+    expectTypeOf<SpotTradePart>().toEqualTypeOf<"buy" | "sell" | "total">();
+  });
+
+  it("exports options fluent selector vocabularies", () => {
+    expectTypeOf<OptionsIvTenor>().toEqualTypeOf<"1w" | "1m" | "3m" | "6m">();
+    expectTypeOf<OptionsSkewTenor>().toEqualTypeOf<"1w" | "1m" | "3m" | "6m">();
+    expectTypeOf<OptionsVegaMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<OptionsDeltaMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<OptionsDeltaPart>().toEqualTypeOf<"call" | "put">();
+    expectTypeOf<OptionsGammaMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<OptionsVolumePart>().toEqualTypeOf<"call" | "put">();
+    expectTypeOf<OptionsPremiumPart>().toEqualTypeOf<"call" | "put">();
+    expectTypeOf<OptionsNotionalPart>().toEqualTypeOf<"call" | "put">();
+    expectTypeOf<OptionsDvolPart>().toEqualTypeOf<"open" | "high" | "low" | "close">();
   });
 });
 

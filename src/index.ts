@@ -47,11 +47,31 @@ export type {
 } from "./client/api/news/watcher.js";
 export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/api/news/watcher.js";
 export type { Options } from "./client/api/options/options.js";
+export type {
+  OptionsBuilder,
+  OptionsDeltaMetric,
+  OptionsDeltaPart,
+  OptionsDvolPart,
+  OptionsGammaMetric,
+  OptionsIvTenor,
+  OptionsNotionalPart,
+  OptionsPremiumPart,
+  OptionsSkewTenor,
+  OptionsVegaMetric,
+  OptionsVolumePart,
+} from "./client/api/options/builder.js";
 export type { OptionsParams, OptionsRow } from "./client/api/options/params.js";
 export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.js";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.js";
 export type { SpotParams } from "./client/api/spot/params.js";
 export type { SpotRow } from "./client/api/spot/query.js";
+export type {
+  SpotBuilder,
+  SpotPricePart,
+  SpotTradePart,
+  SpotVolumeMetric,
+  SpotVolumePart,
+} from "./client/api/spot/builder.js";
 export type { Spot } from "./client/api/spot/spot.js";
 export type { Status, StatusResponse } from "./client/api/status/status.js";
 export {
