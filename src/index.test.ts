@@ -20,10 +20,18 @@ import {
 import type {
   Exchange,
   FuturesBuilder,
+  FuturesFundingRatePart,
+  FuturesLiquidationPart,
+  FuturesLiquidationVolumeMetric,
+  FuturesLiquidationVolumePart,
   FuturesOpenInterestMetric,
+  FuturesOpenInterestPart,
   FuturesPricePart,
   FuturesRow,
   FuturesStandardParams,
+  FuturesTradePart,
+  FuturesVolumeMetric,
+  FuturesVolumePart,
   FutureProduct,
   LastDuration,
   MarketCap,
@@ -80,12 +88,23 @@ describe("rows public exports", () => {
       (typeof OPTIONS_COLUMNS)[number]
     >();
     expectTypeOf<FuturesRow<"close_price">["close_price"]>().toEqualTypeOf<number | null>();
-    expectTypeOf<FuturesPricePart>().toEqualTypeOf<"open" | "high" | "low" | "close">();
-    expectTypeOf<FuturesOpenInterestMetric>().toEqualTypeOf<"coin" | "dollar">();
     expectTypeOf<"11m">().toMatchTypeOf<LastDuration>();
     expectTypeOf<
       ReturnType<FuturesBuilder<"open_price">["params"]>["columns"][number]
     >().toEqualTypeOf<"open_price">();
+  });
+
+  it("exports futures fluent selector vocabularies", () => {
+    expectTypeOf<FuturesPricePart>().toEqualTypeOf<"open" | "high" | "low" | "close">();
+    expectTypeOf<FuturesVolumeMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<FuturesVolumePart>().toEqualTypeOf<"total" | "buy" | "sell">();
+    expectTypeOf<FuturesTradePart>().toEqualTypeOf<"buy" | "sell" | "total">();
+    expectTypeOf<FuturesOpenInterestMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<FuturesOpenInterestPart>().toEqualTypeOf<"high" | "low" | "close">();
+    expectTypeOf<FuturesFundingRatePart>().toEqualTypeOf<"rate" | "average">();
+    expectTypeOf<FuturesLiquidationPart>().toEqualTypeOf<"buy" | "sell">();
+    expectTypeOf<FuturesLiquidationVolumeMetric>().toEqualTypeOf<"coin" | "dollar">();
+    expectTypeOf<FuturesLiquidationVolumePart>().toEqualTypeOf<"buy" | "sell" | "total">();
   });
 });
 

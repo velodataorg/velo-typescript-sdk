@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
 import type { Data } from "../../common/data/data.js";
+import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
 import type { FuturesBuilder, LastDuration } from "./builder.js";
 
@@ -28,6 +29,24 @@ describe("futures fluent builder", () => {
     expect(futures).not.toHaveProperty("params");
     expect(futures).not.toHaveProperty("build");
     expect(futures).not.toHaveProperty("execute");
+  });
+
+  it("exposes every selector as a futures namespace entry point", () => {
+    const { futures } = client().velo;
+    const selectors = [
+      "price",
+      "volume",
+      "trades",
+      "openInterest",
+      "fundingRate",
+      "premium",
+      "liquidations",
+      "liquidationVolume",
+    ] as const;
+
+    for (const selector of selectors) {
+      expect(futures[selector]).toBeTypeOf("function");
+    }
   });
 
   it("accumulates typed columns, deduplicates them, and preserves insertion order", () => {
@@ -128,6 +147,60 @@ describe("futures fluent builder", () => {
         "coin_open_interest_high" | "coin_open_interest_low" | "coin_open_interest_close"
       >
     >();
+  });
+
+  it("maps the remaining selectors to exact accumulated column types", () => {
+    const builder = client()
+      .velo.futures.volume("buy", { metric: "coin" })
+      .trades("sell")
+      .fundingRate("average")
+      .premium()
+      .liquidations("buy")
+      .liquidationVolume("total", { metric: "dollar" })
+      .products(["BTCUSDT"])
+      .between(begin, end)
+      .resolution("1h");
+
+    expect(builder.params().columns).toEqual([
+      "buy_coin_volume",
+      "sell_trades",
+      "funding_rate_avg",
+      "premium",
+      "buy_liquidations",
+      "liquidations_dollar_volume",
+    ]);
+    expectTypeOf(builder).toEqualTypeOf<
+      FuturesBuilder<
+        | "buy_coin_volume"
+        | "sell_trades"
+        | "funding_rate_avg"
+        | "premium"
+        | "buy_liquidations"
+        | "liquidations_dollar_volume"
+      >
+    >();
+  });
+
+  it("makes every standard futures column reachable through fluent selectors", () => {
+    const columns = client()
+      .velo.futures.price()
+      .volume()
+      .volume(undefined, { metric: "coin" })
+      .trades()
+      .openInterest()
+      .openInterest(undefined, { metric: "coin" })
+      .fundingRate()
+      .premium()
+      .liquidations()
+      .liquidationVolume()
+      .liquidationVolume(undefined, { metric: "coin" })
+      .products(["BTCUSDT"])
+      .between(begin, end)
+      .resolution("1h")
+      .params().columns;
+
+    expect(columns).toHaveLength(FUTURES_STANDARD_COLUMNS.length);
+    expect(new Set(columns)).toEqual(new Set(FUTURES_STANDARD_COLUMNS));
   });
 
   it("snapshots caller-owned arrays and dates", () => {

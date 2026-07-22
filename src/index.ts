@@ -11,9 +11,16 @@ export type { VeloConfig } from "./client/client.js";
 export { Velo } from "./client/client.js";
 export type { FuturesBuilder } from "./client/api/futures/builder.js";
 export type {
+  FuturesFundingRatePart,
+  FuturesLiquidationPart,
+  FuturesLiquidationVolumeMetric,
+  FuturesLiquidationVolumePart,
   FuturesOpenInterestMetric,
   FuturesOpenInterestPart,
   FuturesPricePart,
+  FuturesTradePart,
+  FuturesVolumeMetric,
+  FuturesVolumePart,
   LastDuration,
 } from "./client/api/futures/builder.js";
 export type { Futures } from "./client/api/futures/futures.js";

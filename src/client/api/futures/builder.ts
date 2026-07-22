@@ -11,20 +11,49 @@ import { FuturesParams, type FuturesStandardParams } from "./params.js";
 import { FuturesQuery, type FuturesRow } from "./query.js";
 import {
   FUTURES_SELECTOR_COLUMNS,
+  type FuturesFundingRateColumn,
+  type FuturesFundingRatePart,
+  type FuturesLiquidationColumn,
+  type FuturesLiquidationPart,
+  type FuturesLiquidationVolumeColumn,
+  type FuturesLiquidationVolumeMetric,
+  type FuturesLiquidationVolumePart,
   type FuturesOpenInterestColumn,
   type FuturesOpenInterestMetric,
   type FuturesOpenInterestPart,
   type FuturesPriceColumn,
   type FuturesPricePart,
+  type FuturesPremiumColumn,
+  type FuturesTradeColumn,
+  type FuturesTradePart,
+  type FuturesVolumeColumn,
+  type FuturesVolumeMetric,
+  type FuturesVolumePart,
 } from "./selectors.js";
 
 export type {
+  FuturesFundingRatePart,
+  FuturesLiquidationPart,
+  FuturesLiquidationVolumeMetric,
+  FuturesLiquidationVolumePart,
   FuturesOpenInterestMetric,
   FuturesOpenInterestPart,
   FuturesPricePart,
+  FuturesTradePart,
+  FuturesVolumeMetric,
+  FuturesVolumePart,
 } from "./selectors.js";
 
-const { price: PRICE_COLUMNS, openInterest: OPEN_INTEREST_COLUMNS } = FUTURES_SELECTOR_COLUMNS;
+const {
+  price: PRICE_COLUMNS,
+  volume: VOLUME_COLUMNS,
+  trades: TRADE_COLUMNS,
+  openInterest: OPEN_INTEREST_COLUMNS,
+  fundingRate: FUNDING_RATE_COLUMNS,
+  premium: PREMIUM_COLUMN,
+  liquidations: LIQUIDATION_COLUMNS,
+  liquidationVolume: LIQUIDATION_VOLUME_COLUMNS,
+} = FUTURES_SELECTOR_COLUMNS;
 
 const LAST_UNITS = {
   m: "minutes",
@@ -82,6 +111,37 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
   }
 
   /**
+   * Adds one volume column, or every volume component for one metric when the
+   * part is omitted.
+   *
+   * @param part - Volume component to add; defaults to all components when omitted.
+   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  volume<P extends FuturesVolumePart = FuturesVolumePart, M extends FuturesVolumeMetric = "dollar">(
+    part?: P,
+    options?: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>> {
+    const metric = options?.metric ?? "dollar";
+    const columns = VOLUME_COLUMNS[metric];
+    const selected = part === undefined ? Object.values(columns) : [columns[part]];
+    return this.#withColumns(selected) as FuturesBuilder<C | FuturesVolumeColumn<M, P>>;
+  }
+
+  /**
+   * Adds one trade-count column, or every trade-count column when the part is omitted.
+   *
+   * @param part - Trade-count component to add; defaults to all components when omitted.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  trades<P extends FuturesTradePart = FuturesTradePart>(
+    part?: P,
+  ): FuturesBuilder<C | FuturesTradeColumn<P>> {
+    const columns = part === undefined ? Object.values(TRADE_COLUMNS) : [TRADE_COLUMNS[part]];
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesTradeColumn<P>>;
+  }
+
+  /**
    * Adds one open-interest column, or every open-interest column when the
    * part is omitted.
    *
@@ -100,6 +160,60 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
     const columns = OPEN_INTEREST_COLUMNS[metric];
     const selected = part === undefined ? Object.values(columns) : [columns[part]];
     return this.#withColumns(selected) as FuturesBuilder<C | FuturesOpenInterestColumn<M, P>>;
+  }
+
+  /**
+   * Adds one funding-rate column, or both funding-rate columns when the part is omitted.
+   *
+   * @param part - Funding-rate component to add; defaults to both components when omitted.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  fundingRate<P extends FuturesFundingRatePart = FuturesFundingRatePart>(
+    part?: P,
+  ): FuturesBuilder<C | FuturesFundingRateColumn<P>> {
+    const columns =
+      part === undefined ? Object.values(FUNDING_RATE_COLUMNS) : [FUNDING_RATE_COLUMNS[part]];
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesFundingRateColumn<P>>;
+  }
+
+  /** Adds the futures premium column. */
+  premium(): FuturesBuilder<C | FuturesPremiumColumn> {
+    return this.#withColumns([PREMIUM_COLUMN]);
+  }
+
+  /**
+   * Adds one liquidation-count column, or both count columns when the part is omitted.
+   *
+   * @param part - Liquidation side to add; defaults to both sides when omitted.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  liquidations<P extends FuturesLiquidationPart = FuturesLiquidationPart>(
+    part?: P,
+  ): FuturesBuilder<C | FuturesLiquidationColumn<P>> {
+    const columns =
+      part === undefined ? Object.values(LIQUIDATION_COLUMNS) : [LIQUIDATION_COLUMNS[part]];
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesLiquidationColumn<P>>;
+  }
+
+  /**
+   * Adds one liquidation-volume column, or every component for one metric
+   * when the part is omitted.
+   *
+   * @param part - Liquidation-volume component to add; defaults to all components when omitted.
+   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  liquidationVolume<
+    P extends FuturesLiquidationVolumePart = FuturesLiquidationVolumePart,
+    M extends FuturesLiquidationVolumeMetric = "dollar",
+  >(
+    part?: P,
+    options?: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>> {
+    const metric = options?.metric ?? "dollar";
+    const columns = LIQUIDATION_VOLUME_COLUMNS[metric];
+    const selected = part === undefined ? Object.values(columns) : [columns[part]];
+    return this.#withColumns(selected) as FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>>;
   }
 
   /**
