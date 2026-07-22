@@ -8,6 +8,7 @@ import { Futures } from "./api/futures/futures.js";
 import { News } from "./api/news/news.js";
 import { Options } from "./api/options/options.js";
 import { Spot } from "./api/spot/spot.js";
+import { Status } from "./api/status/status.js";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
@@ -22,6 +23,7 @@ export class Velo {
   readonly #futures: Futures;
   readonly #options: Options;
   readonly #spot: Spot;
+  readonly #status: Status;
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
@@ -32,6 +34,7 @@ export class Velo {
     this.#futures = new Futures(this.#http);
     this.#options = new Options(this.#http);
     this.#spot = new Spot(this.#http);
+    this.#status = new Status(this.#http);
   }
 
   get caps(): Caps {
@@ -56,5 +59,9 @@ export class Velo {
 
   get spot(): Spot {
     return this.#spot;
+  }
+
+  get status(): Status {
+    return this.#status;
   }
 }

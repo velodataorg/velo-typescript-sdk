@@ -45,6 +45,7 @@ export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.js";
 export type { SpotParams } from "./client/api/spot/params.js";
 export type { SpotRow } from "./client/api/spot/query.js";
 export type { Spot } from "./client/api/spot/spot.js";
+export type { Status, StatusResponse } from "./client/api/status/status.js";
 export {
   BASE_URL,
   CAPS_PATH,
@@ -54,6 +55,7 @@ export {
   OPTIONS_CATALOG_PATH,
   ROWS_PATH,
   SPOT_CATALOG_PATH,
+  STATUS_PATH,
   TERMS_PATH,
 } from "./constants/endpoints.js";
 export type {

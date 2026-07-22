@@ -10,6 +10,7 @@ import {
   RESOLUTIONS,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
+  STATUS_PATH,
   TERMS_COINS,
   TERMS_COLUMNS,
   TERMS_PATH,
@@ -30,6 +31,7 @@ import type {
   OptionProduct,
   SpotParams,
   SpotProduct,
+  StatusResponse,
   TermPoint,
   TermsCoin,
   TermsParams,
@@ -86,6 +88,13 @@ describe("terms public exports", () => {
     expectTypeOf<TermsParams["coins"][number]>().toEqualTypeOf<TermsCoin>();
     expectTypeOf<TermPoint["coin"]>().toEqualTypeOf<TermsCoin>();
     expectTypeOf<TermPoint["fwd_iv"]>().toEqualTypeOf<number | null>();
+  });
+});
+
+describe("status public exports", () => {
+  it("exports the endpoint contract", () => {
+    expect(STATUS_PATH).toBe("/api/v1/status");
+    expectTypeOf<StatusResponse>().toEqualTypeOf<"ok">();
   });
 });
 

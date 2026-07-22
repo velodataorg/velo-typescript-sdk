@@ -1,5 +1,6 @@
 export const BASE_URL = "https://api.velo.xyz";
 
+export const STATUS_PATH = "/api/v1/status";
 export const ROWS_PATH = "/api/v1/rows";
 export const FUTURES_CATALOG_PATH = "/api/v1/futures";
 export const OPTIONS_CATALOG_PATH = "/api/v1/options";
