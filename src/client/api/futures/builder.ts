@@ -9,22 +9,22 @@ import type { Query } from "../../common/query.js";
 import type { Resolution } from "../../common/rows/resolution.js";
 import { FuturesParams, type FuturesStandardParams } from "./params.js";
 import { FuturesQuery, type FuturesRow } from "./query.js";
+import {
+  FUTURES_SELECTOR_COLUMNS,
+  type FuturesOpenInterestColumn,
+  type FuturesOpenInterestMetric,
+  type FuturesOpenInterestPart,
+  type FuturesPriceColumn,
+  type FuturesPricePart,
+} from "./selectors.js";
 
-/** Price components selectable by the futures fluent query builder. */
-export type FuturesPricePart = "open" | "high" | "low" | "close";
+export type {
+  FuturesOpenInterestMetric,
+  FuturesOpenInterestPart,
+  FuturesPricePart,
+} from "./selectors.js";
 
-/** Open-interest components selectable by the futures fluent query builder. */
-export type FuturesOpenInterestPart = "high" | "low" | "close";
-
-/** Unit used for open-interest columns. */
-export type FuturesOpenInterestMetric = "coin" | "dollar";
-
-const PRICE_PARTS = ["open", "high", "low", "close"] as const satisfies readonly FuturesPricePart[];
-const OPEN_INTEREST_PARTS = [
-  "high",
-  "low",
-  "close",
-] as const satisfies readonly FuturesOpenInterestPart[];
+const { price: PRICE_COLUMNS, openInterest: OPEN_INTEREST_COLUMNS } = FUTURES_SELECTOR_COLUMNS;
 
 const LAST_UNITS = {
   m: "minutes",
@@ -75,9 +75,10 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
    */
   price<P extends FuturesPricePart = FuturesPricePart>(
     ...parts: readonly P[]
-  ): FuturesBuilder<C | `${P}_price`> {
-    const selected: readonly FuturesPricePart[] = parts.length === 0 ? PRICE_PARTS : parts;
-    return this.#withColumns(selected.map((part) => `${part}_price` as `${P}_price`));
+  ): FuturesBuilder<C | FuturesPriceColumn<P>> {
+    const columns =
+      parts.length === 0 ? Object.values(PRICE_COLUMNS) : parts.map((part) => PRICE_COLUMNS[part]);
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesPriceColumn<P>>;
   }
 
   /**
@@ -91,13 +92,14 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
   openInterest<
     P extends FuturesOpenInterestPart = FuturesOpenInterestPart,
     M extends FuturesOpenInterestMetric = "dollar",
-  >(part?: P, options?: { readonly metric: M }): FuturesBuilder<C | `${M}_open_interest_${P}`> {
-    const selected: readonly FuturesOpenInterestPart[] =
-      part === undefined ? OPEN_INTEREST_PARTS : [part];
+  >(
+    part?: P,
+    options?: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>> {
     const metric = options?.metric ?? "dollar";
-    return this.#withColumns(
-      selected.map((added) => `${metric}_open_interest_${added}` as `${M}_open_interest_${P}`),
-    );
+    const columns = OPEN_INTEREST_COLUMNS[metric];
+    const selected = part === undefined ? Object.values(columns) : [columns[part]];
+    return this.#withColumns(selected) as FuturesBuilder<C | FuturesOpenInterestColumn<M, P>>;
   }
 
   /**

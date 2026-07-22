@@ -92,7 +92,7 @@ describe("futures fluent builder", () => {
     >();
   });
 
-  it("defaults to every open-interest column when no parts are provided", () => {
+  it("defaults to every dollar open-interest part when no parts are provided", () => {
     const builder = client()
       .velo.futures.openInterest()
       .products(["BTCUSDT"])
@@ -107,6 +107,25 @@ describe("futures fluent builder", () => {
     expectTypeOf(builder).toEqualTypeOf<
       FuturesBuilder<
         "dollar_open_interest_high" | "dollar_open_interest_low" | "dollar_open_interest_close"
+      >
+    >();
+  });
+
+  it("applies an explicit open-interest metric to every omitted part", () => {
+    const builder = client()
+      .velo.futures.openInterest(undefined, { metric: "coin" })
+      .products(["BTCUSDT"])
+      .between(begin, end)
+      .resolution("1h");
+
+    expect(builder.params().columns).toEqual([
+      "coin_open_interest_high",
+      "coin_open_interest_low",
+      "coin_open_interest_close",
+    ]);
+    expectTypeOf(builder).toEqualTypeOf<
+      FuturesBuilder<
+        "coin_open_interest_high" | "coin_open_interest_low" | "coin_open_interest_close"
       >
     >();
   });
