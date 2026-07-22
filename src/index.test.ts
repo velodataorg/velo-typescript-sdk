@@ -1,9 +1,11 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  CAPS_PATH,
   DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
+  MARKET_CAPS_COLUMNS,
   OPTIONS_CATALOG_PATH,
   OPTIONS_COLUMNS,
   OPTIONS_EXCHANGES,
@@ -24,6 +26,8 @@ import type {
   FuturesStandardParams,
   FutureProduct,
   LastDuration,
+  MarketCap,
+  MarketCapsParams,
   NewsStory,
   NewsWatcherEvents,
   NewsWatcherListener,
@@ -36,6 +40,22 @@ import type {
   TermsCoin,
   TermsParams,
 } from "./index.js";
+
+describe("market caps public exports", () => {
+  it("exports the wire endpoint and renamed market-caps contract", () => {
+    expect(CAPS_PATH).toBe("/api/v1/caps");
+    expect(MARKET_CAPS_COLUMNS).toEqual([
+      "coin",
+      "time",
+      "circ",
+      "circ_dollars",
+      "fdv",
+      "fdv_dollars",
+    ]);
+    expectTypeOf<MarketCapsParams["coins"][number]>().toEqualTypeOf<string>();
+    expectTypeOf<MarketCap["circ"]>().toEqualTypeOf<number | null>();
+  });
+});
 
 describe("rows public exports", () => {
   it("exports market vocabularies and row metadata", () => {

@@ -2,9 +2,9 @@ import { Http } from "../transport/http.js";
 import type { HttpConfig } from "../transport/http.js";
 import { WebSocketTransport } from "../transport/websocket.js";
 import type { WebSocketFactory } from "../transport/websocket.js";
-import { Caps } from "./api/caps/caps.js";
 import { Catalog } from "./api/catalog/catalog.js";
 import { Futures } from "./api/futures/futures.js";
+import { MarketCaps } from "./api/market-caps/market-caps.js";
 import { News } from "./api/news/news.js";
 import { Options } from "./api/options/options.js";
 import { Spot } from "./api/spot/spot.js";
@@ -17,7 +17,7 @@ export interface VeloConfig extends HttpConfig {
 
 export class Velo {
   readonly #http: Http;
-  readonly #caps: Caps;
+  readonly #marketCaps: MarketCaps;
   readonly #catalog: Catalog;
   readonly #news: News;
   readonly #futures: Futures;
@@ -28,7 +28,7 @@ export class Velo {
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
     const webSocket = new WebSocketTransport(config, config.webSocketFactory);
-    this.#caps = new Caps(this.#http);
+    this.#marketCaps = new MarketCaps(this.#http);
     this.#catalog = new Catalog(this.#http);
     this.#news = new News(this.#http, webSocket);
     this.#futures = new Futures(this.#http);
@@ -37,8 +37,8 @@ export class Velo {
     this.#status = new Status(this.#http);
   }
 
-  get caps(): Caps {
-    return this.#caps;
+  get marketCaps(): MarketCaps {
+    return this.#marketCaps;
   }
 
   get catalog(): Catalog {

@@ -1,7 +1,7 @@
-export type { Caps } from "./client/api/caps/caps.js";
-export type { CapsParams } from "./client/api/caps/query.js";
-export type { MarketCap } from "./client/api/caps/validation.js";
-export { CAPS_COLUMNS } from "./client/api/caps/validation.js";
+export type { MarketCaps } from "./client/api/market-caps/market-caps.js";
+export type { MarketCapsParams } from "./client/api/market-caps/query.js";
+export type { MarketCap } from "./client/api/market-caps/validation.js";
+export { MARKET_CAPS_COLUMNS } from "./client/api/market-caps/validation.js";
 export type { Catalog } from "./client/api/catalog/catalog.js";
 export type { FutureProduct, FuturesCatalogParams } from "./client/api/catalog/futures.js";
 export type { OptionProduct, OptionsCatalogParams } from "./client/api/catalog/options.js";

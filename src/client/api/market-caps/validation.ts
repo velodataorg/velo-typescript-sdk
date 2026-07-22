@@ -13,4 +13,4 @@ export const marketCapSchema = z.strictObject({
 
 export type MarketCap = z.output<typeof marketCapSchema>;
 
-export const CAPS_COLUMNS = Object.keys(marketCapSchema.shape) as (keyof MarketCap)[];
+export const MARKET_CAPS_COLUMNS = Object.keys(marketCapSchema.shape) as (keyof MarketCap)[];

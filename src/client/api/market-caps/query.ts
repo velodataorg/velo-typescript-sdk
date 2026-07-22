@@ -7,20 +7,20 @@ import { decode } from "../../common/decode/csv.js";
 import { Query } from "../../common/query.js";
 import { marketCapSchema, type MarketCap } from "./validation.js";
 
-export interface CapsParams {
+export interface MarketCapsParams {
   readonly coins: readonly string[];
 }
 
-const CapsParamsSchema = z.strictObject({
+const MarketCapsParamsSchema = z.strictObject({
   coins: z.array(z.string().min(1)).min(1),
 });
 
-export const CapsParams = Object.freeze({
+export const MarketCapsParams = Object.freeze({
   /** Validates market-caps parameters. */
-  parse(params: CapsParams): CapsParams {
-    const parsed = CapsParamsSchema.safeParse(params);
+  parse(params: MarketCapsParams): MarketCapsParams {
+    const parsed = MarketCapsParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid caps params:\n${z.prettifyError(parsed.error)}`);
+      throw new VeloError(`Invalid market-caps params:\n${z.prettifyError(parsed.error)}`);
     }
 
     return parsed.data;
@@ -28,7 +28,7 @@ export const CapsParams = Object.freeze({
 });
 
 /** Creates validated lazy market-caps queries bound to an HTTP transport. */
-export class CapsQuery {
+export class MarketCapsQuery {
   readonly #http: Http;
 
   constructor(http: Http) {
@@ -36,8 +36,8 @@ export class CapsQuery {
   }
 
   /** Creates a lazy query from raw market-caps parameters. */
-  build(params: CapsParams): Query<MarketCap> {
-    const parsed = CapsParams.parse(params);
+  build(params: MarketCapsParams): Query<MarketCap> {
+    const parsed = MarketCapsParams.parse(params);
     return new Query(this.#http, {
       requests: [
         {
@@ -45,12 +45,12 @@ export class CapsQuery {
           params: { coins: parsed.coins },
         },
       ],
-      decode: (body) => this.#decodeCaps(body),
+      decode: (body) => this.#decodeMarketCaps(body),
     });
   }
 
-  /** Decodes a caps response and adds endpoint context to malformed data errors. */
-  #decodeCaps(body: string): MarketCap[] {
+  /** Decodes a market-caps response and adds endpoint context to malformed data errors. */
+  #decodeMarketCaps(body: string): MarketCap[] {
     try {
       return decode(body, marketCapSchema);
     } catch (cause) {

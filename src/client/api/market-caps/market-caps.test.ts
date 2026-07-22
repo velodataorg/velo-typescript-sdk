@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import { CAPS_COLUMNS } from "./validation.js";
+import { MARKET_CAPS_COLUMNS } from "./validation.js";
 
-const CAPS_CSV =
+const MARKET_CAPS_CSV =
   "coin,time,circ,circ_dollars,fdv,fdv_dollars\n" +
   "BTC,1783513513252,20053612,1248112746545.6,20053612,1248112746545.6\n" +
   "ETH,1783513513252,,null,120000000,300000000000\n";
@@ -21,15 +21,15 @@ function client(body: string, urls: string[] = []) {
   };
 }
 
-describe("Velo.caps", () => {
-  it("exposes one stable caps endpoint", () => {
+describe("Velo.marketCaps", () => {
+  it("exposes one stable market-caps endpoint", () => {
     const { velo } = client("");
-    expect(velo.caps).toBe(velo.caps);
+    expect(velo.marketCaps).toBe(velo.marketCaps);
   });
 
   it("is lazy, sends the requested coins, and decodes market caps", async () => {
-    const { velo, urls } = client(CAPS_CSV);
-    const query = velo.caps.query({ coins: ["BTC", "ETH"] });
+    const { velo, urls } = client(MARKET_CAPS_CSV);
+    const query = velo.marketCaps.query({ coins: ["BTC", "ETH"] });
 
     expect(urls).toHaveLength(0);
 
@@ -63,18 +63,25 @@ describe("Velo.caps", () => {
   });
 
   it("publishes the response columns in wire order", () => {
-    expect(CAPS_COLUMNS).toEqual(["coin", "time", "circ", "circ_dollars", "fdv", "fdv_dollars"]);
+    expect(MARKET_CAPS_COLUMNS).toEqual([
+      "coin",
+      "time",
+      "circ",
+      "circ_dollars",
+      "fdv",
+      "fdv_dollars",
+    ]);
   });
 
   it("accepts empty responses", async () => {
     await expect(
       client("")
-        .velo.caps.query({ coins: ["BTC"] })
+        .velo.marketCaps.query({ coins: ["BTC"] })
         .execute(),
     ).resolves.toEqual([]);
     await expect(
       client("coin,time,circ,circ_dollars,fdv,fdv_dollars\n")
-        .velo.caps.query({ coins: ["BTC"] })
+        .velo.marketCaps.query({ coins: ["BTC"] })
         .execute(),
     ).resolves.toEqual([]);
   });
@@ -92,7 +99,7 @@ describe("Velo.caps", () => {
     ];
 
     for (const params of invalid) {
-      expect(() => velo.caps.query(params as never)).toThrow(VeloError);
+      expect(() => velo.marketCaps.query(params as never)).toThrow(VeloError);
     }
     expect(urls).toHaveLength(0);
   });
@@ -106,7 +113,7 @@ describe("Velo.caps", () => {
 
     for (const body of invalid) {
       const execution = client(body)
-        .velo.caps.query({ coins: ["BTC"] })
+        .velo.marketCaps.query({ coins: ["BTC"] })
         .execute();
       await expect(execution).rejects.toBeInstanceOf(VeloError);
       await expect(execution).rejects.toThrow(/Unexpected \/api\/v1\/caps response/);
@@ -126,7 +133,7 @@ describe("Velo.caps", () => {
     for (const body of invalid) {
       await expect(
         client(body)
-          .velo.caps.query({ coins: ["BTC"] })
+          .velo.marketCaps.query({ coins: ["BTC"] })
           .execute(),
       ).rejects.toBeInstanceOf(VeloError);
     }
