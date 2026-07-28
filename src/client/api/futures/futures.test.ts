@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
@@ -151,6 +151,65 @@ describe("Velo.futures", () => {
     expect(search(urls[0] as string).get("months")).toBe("true");
     expect(search(urls[0] as string).get("begin")).toBe(String(Date.UTC(2026, 0, 1)));
     expect(search(urls[0] as string).get("end")).toBe(String(Date.UTC(2026, 1, 1)));
+  });
+
+  it("clamps ends aligned into the future at the current time", async () => {
+    vi.useFakeTimers();
+    try {
+      // A Tuesday, so 1W ceils to the next Monday and 1M to the next month.
+      const now = Date.UTC(2026, 6, 28, 14, 30);
+      vi.setSystemTime(now);
+      const base = {
+        exchanges: ["binance-futures"],
+        products: ["BTCUSDT"],
+        columns: ["close_price"],
+      } as const;
+
+      const weekly: string[] = [];
+      await client("", weekly)
+        .velo.futures.query({ ...base, begin: Date.UTC(2026, 6, 1), end: now, resolution: "1W" })
+        .execute();
+      expect(weekly).toHaveLength(1);
+      expect(search(weekly[0] as string).get("begin")).toBe(String(Date.UTC(2026, 5, 29)));
+      expect(search(weekly[0] as string).get("end")).toBe(String(now));
+
+      const monthly: string[] = [];
+      await client("", monthly)
+        .velo.futures.query({ ...base, begin: Date.UTC(2026, 5, 15), end: now, resolution: "1M" })
+        .execute();
+      expect(monthly).toHaveLength(2);
+      expect(search(monthly[1] as string).get("begin")).toBe(String(Date.UTC(2026, 6, 1)));
+      expect(search(monthly[1] as string).get("end")).toBe(String(now));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a range that is entirely in the future before sending anything", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.UTC(2026, 6, 28, 14, 30);
+      vi.setSystemTime(now);
+      const { velo, urls } = client("");
+
+      // 1W floors the future begin back to a past Monday; the requested
+      // begin decides, so this must still be rejected rather than clamped.
+      const query = () =>
+        velo.futures.query({
+          exchanges: ["binance-futures"],
+          products: ["BTCUSDT"],
+          columns: ["close_price"],
+          begin: now + 24 * 60 * 60_000,
+          end: now + 3 * 24 * 60 * 60_000,
+          resolution: "1W",
+        });
+
+      expect(query).toThrow(VeloError);
+      expect(query).toThrow(/entirely in the future/);
+      expect(urls).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("chunks over-budget ranges and concatenates results in request order", async () => {
