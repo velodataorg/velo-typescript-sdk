@@ -40,6 +40,9 @@ function http(responses: (() => Response)[], calls: Call[] = []) {
     apiKey: "test_key",
     fetch: stub.fetchFn,
     retry: FAST_RETRY,
+    // Pacing has its own tests below; here the default limiter would turn
+    // every 429's full-window pause into a 30-second wait.
+    rateLimit: false,
   });
 }
 
@@ -140,7 +143,11 @@ describe("Http", () => {
     const pending = t.json("/api/n/news", params);
 
     params.begin = 20;
-    respond?.(new Response("{not json"));
+    // flush the pre-fetch awaits (rate-limit acquire) until fetch is reached
+    while (!respond) {
+      await Promise.resolve();
+    }
+    respond(new Response("{not json"));
     const error = await pending.catch((e: unknown) => e);
 
     expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
@@ -364,5 +371,103 @@ describe("Http", () => {
     expect(error).toBeInstanceOf(VeloRateLimitError);
     expect((error as VeloRateLimitError).retryAfterMs).toBe(7000);
     expect((error as VeloRateLimitError).headers?.["retry-after"]).toBe("7");
+  });
+
+  it("rejects an invalid rate-limit config at construction", () => {
+    expect(() => new Http({ apiKey: "k", rateLimit: { requests: 0 } })).toThrow(
+      /requests must be a positive integer/,
+    );
+    expect(() => new Http({ apiKey: "k", rateLimit: { windowMs: 0 } })).toThrow(VeloError);
+  });
+
+  it("paces requests beyond the rate-limit budget", async () => {
+    const calls: Call[] = [];
+    const stub = fetchStub(
+      [() => new Response("ok"), () => new Response("ok"), () => new Response("ok")],
+      calls,
+    );
+    const t = new Http({
+      apiKey: "k",
+      fetch: stub.fetchFn,
+      rateLimit: { requests: 2, windowMs: 25 },
+    });
+    const start = Date.now();
+    await t.text("/x");
+    await t.text("/x");
+    // the third send exceeds the budget and must wait out the 25ms window
+    await t.text("/x");
+    expect(Date.now() - start).toBeGreaterThanOrEqual(20);
+    expect(calls).toHaveLength(3);
+  });
+
+  it("paces retry attempts like first attempts", async () => {
+    // A budget of one per window forces the 503 retry to wait out the window
+    // even though its backoff is ~1ms.
+    const stub = fetchStub([
+      () => new Response("api temporarily unavailable", { status: 503 }),
+      () => new Response("ok"),
+    ]);
+    const t = new Http({
+      apiKey: "k",
+      fetch: stub.fetchFn,
+      retry: FAST_RETRY,
+      rateLimit: { requests: 1, windowMs: 25 },
+    });
+    const start = Date.now();
+    await expect(t.text("/x")).resolves.toBe("ok");
+    expect(Date.now() - start).toBeGreaterThanOrEqual(20);
+  });
+
+  it("pauses a full window after a 429", async () => {
+    // The budget below leaves four slots free, so only the 429's penalize()
+    // can be what defers the retry.
+    const stub = fetchStub([
+      () => new Response("rate limited", { status: 429 }),
+      () => new Response("ok"),
+    ]);
+    const t = new Http({
+      apiKey: "k",
+      fetch: stub.fetchFn,
+      retry: FAST_RETRY,
+      rateLimit: { requests: 5, windowMs: 25 },
+    });
+    const start = Date.now();
+    await expect(t.text("/x")).resolves.toBe("ok");
+    expect(Date.now() - start).toBeGreaterThanOrEqual(20);
+  });
+
+  it("propagates a user abort during the rate-limit wait", async () => {
+    const calls: Call[] = [];
+    const stub = fetchStub([() => new Response("ok")], calls);
+    const t = new Http({
+      apiKey: "k",
+      fetch: stub.fetchFn,
+      rateLimit: { requests: 1, windowMs: 30_000 },
+    });
+    await t.text("/x");
+
+    const controller = new AbortController();
+    const cancelled = new Error("user cancelled");
+    const pending = t.text("/x", {}, { signal: controller.signal });
+    controller.abort(cancelled);
+    await expect(pending).rejects.toBe(cancelled);
+    // the aborted request never reached fetch
+    expect(calls).toHaveLength(1);
+  });
+
+  it("sends without pacing when rateLimit is false", async () => {
+    // one request past the default budget, which pacing would hold for ~30s
+    const count = 61;
+    const responses = Array.from({ length: count }, () => () => new Response("ok"));
+    const calls: Call[] = [];
+    const t = new Http({
+      apiKey: "k",
+      fetch: fetchStub(responses, calls).fetchFn,
+      rateLimit: false,
+    });
+    for (let i = 0; i < count; i++) {
+      await t.text("/x");
+    }
+    expect(calls).toHaveLength(count);
   });
 });

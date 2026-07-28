@@ -5,6 +5,8 @@ import { BASE_URL } from "../constants/endpoints.js";
 import { VeloError, VeloRequestError } from "../errors.js";
 import { assert } from "../util/assert.js";
 import { toConnectionError, toError } from "./error-mapping.js";
+import { DEFAULT_RATE_LIMIT, RateLimiter } from "./rate-limit.js";
+import type { RateLimitOptions } from "./rate-limit.js";
 import {
   backoffMs,
   DEFAULT_RETRY,
@@ -40,6 +42,14 @@ export interface HttpConfig {
   apiKey: string;
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
+  /**
+   * Client-side request pacing, defaulting to {@link DEFAULT_RATE_LIMIT}.
+   *
+   * The API budget is per account, not per client, so divide `requests`
+   * between the clients sharing one key. Pass `false` to send without pacing,
+   * for callers that limit requests themselves.
+   */
+  rateLimit?: Partial<RateLimitOptions> | false;
   retry?: Partial<RetryOptions>;
   timeout?: number;
 }
@@ -60,15 +70,16 @@ export class Http {
   readonly baseUrl: string;
   private readonly authHeader: string;
   private readonly fetchFn: typeof globalThis.fetch;
+  private readonly rateLimiter: RateLimiter | undefined;
   private readonly retry: RetryOptions;
   private readonly secrets: readonly string[];
   private readonly timeout: number;
 
   /**
-   * @param config - The API key plus optional base URL, fetch, retry, and
-   * timeout overrides.
-   * @throws If the API key is missing, or the retry or timeout options are
-   * invalid.
+   * @param config - The API key plus optional base URL, fetch, rate-limit,
+   * retry, and timeout overrides.
+   * @throws If the API key is missing, or the rate-limit, retry, or timeout
+   * options are invalid.
    */
   constructor(config: HttpConfig) {
     assert(config.apiKey, "apiKey is required");
@@ -76,6 +87,10 @@ export class Http {
     const authToken = btoa(`api:${config.apiKey}`);
     this.authHeader = `Basic ${authToken}`;
     this.fetchFn = config.fetch ?? globalThis.fetch;
+    this.rateLimiter =
+      config.rateLimit === false
+        ? undefined
+        : new RateLimiter({ ...DEFAULT_RATE_LIMIT, ...config.rateLimit });
     this.retry = { ...DEFAULT_RETRY, ...config.retry };
     this.secrets = [this.authHeader, authToken, config.apiKey].sort((a, b) => b.length - a.length);
     validateRetryOptions(this.retry);
@@ -127,6 +142,9 @@ export class Http {
       let retryAfter: number | undefined;
 
       try {
+        // Paced per attempt: a retry is another request against the budget.
+        await this.rateLimiter?.acquire(options.signal);
+
         const signals = [AbortSignal.timeout(timeout)];
         if (options.signal) signals.push(options.signal);
         const response = await this.fetchFn(url, {
@@ -138,6 +156,7 @@ export class Http {
         if (response.ok) {
           return body;
         } else {
+          if (response.status === 429) this.rateLimiter?.penalize();
           retryAfter = retryAfterMs(response);
           failure = toError(
             response.status,

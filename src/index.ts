@@ -137,6 +137,8 @@ export {
 } from "./errors.js";
 export { DEFAULT_TIMEOUT } from "./transport/http.js";
 export type { HttpParams, HttpRequestOptions } from "./transport/http.js";
+export { DEFAULT_RATE_LIMIT } from "./transport/rate-limit.js";
+export type { RateLimitOptions } from "./transport/rate-limit.js";
 export { DEFAULT_RETRY } from "./transport/retry.js";
 export type { RetryOptions } from "./transport/retry.js";
 export type {
