@@ -54,10 +54,10 @@ describe("options fluent builder", () => {
 
   it("accumulates typed columns, deduplicates them, and preserves insertion order", () => {
     const builder = client()
-      .velo.options.iv("1m", "1w")
-      .iv("1w", "3m")
-      .delta("call", { metric: "coin" })
-      .dvol("close")
+      .velo.options.iv(["1m", "1w"])
+      .iv(["1w", "3m"])
+      .delta(["call"], { metric: "coin" })
+      .dvol(["close"])
       .indexPrice()
       .coins(["BTC"])
       .between(begin, end)
@@ -79,7 +79,11 @@ describe("options fluent builder", () => {
   });
 
   it("defaults to every options exchange and accepts an explicit replacement", () => {
-    const base = client().velo.options.iv("1m").coins(["BTC"]).between(begin, end).resolution("1h");
+    const base = client()
+      .velo.options.iv(["1m"])
+      .coins(["BTC"])
+      .between(begin, end)
+      .resolution("1h");
 
     expect(base.params().exchanges).toEqual(OPTIONS_EXCHANGES);
     expect(base.exchanges(["deribit"]).params().exchanges).toEqual(["deribit"]);
@@ -149,12 +153,12 @@ describe("options fluent builder", () => {
   it("maps side and metric selectors to exact accumulated column types", () => {
     const builder = client()
       .velo.options.vega({ metric: "coin" })
-      .delta("put", { metric: "coin" })
+      .delta(["put"], { metric: "coin" })
       .gamma({ metric: "coin" })
-      .volume("call")
+      .volume(["call"])
       .dollarVolume()
-      .premium("put")
-      .notional("call")
+      .premium(["put"])
+      .notional(["call"])
       .coins(["BTC"])
       .between(begin, end)
       .resolution("1h");
@@ -188,7 +192,7 @@ describe("options fluent builder", () => {
       .vega()
       .vega({ metric: "coin" })
       .delta()
-      .delta(undefined, { metric: "coin" })
+      .delta({ metric: "coin" })
       .gamma()
       .gamma({ metric: "coin" })
       .volume()
@@ -213,7 +217,7 @@ describe("options fluent builder", () => {
     const rangeBegin = new Date(begin);
     const rangeEnd = new Date(end);
     const builder = velo.options
-      .iv("1m")
+      .iv(["1m"])
       .exchanges(exchanges)
       .coins(coins)
       .between(rangeBegin, rangeEnd)
@@ -242,11 +246,33 @@ describe("options fluent builder", () => {
 
   it("supports immutable branching", () => {
     const base = client().velo.options.coins(["BTC"]).between(begin, end).resolution("1h");
-    const volatility = base.iv("1m");
-    const greeks = base.delta("call");
+    const volatility = base.iv(["1m"]);
+    const greeks = base.delta(["call"]);
 
     expect(volatility.params().columns).toEqual(["iv_1m"]);
     expect(greeks.params().columns).toEqual(["call_delta_dollars"]);
+  });
+
+  it("rejects empty and possibly-undefined selections", () => {
+    const { velo } = client();
+    const maybeTenor = undefined as "1m" | undefined;
+    const maybeMetric = undefined as { readonly metric: "coin" } | undefined;
+
+    expect(() => velo.options.iv([])).toThrow(VeloError);
+    expect(() => velo.options.delta([], { metric: "coin" })).toThrow(VeloError);
+
+    /* Never called: these statements pin compile-time rejections only. */
+    const compileTimeOnly = () => {
+      // @ts-expect-error a bare tenor is not a selection; wrap it in an array
+      velo.options.iv("1m");
+      // @ts-expect-error a possibly-undefined tenor must be branched on explicitly
+      velo.options.iv(maybeTenor);
+      // @ts-expect-error possibly-undefined options must be branched on explicitly
+      velo.options.vega(maybeMetric);
+      // @ts-expect-error explicit undefined selects nothing; call with no arguments instead
+      velo.options.delta(undefined, { metric: "coin" });
+    };
+    void compileTimeOnly;
   });
 
   it("rejects conflicting selectors and malformed eager inputs", () => {
@@ -262,8 +288,8 @@ describe("options fluent builder", () => {
     const { velo } = client();
     const incomplete = [
       () => velo.options.coins(["BTC"]).between(begin, end).resolution("1h").params(),
-      () => velo.options.iv("1m").between(begin, end).resolution("1h").params(),
-      () => velo.options.iv("1m").coins(["BTC"]).resolution("1h").params(),
+      () => velo.options.iv(["1m"]).between(begin, end).resolution("1h").params(),
+      () => velo.options.iv(["1m"]).coins(["BTC"]).resolution("1h").params(),
     ];
 
     for (const lower of incomplete) {
@@ -277,7 +303,7 @@ describe("options fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,iv_1m\n", urls);
-      const builder = velo.options.iv("1m").coins(["BTC"]).last("11m").resolution("1m");
+      const builder = velo.options.iv(["1m"]).coins(["BTC"]).last("11m").resolution("1m");
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
@@ -312,9 +338,9 @@ describe("options fluent builder", () => {
       "deribit,BTC,BTC,1783929600000,0.55,120,52.4,63100\n";
     const { velo, urls } = client(body);
     const data = await velo.options
-      .iv("1m")
-      .delta("call", { metric: "coin" })
-      .dvol("close")
+      .iv(["1m"])
+      .delta(["call"], { metric: "coin" })
+      .dvol(["close"])
       .indexPrice()
       .exchanges(["deribit"])
       .coins(["BTC"])

@@ -23,11 +23,11 @@ async function main() {
 
   const velo = new Velo({ apiKey });
   const data = await velo.futures
-    .price("close", "high") // Using `price()` with no params would select all OHLC
-    .openInterest("close", { metric: "dollar" }) // Choose the metric, e.g. `dollar` or `coin`
-    .volume("total")
+    .price(["close", "high"]) // Using `price()` with no arguments selects all OHLC
+    .openInterest(["close"], { metric: "dollar" }) // Choose the metric, e.g. `dollar` or `coin`
+    .volume(["total"])
     .premium()
-    .trades("total")
+    .trades(["total"])
     .coins(["BTC"]) // `.coins(...)` accepts the Velo-aggregated symbols
     .last("11m")
     .resolution("1m")

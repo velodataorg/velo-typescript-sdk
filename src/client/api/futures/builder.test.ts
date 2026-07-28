@@ -52,11 +52,11 @@ describe("futures fluent builder", () => {
   it("accumulates typed columns, deduplicates them, and preserves insertion order", () => {
     const { velo } = client();
     const builder = velo.futures
-      .price("close", "open")
-      .price("open", "high")
-      .openInterest("close")
-      .openInterest("high")
-      .openInterest("low", { metric: "coin" })
+      .price(["close", "open"])
+      .price(["open", "high"])
+      .openInterest(["close"])
+      .openInterest(["high"])
+      .openInterest(["low"], { metric: "coin" })
       .products(["BTCUSDT"])
       .between(begin, end)
       .resolution("1h");
@@ -84,7 +84,7 @@ describe("futures fluent builder", () => {
   it("defaults to every futures exchange and accepts an explicit replacement", () => {
     const { velo } = client();
     const base = velo.futures
-      .price("close")
+      .price(["close"])
       .products(["BTCUSDT"])
       .between(begin, end)
       .resolution("1h");
@@ -132,7 +132,7 @@ describe("futures fluent builder", () => {
 
   it("applies an explicit open-interest metric to every omitted part", () => {
     const builder = client()
-      .velo.futures.openInterest(undefined, { metric: "coin" })
+      .velo.futures.openInterest({ metric: "coin" })
       .products(["BTCUSDT"])
       .between(begin, end)
       .resolution("1h");
@@ -149,14 +149,72 @@ describe("futures fluent builder", () => {
     >();
   });
 
+  it("rejects empty part selections loudly", () => {
+    const { velo } = client();
+    expect(() => velo.futures.price([])).toThrow(VeloError);
+    expect(() => velo.futures.price([])).toThrow(/price\(\) requires a non-empty selection/);
+    expect(() => velo.futures.volume([], { metric: "coin" })).toThrow(VeloError);
+  });
+
+  it("selects several parts with a metric in one call", () => {
+    const { velo } = client();
+    const builder = velo.futures
+      .volume(["buy", "sell"], { metric: "coin" })
+      .products(["BTCUSDT"])
+      .between(begin, end)
+      .resolution("1h");
+
+    expect(builder.params().columns).toEqual(["buy_coin_volume", "sell_coin_volume"]);
+    expectTypeOf(builder).toEqualTypeOf<FuturesBuilder<"buy_coin_volume" | "sell_coin_volume">>();
+  });
+
+  it("fails loudly for untyped callers using the old scalar convention", () => {
+    const { velo } = client();
+    expect(() => velo.futures.price("close" as never)).toThrow(
+      /price\(\) takes an array of parts; wrap a single part in an array/,
+    );
+    expect(() => velo.futures.volume("total" as never)).toThrow(
+      /volume\(\) takes a parts array or an options object/,
+    );
+    expect(() => velo.options.vega("coin" as never)).toThrow(/vega\(\) options must be an object/);
+    expect(() => velo.futures.volume({ metric: "bogus" } as never)).toThrow(
+      /volume\(\) received an unknown metric "bogus"/,
+    );
+    expect(() => velo.futures.price(["nope"] as never)).toThrow(
+      /price\(\) received an unknown part "nope"/,
+    );
+  });
+
+  it("rejects possibly-undefined selections at compile time", () => {
+    const { velo } = client();
+    const maybePart = undefined as "total" | undefined;
+    const maybeParts = undefined as readonly ["open"] | undefined;
+    const maybeMetric = undefined as { readonly metric: "coin" } | undefined;
+
+    /* Never called: these statements pin compile-time rejections only. */
+    const compileTimeOnly = () => {
+      // @ts-expect-error a bare part is not a selection; wrap it in an array
+      velo.futures.volume("total");
+      // @ts-expect-error a possibly-undefined part must be branched on explicitly
+      velo.futures.volume(maybePart);
+      // @ts-expect-error a possibly-undefined parts array must be branched on explicitly
+      velo.futures.price(maybeParts);
+      // @ts-expect-error possibly-undefined options must be branched on explicitly
+      velo.futures.volume(["total"], maybeMetric);
+      // @ts-expect-error explicit undefined selects nothing; call with no arguments instead
+      velo.futures.openInterest(undefined, { metric: "coin" });
+    };
+    void compileTimeOnly;
+  });
+
   it("maps the remaining selectors to exact accumulated column types", () => {
     const builder = client()
-      .velo.futures.volume("buy", { metric: "coin" })
-      .trades("sell")
-      .fundingRate("average")
+      .velo.futures.volume(["buy"], { metric: "coin" })
+      .trades(["sell"])
+      .fundingRate(["average"])
       .premium()
-      .liquidations("buy")
-      .liquidationVolume("total", { metric: "dollar" })
+      .liquidations(["buy"])
+      .liquidationVolume(["total"], { metric: "dollar" })
       .products(["BTCUSDT"])
       .between(begin, end)
       .resolution("1h");
@@ -185,15 +243,15 @@ describe("futures fluent builder", () => {
     const columns = client()
       .velo.futures.price()
       .volume()
-      .volume(undefined, { metric: "coin" })
+      .volume({ metric: "coin" })
       .trades()
       .openInterest()
-      .openInterest(undefined, { metric: "coin" })
+      .openInterest({ metric: "coin" })
       .fundingRate()
       .premium()
       .liquidations()
       .liquidationVolume()
-      .liquidationVolume(undefined, { metric: "coin" })
+      .liquidationVolume({ metric: "coin" })
       .products(["BTCUSDT"])
       .between(begin, end)
       .resolution("1h")
@@ -210,7 +268,7 @@ describe("futures fluent builder", () => {
     const rangeBegin = new Date(begin);
     const rangeEnd = new Date(end);
     const builder = velo.futures
-      .price("close")
+      .price(["close"])
       .exchanges(exchanges)
       .products(products)
       .between(rangeBegin, rangeEnd)
@@ -240,8 +298,8 @@ describe("futures fluent builder", () => {
   it("supports immutable branching", () => {
     const { velo } = client();
     const base = velo.futures.products(["BTCUSDT"]).between(begin, end).resolution("1h");
-    const prices = base.price("open");
-    const interest = base.openInterest("close");
+    const prices = base.price(["open"]);
+    const interest = base.openInterest(["close"]);
 
     expect(prices.params().columns).toEqual(["open_price"]);
     expect(interest.params().columns).toEqual(["dollar_open_interest_close"]);
@@ -259,8 +317,8 @@ describe("futures fluent builder", () => {
     const { velo } = client();
     const incomplete = [
       () => velo.futures.products(["BTCUSDT"]).between(begin, end).resolution("1h").params(),
-      () => velo.futures.price("close").between(begin, end).resolution("1h").params(),
-      () => velo.futures.price("close").products(["BTCUSDT"]).resolution("1h").params(),
+      () => velo.futures.price(["close"]).between(begin, end).resolution("1h").params(),
+      () => velo.futures.price(["close"]).products(["BTCUSDT"]).resolution("1h").params(),
     ];
 
     for (const lower of incomplete) {
@@ -274,7 +332,11 @@ describe("futures fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,open_price\n", urls);
-      const builder = velo.futures.price("open").products(["BTCUSDT"]).last("11m").resolution("1m");
+      const builder = velo.futures
+        .price(["open"])
+        .products(["BTCUSDT"])
+        .last("11m")
+        .resolution("1m");
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
@@ -309,7 +371,7 @@ describe("futures fluent builder", () => {
       const { velo } = client();
       const now = Date.UTC(2026, 6, 13, 10);
       vi.setSystemTime(now);
-      const base = velo.futures.price("open").products(["BTCUSDT"]).resolution("1m");
+      const base = velo.futures.price(["open"]).products(["BTCUSDT"]).resolution("1m");
       const durations = [
         ["2h", 2 * 60 * 60 * 1_000],
         ["3D", 3 * 24 * 60 * 60 * 1_000],
@@ -333,8 +395,8 @@ describe("futures fluent builder", () => {
       "bybit,BTC,BTCUSDT,1783929600000,63100,63200,1000000\n";
     const { velo, urls } = client(body);
     const data = await velo.futures
-      .price("open", "high")
-      .openInterest("close")
+      .price(["open", "high"])
+      .openInterest(["close"])
       .exchanges(["bybit"])
       .products(["BTCUSDT"])
       .between(begin, end)

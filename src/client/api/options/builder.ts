@@ -1,5 +1,6 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
 import { assert } from "../../../util/assert.js";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import {
   betweenTime,
   type BuilderTime,
@@ -94,87 +95,129 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
     this.#state = state;
   }
 
+  /** Adds every implied-volatility tenor column. */
+  iv(): OptionsBuilder<C | OptionsIvColumn>;
   /**
-   * Adds one or more implied-volatility tenor columns.
+   * Adds the given implied-volatility tenor columns.
    *
-   * @param tenors - Tenors to add; defaults to all tenors when omitted.
+   * @param tenors - Tenors to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  iv<T extends OptionsIvTenor = OptionsIvTenor>(
-    ...tenors: readonly T[]
-  ): OptionsBuilder<C | OptionsIvColumn<T>> {
-    const columns =
-      tenors.length === 0 ? Object.values(IV_COLUMNS) : tenors.map((tenor) => IV_COLUMNS[tenor]);
+  iv<T extends OptionsIvTenor>(tenors: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>>;
+  iv<T extends OptionsIvTenor>(tenors?: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>> {
+    const columns = partColumns("iv", IV_COLUMNS, tenors);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsIvColumn<T>>;
   }
 
+  /** Adds every skew tenor column. */
+  skew(): OptionsBuilder<C | OptionsSkewColumn>;
   /**
-   * Adds one or more skew tenor columns.
+   * Adds the given skew tenor columns.
    *
-   * @param tenors - Tenors to add; defaults to all tenors when omitted.
+   * @param tenors - Tenors to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  skew<T extends OptionsSkewTenor = OptionsSkewTenor>(
-    ...tenors: readonly T[]
+  skew<T extends OptionsSkewTenor>(tenors: readonly T[]): OptionsBuilder<C | OptionsSkewColumn<T>>;
+  skew<T extends OptionsSkewTenor>(
+    tenors?: readonly T[],
   ): OptionsBuilder<C | OptionsSkewColumn<T>> {
-    const columns =
-      tenors.length === 0
-        ? Object.values(SKEW_COLUMNS)
-        : tenors.map((tenor) => SKEW_COLUMNS[tenor]);
+    const columns = partColumns("skew", SKEW_COLUMNS, tenors);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsSkewColumn<T>>;
   }
 
+  /** Adds the dollar vega column. */
+  vega(): OptionsBuilder<C | OptionsVegaColumn<"dollar">>;
   /**
    * Adds one vega column.
    *
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    */
-  vega<M extends OptionsVegaMetric = "dollar">(options?: {
+  vega<M extends OptionsVegaMetric>(options: {
+    readonly metric: M;
+  }): OptionsBuilder<C | OptionsVegaColumn<M>>;
+  vega<M extends OptionsVegaMetric>(options?: {
     readonly metric: M;
   }): OptionsBuilder<C | OptionsVegaColumn<M>> {
-    const metric = options?.metric ?? "dollar";
-    return this.#withColumns([VEGA_COLUMNS[metric]]) as OptionsBuilder<C | OptionsVegaColumn<M>>;
+    return this.#withColumns([metricColumns("vega", VEGA_COLUMNS, options)]) as OptionsBuilder<
+      C | OptionsVegaColumn<M>
+    >;
   }
 
+  /** Adds both dollar delta columns. */
+  delta(): OptionsBuilder<C | OptionsDeltaColumn<"dollar">>;
   /**
-   * Adds one delta column, or both option sides for one metric when the part is omitted.
+   * Adds both delta columns for one metric.
    *
-   * @param part - Option side to add; defaults to both sides when omitted.
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    * @returns A new builder typed with the accumulated columns.
    */
-  delta<P extends OptionsDeltaPart = OptionsDeltaPart, M extends OptionsDeltaMetric = "dollar">(
-    part?: P,
-    options?: { readonly metric: M },
+  delta<M extends OptionsDeltaMetric>(options: {
+    readonly metric: M;
+  }): OptionsBuilder<C | OptionsDeltaColumn<M>>;
+  /**
+   * Adds the given dollar delta columns.
+   *
+   * @param parts - Option sides to add; must not be empty.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  delta<P extends OptionsDeltaPart>(
+    parts: readonly P[],
+  ): OptionsBuilder<C | OptionsDeltaColumn<"dollar", P>>;
+  /**
+   * Adds the given delta columns for one metric.
+   *
+   * @param parts - Option sides to add; must not be empty.
+   * @param options - Column options selecting the metric.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  delta<P extends OptionsDeltaPart, M extends OptionsDeltaMetric>(
+    parts: readonly P[],
+    options: { readonly metric: M },
+  ): OptionsBuilder<C | OptionsDeltaColumn<M, P>>;
+  delta<P extends OptionsDeltaPart, M extends OptionsDeltaMetric>(
+    partsOrOptions?: readonly P[] | { readonly metric: M },
+    metricOptions?: { readonly metric: M },
   ): OptionsBuilder<C | OptionsDeltaColumn<M, P>> {
-    const metric = options?.metric ?? "dollar";
-    const columns = DELTA_COLUMNS[metric];
-    const selected = part === undefined ? Object.values(columns) : [columns[part]];
-    return this.#withColumns(selected) as OptionsBuilder<C | OptionsDeltaColumn<M, P>>;
+    const { parts, options } = splitParts("delta", partsOrOptions, metricOptions);
+    const columns = metricColumns("delta", DELTA_COLUMNS, options);
+    return this.#withColumns(partColumns("delta", columns, parts)) as OptionsBuilder<
+      C | OptionsDeltaColumn<M, P>
+    >;
   }
 
+  /** Adds the dollar gamma column. */
+  gamma(): OptionsBuilder<C | OptionsGammaColumn<"dollar">>;
   /**
    * Adds one gamma column.
    *
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    */
-  gamma<M extends OptionsGammaMetric = "dollar">(options?: {
+  gamma<M extends OptionsGammaMetric>(options: {
+    readonly metric: M;
+  }): OptionsBuilder<C | OptionsGammaColumn<M>>;
+  gamma<M extends OptionsGammaMetric>(options?: {
     readonly metric: M;
   }): OptionsBuilder<C | OptionsGammaColumn<M>> {
-    const metric = options?.metric ?? "dollar";
-    return this.#withColumns([GAMMA_COLUMNS[metric]]) as OptionsBuilder<C | OptionsGammaColumn<M>>;
+    return this.#withColumns([metricColumns("gamma", GAMMA_COLUMNS, options)]) as OptionsBuilder<
+      C | OptionsGammaColumn<M>
+    >;
   }
 
+  /** Adds both call/put volume columns. */
+  volume(): OptionsBuilder<C | OptionsVolumeColumn>;
   /**
-   * Adds one call/put volume column, or both when the side is omitted.
+   * Adds the given call/put volume columns.
    *
-   * @param part - Option side to add; defaults to both sides when omitted.
+   * @param parts - Option sides to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  volume<P extends OptionsVolumePart = OptionsVolumePart>(
-    part?: P,
+  volume<P extends OptionsVolumePart>(
+    parts: readonly P[],
+  ): OptionsBuilder<C | OptionsVolumeColumn<P>>;
+  volume<P extends OptionsVolumePart>(
+    parts?: readonly P[],
   ): OptionsBuilder<C | OptionsVolumeColumn<P>> {
-    const columns = part === undefined ? Object.values(VOLUME_COLUMNS) : [VOLUME_COLUMNS[part]];
+    const columns = partColumns("volume", VOLUME_COLUMNS, parts);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsVolumeColumn<P>>;
   }
 
@@ -183,43 +226,53 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
     return this.#withColumns([DOLLAR_VOLUME_COLUMN]);
   }
 
+  /** Adds both call/put premium columns. */
+  premium(): OptionsBuilder<C | OptionsPremiumColumn>;
   /**
-   * Adds one call/put premium column, or both when the side is omitted.
+   * Adds the given call/put premium columns.
    *
-   * @param part - Option side to add; defaults to both sides when omitted.
+   * @param parts - Option sides to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  premium<P extends OptionsPremiumPart = OptionsPremiumPart>(
-    part?: P,
+  premium<P extends OptionsPremiumPart>(
+    parts: readonly P[],
+  ): OptionsBuilder<C | OptionsPremiumColumn<P>>;
+  premium<P extends OptionsPremiumPart>(
+    parts?: readonly P[],
   ): OptionsBuilder<C | OptionsPremiumColumn<P>> {
-    const columns = part === undefined ? Object.values(PREMIUM_COLUMNS) : [PREMIUM_COLUMNS[part]];
+    const columns = partColumns("premium", PREMIUM_COLUMNS, parts);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsPremiumColumn<P>>;
   }
 
+  /** Adds both call/put notional columns. */
+  notional(): OptionsBuilder<C | OptionsNotionalColumn>;
   /**
-   * Adds one call/put notional column, or both when the side is omitted.
+   * Adds the given call/put notional columns.
    *
-   * @param part - Option side to add; defaults to both sides when omitted.
+   * @param parts - Option sides to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  notional<P extends OptionsNotionalPart = OptionsNotionalPart>(
-    part?: P,
+  notional<P extends OptionsNotionalPart>(
+    parts: readonly P[],
+  ): OptionsBuilder<C | OptionsNotionalColumn<P>>;
+  notional<P extends OptionsNotionalPart>(
+    parts?: readonly P[],
   ): OptionsBuilder<C | OptionsNotionalColumn<P>> {
-    const columns = part === undefined ? Object.values(NOTIONAL_COLUMNS) : [NOTIONAL_COLUMNS[part]];
+    const columns = partColumns("notional", NOTIONAL_COLUMNS, parts);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsNotionalColumn<P>>;
   }
 
+  /** Adds all four DVOL OHLC columns. */
+  dvol(): OptionsBuilder<C | OptionsDvolColumn>;
   /**
-   * Adds one or more DVOL OHLC columns.
+   * Adds the given DVOL OHLC columns.
    *
-   * @param parts - Price components to add; defaults to all components when omitted.
+   * @param parts - Price components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  dvol<P extends OptionsDvolPart = OptionsDvolPart>(
-    ...parts: readonly P[]
-  ): OptionsBuilder<C | OptionsDvolColumn<P>> {
-    const columns =
-      parts.length === 0 ? Object.values(DVOL_COLUMNS) : parts.map((part) => DVOL_COLUMNS[part]);
+  dvol<P extends OptionsDvolPart>(parts: readonly P[]): OptionsBuilder<C | OptionsDvolColumn<P>>;
+  dvol<P extends OptionsDvolPart>(parts?: readonly P[]): OptionsBuilder<C | OptionsDvolColumn<P>> {
+    const columns = partColumns("dvol", DVOL_COLUMNS, parts);
     return this.#withColumns(columns) as OptionsBuilder<C | OptionsDvolColumn<P>>;
   }
 

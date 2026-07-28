@@ -1,5 +1,6 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
 import { assert } from "../../../util/assert.js";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import {
   betweenTime,
   type BuilderTime,
@@ -66,46 +67,73 @@ export class SpotBuilder<C extends SpotColumn = never> {
     this.#state = state;
   }
 
+  /** Adds all four OHLC price columns. */
+  price(): SpotBuilder<C | SpotPriceColumn>;
   /**
-   * Adds one or more OHLC price columns.
+   * Adds the given OHLC price columns.
    *
-   * @param parts - Price components to add; defaults to all components when omitted.
+   * @param parts - Price components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  price<P extends SpotPricePart = SpotPricePart>(
-    ...parts: readonly P[]
-  ): SpotBuilder<C | SpotPriceColumn<P>> {
-    const columns =
-      parts.length === 0 ? Object.values(PRICE_COLUMNS) : parts.map((part) => PRICE_COLUMNS[part]);
+  price<P extends SpotPricePart>(parts: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>>;
+  price<P extends SpotPricePart>(parts?: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>> {
+    const columns = partColumns("price", PRICE_COLUMNS, parts);
     return this.#withColumns(columns) as SpotBuilder<C | SpotPriceColumn<P>>;
   }
 
+  /** Adds every dollar-volume column. */
+  volume(): SpotBuilder<C | SpotVolumeColumn<"dollar">>;
   /**
-   * Adds one volume column, or every volume component for one metric when the
-   * part is omitted.
+   * Adds every volume column for one metric.
    *
-   * @param part - Volume component to add; defaults to all components when omitted.
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    * @returns A new builder typed with the accumulated columns.
    */
-  volume<P extends SpotVolumePart = SpotVolumePart, M extends SpotVolumeMetric = "dollar">(
-    part?: P,
-    options?: { readonly metric: M },
+  volume<M extends SpotVolumeMetric>(options: {
+    readonly metric: M;
+  }): SpotBuilder<C | SpotVolumeColumn<M>>;
+  /**
+   * Adds the given dollar-volume columns.
+   *
+   * @param parts - Volume components to add; must not be empty.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  volume<P extends SpotVolumePart>(
+    parts: readonly P[],
+  ): SpotBuilder<C | SpotVolumeColumn<"dollar", P>>;
+  /**
+   * Adds the given volume columns for one metric.
+   *
+   * @param parts - Volume components to add; must not be empty.
+   * @param options - Column options selecting the metric.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  volume<P extends SpotVolumePart, M extends SpotVolumeMetric>(
+    parts: readonly P[],
+    options: { readonly metric: M },
+  ): SpotBuilder<C | SpotVolumeColumn<M, P>>;
+  volume<P extends SpotVolumePart, M extends SpotVolumeMetric>(
+    partsOrOptions?: readonly P[] | { readonly metric: M },
+    metricOptions?: { readonly metric: M },
   ): SpotBuilder<C | SpotVolumeColumn<M, P>> {
-    const metric = options?.metric ?? "dollar";
-    const columns = VOLUME_COLUMNS[metric];
-    const selected = part === undefined ? Object.values(columns) : [columns[part]];
-    return this.#withColumns(selected) as SpotBuilder<C | SpotVolumeColumn<M, P>>;
+    const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
+    const columns = metricColumns("volume", VOLUME_COLUMNS, options);
+    return this.#withColumns(partColumns("volume", columns, parts)) as SpotBuilder<
+      C | SpotVolumeColumn<M, P>
+    >;
   }
 
+  /** Adds every trade-count column. */
+  trades(): SpotBuilder<C | SpotTradeColumn>;
   /**
-   * Adds one trade-count column, or every trade-count column when the part is omitted.
+   * Adds the given trade-count columns.
    *
-   * @param part - Trade-count component to add; defaults to all components when omitted.
+   * @param parts - Trade-count components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  trades<P extends SpotTradePart = SpotTradePart>(part?: P): SpotBuilder<C | SpotTradeColumn<P>> {
-    const columns = part === undefined ? Object.values(TRADE_COLUMNS) : [TRADE_COLUMNS[part]];
+  trades<P extends SpotTradePart>(parts: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>>;
+  trades<P extends SpotTradePart>(parts?: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>> {
+    const columns = partColumns("trades", TRADE_COLUMNS, parts);
     return this.#withColumns(columns) as SpotBuilder<C | SpotTradeColumn<P>>;
   }
 

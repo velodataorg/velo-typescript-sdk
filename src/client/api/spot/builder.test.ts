@@ -41,10 +41,10 @@ describe("spot fluent builder", () => {
 
   it("accumulates typed columns, deduplicates them, and preserves insertion order", () => {
     const builder = client()
-      .velo.spot.price("close", "open")
-      .price("open", "high")
-      .volume("buy", { metric: "coin" })
-      .trades("sell")
+      .velo.spot.price(["close", "open"])
+      .price(["open", "high"])
+      .volume(["buy"], { metric: "coin" })
+      .trades(["sell"])
       .products(["BTC-USDT"])
       .between(begin, end)
       .resolution("1h");
@@ -63,7 +63,7 @@ describe("spot fluent builder", () => {
 
   it("defaults to every spot exchange and accepts an explicit replacement", () => {
     const base = client()
-      .velo.spot.price("close")
+      .velo.spot.price(["close"])
       .products(["BTC-USDT"])
       .between(begin, end)
       .resolution("1h");
@@ -84,7 +84,7 @@ describe("spot fluent builder", () => {
       .between(begin, end)
       .resolution("1h");
     const coinVolume = client()
-      .velo.spot.volume(undefined, { metric: "coin" })
+      .velo.spot.volume({ metric: "coin" })
       .products(["BTC-USDT"])
       .between(begin, end)
       .resolution("1h");
@@ -117,7 +117,7 @@ describe("spot fluent builder", () => {
     const columns = client()
       .velo.spot.price()
       .volume()
-      .volume(undefined, { metric: "coin" })
+      .volume({ metric: "coin" })
       .trades()
       .products(["BTC-USDT"])
       .between(begin, end)
@@ -135,7 +135,7 @@ describe("spot fluent builder", () => {
     const rangeBegin = new Date(begin);
     const rangeEnd = new Date(end);
     const builder = velo.spot
-      .price("close")
+      .price(["close"])
       .exchanges(exchanges)
       .products(products)
       .between(rangeBegin, rangeEnd)
@@ -164,8 +164,8 @@ describe("spot fluent builder", () => {
 
   it("supports immutable branching", () => {
     const base = client().velo.spot.products(["BTC-USD"]).between(begin, end).resolution("1h");
-    const prices = base.price("open");
-    const volume = base.volume("total");
+    const prices = base.price(["open"]);
+    const volume = base.volume(["total"]);
 
     expect(prices.params().columns).toEqual(["open_price"]);
     expect(volume.params().columns).toEqual(["dollar_volume"]);
@@ -184,8 +184,8 @@ describe("spot fluent builder", () => {
     const { velo } = client();
     const incomplete = [
       () => velo.spot.products(["BTC-USD"]).between(begin, end).resolution("1h").params(),
-      () => velo.spot.price("close").between(begin, end).resolution("1h").params(),
-      () => velo.spot.price("close").products(["BTC-USD"]).resolution("1h").params(),
+      () => velo.spot.price(["close"]).between(begin, end).resolution("1h").params(),
+      () => velo.spot.price(["close"]).products(["BTC-USD"]).resolution("1h").params(),
     ];
 
     for (const lower of incomplete) {
@@ -199,7 +199,7 @@ describe("spot fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,open_price\n", urls);
-      const builder = velo.spot.price("open").products(["BTC-USD"]).last("11m").resolution("1m");
+      const builder = velo.spot.price(["open"]).products(["BTC-USD"]).last("11m").resolution("1m");
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
@@ -234,8 +234,8 @@ describe("spot fluent builder", () => {
       "coinbase,BTC,BTC-USD,1783929600000,63100,63200,12.5\n";
     const { velo, urls } = client(body);
     const data = await velo.spot
-      .price("open", "high")
-      .volume("buy", { metric: "coin" })
+      .price(["open", "high"])
+      .volume(["buy"], { metric: "coin" })
       .exchanges(["coinbase"])
       .products(["BTC-USD"])
       .between(begin, end)

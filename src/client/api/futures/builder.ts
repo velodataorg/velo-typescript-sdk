@@ -1,5 +1,6 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
 import { assert } from "../../../util/assert.js";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import {
   betweenTime,
   type BuilderTime,
@@ -88,83 +89,139 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
     this.#state = state;
   }
 
+  /** Adds all four OHLC price columns. */
+  price(): FuturesBuilder<C | FuturesPriceColumn>;
   /**
-   * Adds one or more OHLC price columns.
+   * Adds the given OHLC price columns.
    *
-   * @param parts - Price components to add; defaults to all components when omitted.
+   * @param parts - Price components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  price<P extends FuturesPricePart = FuturesPricePart>(
-    ...parts: readonly P[]
+  price<P extends FuturesPricePart>(parts: readonly P[]): FuturesBuilder<C | FuturesPriceColumn<P>>;
+  price<P extends FuturesPricePart>(
+    parts?: readonly P[],
   ): FuturesBuilder<C | FuturesPriceColumn<P>> {
-    const columns =
-      parts.length === 0 ? Object.values(PRICE_COLUMNS) : parts.map((part) => PRICE_COLUMNS[part]);
+    const columns = partColumns("price", PRICE_COLUMNS, parts);
     return this.#withColumns(columns) as FuturesBuilder<C | FuturesPriceColumn<P>>;
   }
 
+  /** Adds every dollar-volume column. */
+  volume(): FuturesBuilder<C | FuturesVolumeColumn<"dollar">>;
   /**
-   * Adds one volume column, or every volume component for one metric when the
-   * part is omitted.
+   * Adds every volume column for one metric.
    *
-   * @param part - Volume component to add; defaults to all components when omitted.
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    * @returns A new builder typed with the accumulated columns.
    */
-  volume<P extends FuturesVolumePart = FuturesVolumePart, M extends FuturesVolumeMetric = "dollar">(
-    part?: P,
-    options?: { readonly metric: M },
+  volume<M extends FuturesVolumeMetric>(options: {
+    readonly metric: M;
+  }): FuturesBuilder<C | FuturesVolumeColumn<M>>;
+  /**
+   * Adds the given dollar-volume columns.
+   *
+   * @param parts - Volume components to add; must not be empty.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  volume<P extends FuturesVolumePart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesVolumeColumn<"dollar", P>>;
+  /**
+   * Adds the given volume columns for one metric.
+   *
+   * @param parts - Volume components to add; must not be empty.
+   * @param options - Column options selecting the metric.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  volume<P extends FuturesVolumePart, M extends FuturesVolumeMetric>(
+    parts: readonly P[],
+    options: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>>;
+  volume<P extends FuturesVolumePart, M extends FuturesVolumeMetric>(
+    partsOrOptions?: readonly P[] | { readonly metric: M },
+    metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesVolumeColumn<M, P>> {
-    const metric = options?.metric ?? "dollar";
-    const columns = VOLUME_COLUMNS[metric];
-    const selected = part === undefined ? Object.values(columns) : [columns[part]];
-    return this.#withColumns(selected) as FuturesBuilder<C | FuturesVolumeColumn<M, P>>;
+    const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
+    const columns = metricColumns("volume", VOLUME_COLUMNS, options);
+    return this.#withColumns(partColumns("volume", columns, parts)) as FuturesBuilder<
+      C | FuturesVolumeColumn<M, P>
+    >;
   }
 
+  /** Adds every trade-count column. */
+  trades(): FuturesBuilder<C | FuturesTradeColumn>;
   /**
-   * Adds one trade-count column, or every trade-count column when the part is omitted.
+   * Adds the given trade-count columns.
    *
-   * @param part - Trade-count component to add; defaults to all components when omitted.
+   * @param parts - Trade-count components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  trades<P extends FuturesTradePart = FuturesTradePart>(
-    part?: P,
+  trades<P extends FuturesTradePart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesTradeColumn<P>>;
+  trades<P extends FuturesTradePart>(
+    parts?: readonly P[],
   ): FuturesBuilder<C | FuturesTradeColumn<P>> {
-    const columns = part === undefined ? Object.values(TRADE_COLUMNS) : [TRADE_COLUMNS[part]];
+    const columns = partColumns("trades", TRADE_COLUMNS, parts);
     return this.#withColumns(columns) as FuturesBuilder<C | FuturesTradeColumn<P>>;
   }
 
+  /** Adds every dollar open-interest column. */
+  openInterest(): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar">>;
   /**
-   * Adds one open-interest column, or every open-interest column when the
-   * part is omitted.
+   * Adds every open-interest column for one metric.
    *
-   * @param part - Open-interest component to add; defaults to all components when omitted.
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
    * @returns A new builder typed with the accumulated columns.
    */
-  openInterest<
-    P extends FuturesOpenInterestPart = FuturesOpenInterestPart,
-    M extends FuturesOpenInterestMetric = "dollar",
-  >(
-    part?: P,
-    options?: { readonly metric: M },
+  openInterest<M extends FuturesOpenInterestMetric>(options: {
+    readonly metric: M;
+  }): FuturesBuilder<C | FuturesOpenInterestColumn<M>>;
+  /**
+   * Adds the given dollar open-interest columns.
+   *
+   * @param parts - Open-interest components to add; must not be empty.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  openInterest<P extends FuturesOpenInterestPart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar", P>>;
+  /**
+   * Adds the given open-interest columns for one metric.
+   *
+   * @param parts - Open-interest components to add; must not be empty.
+   * @param options - Column options selecting the metric.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  openInterest<P extends FuturesOpenInterestPart, M extends FuturesOpenInterestMetric>(
+    parts: readonly P[],
+    options: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>>;
+  openInterest<P extends FuturesOpenInterestPart, M extends FuturesOpenInterestMetric>(
+    partsOrOptions?: readonly P[] | { readonly metric: M },
+    metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>> {
-    const metric = options?.metric ?? "dollar";
-    const columns = OPEN_INTEREST_COLUMNS[metric];
-    const selected = part === undefined ? Object.values(columns) : [columns[part]];
-    return this.#withColumns(selected) as FuturesBuilder<C | FuturesOpenInterestColumn<M, P>>;
+    const { parts, options } = splitParts("openInterest", partsOrOptions, metricOptions);
+    const columns = metricColumns("openInterest", OPEN_INTEREST_COLUMNS, options);
+    return this.#withColumns(partColumns("openInterest", columns, parts)) as FuturesBuilder<
+      C | FuturesOpenInterestColumn<M, P>
+    >;
   }
 
+  /** Adds both funding-rate columns. */
+  fundingRate(): FuturesBuilder<C | FuturesFundingRateColumn>;
   /**
-   * Adds one funding-rate column, or both funding-rate columns when the part is omitted.
+   * Adds the given funding-rate columns.
    *
-   * @param part - Funding-rate component to add; defaults to both components when omitted.
+   * @param parts - Funding-rate components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  fundingRate<P extends FuturesFundingRatePart = FuturesFundingRatePart>(
-    part?: P,
+  fundingRate<P extends FuturesFundingRatePart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesFundingRateColumn<P>>;
+  fundingRate<P extends FuturesFundingRatePart>(
+    parts?: readonly P[],
   ): FuturesBuilder<C | FuturesFundingRateColumn<P>> {
-    const columns =
-      part === undefined ? Object.values(FUNDING_RATE_COLUMNS) : [FUNDING_RATE_COLUMNS[part]];
+    const columns = partColumns("fundingRate", FUNDING_RATE_COLUMNS, parts);
     return this.#withColumns(columns) as FuturesBuilder<C | FuturesFundingRateColumn<P>>;
   }
 
@@ -173,39 +230,70 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
     return this.#withColumns([PREMIUM_COLUMN]);
   }
 
+  /** Adds both liquidation-count columns. */
+  liquidations(): FuturesBuilder<C | FuturesLiquidationColumn>;
   /**
-   * Adds one liquidation-count column, or both count columns when the part is omitted.
+   * Adds the given liquidation-count columns.
    *
-   * @param part - Liquidation side to add; defaults to both sides when omitted.
+   * @param parts - Liquidation sides to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  liquidations<P extends FuturesLiquidationPart = FuturesLiquidationPart>(
-    part?: P,
+  liquidations<P extends FuturesLiquidationPart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesLiquidationColumn<P>>;
+  liquidations<P extends FuturesLiquidationPart>(
+    parts?: readonly P[],
   ): FuturesBuilder<C | FuturesLiquidationColumn<P>> {
-    const columns =
-      part === undefined ? Object.values(LIQUIDATION_COLUMNS) : [LIQUIDATION_COLUMNS[part]];
+    const columns = partColumns("liquidations", LIQUIDATION_COLUMNS, parts);
     return this.#withColumns(columns) as FuturesBuilder<C | FuturesLiquidationColumn<P>>;
   }
 
+  /** Adds every dollar liquidation-volume column. */
+  liquidationVolume(): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar">>;
   /**
-   * Adds one liquidation-volume column, or every component for one metric
-   * when the part is omitted.
+   * Adds every liquidation-volume column for one metric.
    *
-   * @param part - Liquidation-volume component to add; defaults to all components when omitted.
-   * @param options - Column options; the metric defaults to `"dollar"`.
+   * @param options - Column options selecting the metric.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  liquidationVolume<M extends FuturesLiquidationVolumeMetric>(options: {
+    readonly metric: M;
+  }): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M>>;
+  /**
+   * Adds the given dollar liquidation-volume columns.
+   *
+   * @param parts - Liquidation-volume components to add; must not be empty.
+   * @returns A new builder typed with the accumulated columns.
+   */
+  liquidationVolume<P extends FuturesLiquidationVolumePart>(
+    parts: readonly P[],
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar", P>>;
+  /**
+   * Adds the given liquidation-volume columns for one metric.
+   *
+   * @param parts - Liquidation-volume components to add; must not be empty.
+   * @param options - Column options selecting the metric.
    * @returns A new builder typed with the accumulated columns.
    */
   liquidationVolume<
-    P extends FuturesLiquidationVolumePart = FuturesLiquidationVolumePart,
-    M extends FuturesLiquidationVolumeMetric = "dollar",
+    P extends FuturesLiquidationVolumePart,
+    M extends FuturesLiquidationVolumeMetric,
   >(
-    part?: P,
-    options?: { readonly metric: M },
+    parts: readonly P[],
+    options: { readonly metric: M },
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>>;
+  liquidationVolume<
+    P extends FuturesLiquidationVolumePart,
+    M extends FuturesLiquidationVolumeMetric,
+  >(
+    partsOrOptions?: readonly P[] | { readonly metric: M },
+    metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>> {
-    const metric = options?.metric ?? "dollar";
-    const columns = LIQUIDATION_VOLUME_COLUMNS[metric];
-    const selected = part === undefined ? Object.values(columns) : [columns[part]];
-    return this.#withColumns(selected) as FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>>;
+    const { parts, options } = splitParts("liquidationVolume", partsOrOptions, metricOptions);
+    const columns = metricColumns("liquidationVolume", LIQUIDATION_VOLUME_COLUMNS, options);
+    return this.#withColumns(partColumns("liquidationVolume", columns, parts)) as FuturesBuilder<
+      C | FuturesLiquidationVolumeColumn<M, P>
+    >;
   }
 
   /**
