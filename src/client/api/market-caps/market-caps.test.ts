@@ -126,7 +126,7 @@ describe("Velo.marketCaps", () => {
       "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,-1,2,3,4,5\n",
       "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,1.5,2,3,4,5\n",
       "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,nope,2,3,4,5\n",
-      "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,1,NaN,3,4,5\n",
+      "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,NaN,2,3,4,5\n",
       "coin,time,circ,circ_dollars,fdv,fdv_dollars\nBTC,1,2,Infinity,4,5\n",
     ];
 

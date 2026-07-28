@@ -17,7 +17,8 @@ export interface RowBase<E extends string = string> {
 /**
  * One market-data row: the base fields plus the requested numeric columns.
  *
- * Data fields are null where the API returns SQL NULL.
+ * Data fields are null where the API has no numeric value (serialized as an
+ * empty cell, null, undefined, or NaN).
  *
  * @typeParam E - Exchanges the market may return.
  * @typeParam C - Columns requested by the query.

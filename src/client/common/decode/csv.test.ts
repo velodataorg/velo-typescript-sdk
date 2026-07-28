@@ -16,7 +16,8 @@ type Row = z.output<typeof RowSchema>;
 describe("decode", () => {
   it("parses CSV and returns the schema's transformed output", () => {
     const rows: Row[] = decode(
-      'time,name,amount,value,active\r\n1,"one, quoted",2.5,,true\r\n2,two,3,null,false\r\n',
+      'time,name,amount,value,active\r\n1,"one, quoted",2.5,,true\r\n2,two,3,null,false\r\n' +
+        "3,three,4,NaN,true\r\n4,four,5,undefined,false\r\n",
       RowSchema,
     );
 
@@ -32,6 +33,20 @@ describe("decode", () => {
         time: 2,
         name: "two",
         amount: 3,
+        value: null,
+        active: false,
+      },
+      {
+        time: 3,
+        name: "three",
+        amount: 4,
+        value: null,
+        active: true,
+      },
+      {
+        time: 4,
+        name: "four",
+        amount: 5,
         value: null,
         active: false,
       },
@@ -59,14 +74,32 @@ describe("decode", () => {
     const invalid = [
       "time,name,amount,value,active\n-1,test,2,3,true\n",
       "time,name,amount,value,active\n1.5,test,2,3,true\n",
+      "time,name,amount,value,active\nNaN,test,2,3,true\n",
       "time,name,amount,value,active\n1,,2,3,true\n",
       "time,name,amount,value,active\n1,test,,3,true\n",
-      "time,name,amount,value,active\n1,test,2,NaN,true\n",
+      "time,name,amount,value,active\n1,test,NaN,3,true\n",
+      "time,name,amount,value,active\n1,test,undefined,3,true\n",
+      "time,name,amount,value,active\n1,test, ,3,true\n",
+      "time,name,amount,value,active\n1,test,2,Infinity,true\n",
+      "time,name,amount,value,active\n1,test,2,-Infinity,true\n",
+      "time,name,amount,value,active\n1,test,2, ,true\n",
       "time,name,amount,value,active\n1,test,2,3,TRUE\n",
     ];
 
     for (const text of invalid) {
       expect(() => decode(text, RowSchema)).toThrow(z.ZodError);
+    }
+  });
+
+  it("rejects rows with missing cells instead of treating them as null", () => {
+    const truncated = [
+      "time,name,amount,value,active\n1\n",
+      "time,name,amount,value,active\n1,test,2\n",
+      "time,name,amount,value,active\n1,test,2.5,,true\n2,two\n",
+    ];
+
+    for (const text of truncated) {
+      expect(() => decode(text, RowSchema)).toThrow(/CSV row \d+ has \d+ cells, expected 5/);
     }
   });
 });

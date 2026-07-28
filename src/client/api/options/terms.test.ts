@@ -109,13 +109,31 @@ describe("Velo.options.terms", () => {
     }
   });
 
+  it("keeps every row when cells use the NaN or undefined missing-value markers", async () => {
+    const body =
+      "coin,time,at_the_money_iv,dte,fwd_iv\n" +
+      "BTC,1767225600000,0.5,7,0.52\n" +
+      "BTC,1767229200000,NaN,7,0.53\n" +
+      "ETH,1767830400000,0.6,undefined,0.61\n";
+
+    await expect(
+      client(body)
+        .velo.options.terms({ coins: ["BTC", "ETH"] })
+        .execute(),
+    ).resolves.toEqual([
+      { coin: "BTC", time: 1767225600000, at_the_money_iv: 0.5, dte: 7, fwd_iv: 0.52 },
+      { coin: "BTC", time: 1767229200000, at_the_money_iv: null, dte: 7, fwd_iv: 0.53 },
+      { coin: "ETH", time: 1767830400000, at_the_money_iv: 0.6, dte: null, fwd_iv: 0.61 },
+    ]);
+  });
+
   it("rejects invalid response values", async () => {
     const invalid = [
       "coin,time,at_the_money_iv,dte,fwd_iv\nSOL,1,2,3,4\n",
       "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,-1,2,3,4\n",
       "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,1.5,2,3,4\n",
       "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,nope,2,3,4\n",
-      "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,1,NaN,3,4\n",
+      "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,NaN,2,3,4\n",
       "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,1,2,Infinity,4\n",
       "coin,time,at_the_money_iv,dte,fwd_iv\nBTC,1,2,3,nope\n",
     ];

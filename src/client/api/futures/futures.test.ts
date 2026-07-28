@@ -8,7 +8,8 @@ import { FUTURES_EXCHANGES } from "../../common/market/exchanges.js";
 const ROWS_CSV =
   "exchange,coin,product,time,close_price,funding_rate\n" +
   "binance-futures,BTC,BTCUSDT,1783929600000,63174.9,0.0001\n" +
-  "bybit,BTC,BTCUSDT,1783929600000,null,\n";
+  "bybit,BTC,BTCUSDT,1783929600000,null,\n" +
+  "bybit,BTC,BTCUSDT,1783933200000,NaN,undefined\n";
 
 function client(body: string, urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -58,6 +59,14 @@ describe("Velo.futures", () => {
         coin: "BTC",
         product: "BTCUSDT",
         time: 1783929600000,
+        close_price: null,
+        funding_rate: null,
+      },
+      {
+        exchange: "bybit",
+        coin: "BTC",
+        product: "BTCUSDT",
+        time: 1783933200000,
         close_price: null,
         funding_rate: null,
       },
@@ -288,7 +297,7 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,close_price,funding_rate\nunknown,BTC,BTCUSDT,1,2,3\n",
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,-1,2,3\n",
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,1.5,2,3\n",
-      "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,1,NaN,3\n",
+      "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,NaN,2,3\n",
     ]) {
       await expect(client(body).velo.futures.query(params).execute()).rejects.toThrow(
         /Unexpected \/api\/v1\/rows response/,
