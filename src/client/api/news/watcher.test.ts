@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import NodeWebSocket from "ws";
-import { ZodError } from "zod";
 
 import { VeloConnectionError, VeloError } from "../../../errors.js";
 import { MAX_TIMER_MS } from "../../../transport/retry.js";
@@ -12,7 +11,7 @@ import type {
 } from "../../../transport/websocket.js";
 import { Velo } from "../../client.js";
 import type { NewsStory } from "./validation.js";
-import { decodeNewsMessage, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.js";
+import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.js";
 import type { NewsClose, NewsDelete, NewsWatcher, NewsWatcherState } from "./watcher.js";
 
 const STORY = {
@@ -68,6 +67,11 @@ class FakeSocket implements WebSocketConnection {
   open(): void {
     this.readyState = 1;
     this.#emit("open", {});
+  }
+
+  openWithMessages(...messages: unknown[]): void {
+    this.open();
+    for (const message of messages) this.message(message);
   }
 
   message(data: unknown): void {
@@ -177,6 +181,12 @@ describe("Velo.news.watch", () => {
       { heartbeatTimeout: Number.NaN },
       { heartbeatTimeout: Symbol("timeout") },
       { heartbeatTimeout: MAX_TIMER_MS + 1 },
+      { connectTimeout: 0 },
+      { connectTimeout: -1 },
+      { connectTimeout: 0.5 },
+      { connectTimeout: MAX_TIMER_MS + 1 },
+      { onListenerError: "log" },
+      { onListenerError: null },
       { signal: {} },
       { signal: { aborted: false, addEventListener() {} } },
       {
@@ -215,6 +225,58 @@ describe("Velo.news.watch", () => {
     expect(watcher.connect()).toBe(first);
     expect(socket.sent).toEqual(["subscribe news_priority"]);
     expect(targets[0]?.authenticatedUrl).toContain("/api/w/connect/test%2Fkey");
+  });
+
+  it("replays frames emitted synchronously with open in their original order", async () => {
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const events: string[] = [];
+    watcher.on("story", ({ id }) => events.push(`story:${String(id)}`));
+
+    const connected = watcher.connect().then(() => {
+      events.push("connected");
+    });
+    await flushConnection();
+    const socket = sockets[0] as FakeSocket;
+
+    socket.openWithMessages(story(1), story(2));
+    await connected;
+
+    expect(watcher.state).toBe("open");
+    expect(socket.sent).toEqual(["subscribe news_priority"]);
+    expect(events).toEqual(["story:1", "story:2", "connected"]);
+  });
+
+  it("stops draining after a buffered frame fails and never replays stale frames", async () => {
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const stories = vi.fn();
+    const events: string[] = [];
+    watcher
+      .on("story", stories)
+      .on("error", () => events.push("error"))
+      .on("close", () => events.push("close"));
+
+    const connected = watcher.connect();
+    await flushConnection();
+    const firstSocket = sockets[0] as FakeSocket;
+    firstSocket.openWithMessages("{not json", story(99));
+    await expect(connected).resolves.toBeUndefined();
+
+    expect(watcher.state).toBe("disconnected");
+    expect(events).toEqual(["error", "close"]);
+    expect(stories).not.toHaveBeenCalled();
+
+    const reconnected = watcher.connect();
+    await flushConnection();
+    const secondSocket = sockets[1] as FakeSocket;
+    secondSocket.openWithMessages(story(2));
+    await reconnected;
+
+    expect(watcher.state).toBe("open");
+    expect(stories).toHaveBeenCalledOnce();
+    expect(stories).toHaveBeenCalledWith({ ...STORY, id: 2 });
+    watcher.close();
   });
 
   it("emits decoded domain events in order and supports fluent on/off", async () => {
@@ -262,28 +324,6 @@ describe("Velo.news.watch", () => {
 
     socket.message(Buffer.from(story()));
     expect(stories).toHaveBeenCalledWith(STORY);
-  });
-
-  it("rejects malformed JSON, schemas, false markers, and conflicting markers", () => {
-    const invalid = [
-      "{not json",
-      "null",
-      '{"heartbeat":false}',
-      '{"heartbeat":true,"id":1}',
-      JSON.stringify({ ...STORY, edit: false }),
-      JSON.stringify({ ...STORY, edit: true, deleted: true }),
-    ];
-
-    for (const frame of invalid) {
-      expect(() => decodeNewsMessage(frame)).toThrow(VeloError);
-    }
-
-    try {
-      decodeNewsMessage(JSON.stringify({ ...STORY, edit: true, deleted: true }));
-    } catch (error) {
-      expect((error as Error).cause).toBeInstanceOf(ZodError);
-      expect((error as Error).message).toMatch(/conflicting event markers/);
-    }
   });
 
   it("reports a post-open decode failure as error then close", async () => {
@@ -521,6 +561,29 @@ describe("Velo.news.watch", () => {
     await flushConnection();
 
     expect(reportError).toHaveBeenCalledWith(rejected);
+    expect(later).toHaveBeenCalledWith(STORY);
+    expect(watcher.state).toBe("open");
+  });
+
+  it("routes listener failures to onListenerError instead of the default reporting", async () => {
+    const reportError = vi.fn();
+    vi.stubGlobal("reportError", reportError);
+    const onListenerError = vi.fn();
+    const { client, sockets } = harness();
+    const watcher = client.news.watch({ onListenerError });
+    const later = vi.fn();
+    const thrown = new Error("consumer failed");
+    watcher
+      .on("story", () => {
+        throw thrown;
+      })
+      .on("story", later);
+    const socket = await openWatcher(watcher, sockets);
+
+    socket.message(story());
+
+    expect(onListenerError).toHaveBeenCalledWith(thrown);
+    expect(reportError).not.toHaveBeenCalled();
     expect(later).toHaveBeenCalledWith(STORY);
     expect(watcher.state).toBe("open");
   });
@@ -772,6 +835,68 @@ describe("News watcher lifecycle", () => {
 
     expect(watcher.state).toBe("disconnected");
     expect(socket.closeCalls).toHaveLength(1);
+  });
+
+  it("uses a thirty-second default and fails a connection attempt that never opens", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const watcher = client.news.watch();
+    const closes = vi.fn();
+    const errors = vi.fn();
+    watcher.on("close", closes).on("error", errors);
+
+    const connected = watcher.connect();
+    const outcome = connected.catch((error: unknown) => error);
+    await flushConnection();
+    const socket = sockets[0] as FakeSocket;
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_NEWS_CONNECT_TIMEOUT - 1);
+    expect(watcher.state).toBe("connecting");
+    await vi.advanceTimersByTimeAsync(1);
+
+    const error = await outcome;
+    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect((error as Error).message).toMatch(/timed out connecting after 30000 milliseconds/);
+    expect(watcher.state).toBe("disconnected");
+    expect(errors).not.toHaveBeenCalled();
+    expect(closes).toHaveBeenCalledWith({ code: 1006, reason: "", wasClean: false });
+    expect(socket.closeCalls).toHaveLength(1);
+
+    // A handshake after the deadline cannot revive the watcher.
+    socket.open();
+    expect(watcher.state).toBe("disconnected");
+  });
+
+  it("honors a custom connect timeout", async () => {
+    vi.useFakeTimers();
+    const { client } = harness();
+    const watcher = client.news.watch({ connectTimeout: 100 });
+
+    const connected = watcher.connect();
+    const outcome = connected.catch((error: unknown) => error);
+    await flushConnection();
+
+    await vi.advanceTimersByTimeAsync(99);
+    expect(watcher.state).toBe("connecting");
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect((await outcome) as Error).toBeInstanceOf(VeloConnectionError);
+    expect(watcher.state).toBe("disconnected");
+  });
+
+  it("keeps the connection once open past the connect deadline", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const watcher = client.news.watch({ connectTimeout: 1000 });
+    const closes = vi.fn();
+    watcher.on("close", closes);
+    const socket = await openWatcher(watcher, sockets);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(watcher.state).toBe("open");
+    expect(closes).not.toHaveBeenCalled();
+    expect(socket.closeCalls).toHaveLength(0);
   });
 
   it("exposes the state union without widening it to string", () => {

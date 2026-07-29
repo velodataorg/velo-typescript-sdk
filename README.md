@@ -135,3 +135,16 @@ const watcher = velo.news
 
 await watcher.connect();
 ```
+
+`watch()` accepts a few options:
+
+```ts
+const watcher = velo.news.watch({
+  signal: controller.signal, // Closes the watcher when aborted
+  connectTimeout: 30_000, // Fail `connect()` if not subscribed in time (default 30s)
+  heartbeatTimeout: 300_000, // Fail when the feed goes silent (default 5m)
+  onListenerError: (error) => log.error(error), // Receives errors your listeners throw
+});
+```
+
+The watcher never reconnects on its own: after an unexpected `close` event, call `connect()` again. Errors thrown by your event listeners never close the connection or crash the process — they go to `onListenerError` when provided, and otherwise to `reportError` in runtimes that have it or `console.error` elsewhere.

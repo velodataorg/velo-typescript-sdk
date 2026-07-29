@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   CAPS_PATH,
+  DEFAULT_NEWS_CONNECT_TIMEOUT,
   DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
@@ -186,6 +187,7 @@ describe("status public exports", () => {
 describe("news public exports", () => {
   it("exports watcher constants and typed events", () => {
     expect(DEFAULT_NEWS_HEARTBEAT_TIMEOUT).toBe(300_000);
+    expect(DEFAULT_NEWS_CONNECT_TIMEOUT).toBe(30_000);
 
     const listener: NewsWatcherListener<"delete"> = (event) => {
       const id: number = event.id;

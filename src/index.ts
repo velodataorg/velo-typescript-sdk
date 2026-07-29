@@ -45,7 +45,10 @@ export type {
   NewsWatcherState,
   NewsWatchOptions,
 } from "./client/api/news/watcher.js";
-export { DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./client/api/news/watcher.js";
+export {
+  DEFAULT_NEWS_CONNECT_TIMEOUT,
+  DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
+} from "./client/api/news/watcher.js";
 export type { Options } from "./client/api/options/options.js";
 export type {
   OptionsBuilder,
