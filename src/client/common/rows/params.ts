@@ -11,6 +11,11 @@ export type MarketType = "futures" | "options" | "spot";
 //////////////////////////////////////////////////////////////*/
 
 interface RowsParamsBase<E extends string, C extends string> {
+  /**
+   * Cross-joins with `products` or `coins`: the result holds one series per
+   * (exchange, product) pair, so row counts and query width scale with the
+   * product of the list lengths, not their sum.
+   */
   readonly exchanges: readonly E[];
   readonly columns: readonly C[];
   readonly begin: number;
@@ -22,15 +27,34 @@ export interface RowsParamsProducts<E extends string, C extends string> extends 
   E,
   C
 > {
+  /**
+   * Exchange-native symbols, each requested on every exchange; pairs that do
+   * not trade on an exchange contribute no rows.
+   */
   readonly products: readonly string[];
   readonly coins?: never;
 }
 
 export interface RowsParamsCoins<E extends string, C extends string> extends RowsParamsBase<E, C> {
+  /**
+   * Velo-aggregated symbols, each requested on every exchange; pairs that do
+   * not trade on an exchange contribute no rows.
+   */
   readonly coins: readonly string[];
   readonly products?: never;
 }
 
+/**
+ * Parameters accepted by the market rows queries.
+ *
+ * @remarks
+ * The target is either `products` or `coins`, never both. `exchanges`
+ * cross-joins with the target: the result holds one series per
+ * (exchange, product) pair.
+ *
+ * @typeParam E - Exchanges the market supports.
+ * @typeParam C - Columns the market supports.
+ */
 export type RowsParams<E extends string, C extends string> =
   | RowsParamsProducts<E, C>
   | RowsParamsCoins<E, C>;

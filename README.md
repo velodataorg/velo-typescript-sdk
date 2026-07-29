@@ -76,6 +76,18 @@ async function main() {
 main();
 ```
 
+`exchanges` cross-joins with `products` (or `coins`): the result contains one
+series per (exchange, product) pair, keyed `"exchange:product"`.
+
+```
+exchanges: ["binance-futures", "bybit"]     products: ["BTCUSDT", "ETHUSDT"]
+
+            binance-futures:BTCUSDT   ─┐
+            binance-futures:ETHUSDT    ├─ 2 × 2 = 4 series,
+            bybit:BTCUSDT              │  one per (exchange, product) pair
+            bybit:ETHUSDT             ─┘
+```
+
 ### Fetch list of available products
 
 Fetch and locally search the products catalog.
