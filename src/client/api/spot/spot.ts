@@ -9,11 +9,6 @@ export class Spot {
   readonly volume: SpotBuilder<never>["volume"];
   readonly trades: SpotBuilder<never>["trades"];
   readonly exchanges: SpotBuilder<never>["exchanges"];
-  readonly products: SpotBuilder<never>["products"];
-  readonly coins: SpotBuilder<never>["coins"];
-  readonly between: SpotBuilder<never>["between"];
-  readonly last: SpotBuilder<never>["last"];
-  readonly resolution: SpotBuilder<never>["resolution"];
 
   constructor(http: Http) {
     const query = new SpotQuery(http);
@@ -23,10 +18,5 @@ export class Spot {
     this.volume = builder.volume.bind(builder);
     this.trades = builder.trades.bind(builder);
     this.exchanges = builder.exchanges.bind(builder);
-    this.products = builder.products.bind(builder);
-    this.coins = builder.coins.bind(builder);
-    this.between = builder.between.bind(builder);
-    this.last = builder.last.bind(builder);
-    this.resolution = builder.resolution.bind(builder);
   }
 }

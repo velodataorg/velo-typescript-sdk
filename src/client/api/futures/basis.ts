@@ -1,11 +1,6 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import {
-  betweenTime,
-  type BuilderTime,
-  lastTime,
-  type LastDuration,
-  lowerTime,
-} from "../../common/builder/time.js";
+import { assert } from "../../../util/assert.js";
+import { lowerTimeScope, type TimeScope } from "../../common/builder/scope.js";
 import type { Data } from "../../common/data/data.js";
 import { BASIS_COLUMN } from "../../common/market/columns.js";
 import type { FuturesExchange } from "../../common/market/exchanges.js";
@@ -14,10 +9,15 @@ import type { Resolution } from "../../common/rows/resolution.js";
 import { BASIS_COINS, FuturesParams, type BasisCoin, type FuturesBasisParams } from "./params.js";
 import { FuturesQuery, type FuturesRow } from "./query.js";
 
+/**
+ * The required query scope accepted by a basis builder's terminal methods.
+ *
+ * Coins stay a chain method because they default to both BTC and ETH.
+ */
+export type FuturesBasisScope = TimeScope & { readonly resolution: Resolution };
+
 interface State {
   readonly coins?: readonly BasisCoin[];
-  readonly time?: BuilderTime;
-  readonly resolution?: Resolution;
 }
 
 /** An immutable fluent query for the annualized three-month futures basis. */
@@ -35,50 +35,49 @@ export class FuturesBasisBuilder {
     return this.#with({ coins: [...coins] });
   }
 
-  /** Replaces the time selection with an explicit half-open range. */
-  between(begin: number | Date, end: number | Date): FuturesBasisBuilder {
-    return this.#with({ time: betweenTime(begin, end) });
+  /**
+   * Lowers and validates the chain into raw futures basis parameters.
+   *
+   * @param scope - The time range and resolution to query.
+   */
+  params(scope: FuturesBasisScope): FuturesBasisParams {
+    assert(scope.resolution !== undefined, "scope must set a resolution");
+    const lowered: FuturesBasisParams = {
+      columns: [BASIS_COLUMN],
+      coins: [...(this.#state.coins ?? BASIS_COINS)],
+      ...lowerTimeScope(scope),
+      resolution: scope.resolution,
+    };
+    return FuturesParams.parse(lowered);
   }
 
-  /** Replaces the time selection with a trailing duration. */
-  last(duration: LastDuration): FuturesBasisBuilder {
-    return this.#with({ time: lastTime(duration) });
+  /**
+   * Lowers the chain into a lazy query without sending a request.
+   *
+   * A trailing duration in the scope is fixed when this method is called.
+   *
+   * @param scope - The time range and resolution to query.
+   */
+  build(
+    scope: FuturesBasisScope,
+  ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>> {
+    return this.#query.build(this.params(scope));
   }
 
-  /** Replaces the query resolution. */
-  resolution(resolution: Resolution): FuturesBasisBuilder {
-    return this.#with({ resolution });
-  }
-
-  /** Lowers and validates the chain into raw futures basis parameters. */
-  params(): FuturesBasisParams {
-    return FuturesParams.parse(this.#lower());
-  }
-
-  /** Lowers the chain into a lazy query without sending a request. */
-  build(): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>> {
-    return this.#query.build(this.#lower());
-  }
-
-  /** Lowers and immediately executes the chain. */
-  execute(options?: HttpRequestOptions): Promise<Data<FuturesExchange, typeof BASIS_COLUMN>> {
-    return this.build().execute(options);
+  /**
+   * Lowers and immediately executes the chain.
+   *
+   * @param scope - The time range and resolution to query.
+   * @param options - Per-request transport options.
+   */
+  execute(
+    scope: FuturesBasisScope,
+    options?: HttpRequestOptions,
+  ): Promise<Data<FuturesExchange, typeof BASIS_COLUMN>> {
+    return this.build(scope).execute(options);
   }
 
   #with(patch: Partial<State>): FuturesBasisBuilder {
     return new FuturesBasisBuilder(this.#query, { ...this.#state, ...patch });
-  }
-
-  #lower(): FuturesBasisParams {
-    const resolution =
-      this.#state.resolution === undefined ? {} : { resolution: this.#state.resolution };
-
-    /* The parser or raw query immediately validates builders that are still incomplete. */
-    return {
-      columns: [BASIS_COLUMN],
-      coins: [...(this.#state.coins ?? BASIS_COINS)],
-      ...lowerTime(this.#state.time),
-      ...resolution,
-    } as FuturesBasisParams;
   }
 }

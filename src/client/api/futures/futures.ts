@@ -16,11 +16,6 @@ export class Futures {
   readonly liquidations: FuturesBuilder<never>["liquidations"];
   readonly liquidationVolume: FuturesBuilder<never>["liquidationVolume"];
   readonly exchanges: FuturesBuilder<never>["exchanges"];
-  readonly products: FuturesBuilder<never>["products"];
-  readonly coins: FuturesBuilder<never>["coins"];
-  readonly between: FuturesBuilder<never>["between"];
-  readonly last: FuturesBuilder<never>["last"];
-  readonly resolution: FuturesBuilder<never>["resolution"];
 
   constructor(http: Http) {
     const query = new FuturesQuery(http);
@@ -36,10 +31,5 @@ export class Futures {
     this.liquidations = builder.liquidations.bind(builder);
     this.liquidationVolume = builder.liquidationVolume.bind(builder);
     this.exchanges = builder.exchanges.bind(builder);
-    this.products = builder.products.bind(builder);
-    this.coins = builder.coins.bind(builder);
-    this.between = builder.between.bind(builder);
-    this.last = builder.last.bind(builder);
-    this.resolution = builder.resolution.bind(builder);
   }
 }

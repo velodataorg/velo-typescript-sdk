@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { VeloError } from "../../../errors.js";
+import type { Equals, Expect } from "../../../util/types.js";
 import {
   BASIS_COLUMN,
   FUTURES_STANDARD_COLUMNS,
@@ -47,6 +48,11 @@ const FuturesBasisParamsSchema = z
 
 const FuturesParamsSchema = z.union([FuturesStandardParamsSchema, FuturesBasisParamsSchema]);
 
+/* parse() returns a clone of its input, so the schema must never transform values. */
+type _SchemaDoesNotTransform = Expect<
+  Equals<z.input<typeof FuturesParamsSchema>, z.output<typeof FuturesParamsSchema>>
+>;
+
 export const FuturesParams = Object.freeze({
   /** Validates futures parameters while preserving their static column selection. */
   parse<P extends FuturesParams>(params: P): P {
@@ -55,7 +61,8 @@ export const FuturesParams = Object.freeze({
       throw new VeloError(`Invalid futures params:\n${z.prettifyError(parsed.error)}`);
     }
 
-    /* Zod preserves the selected columns but necessarily returns their full schema union. */
-    return parsed.data as unknown as P;
+    /* Return a clone of the validated input: its type is already P, where Zod's
+       output necessarily widens back to the full column union. */
+    return structuredClone(params);
   },
 });

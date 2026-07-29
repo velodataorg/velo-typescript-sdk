@@ -19,11 +19,6 @@ export class Options {
   readonly dvol: OptionsBuilder<never>["dvol"];
   readonly indexPrice: OptionsBuilder<never>["indexPrice"];
   readonly exchanges: OptionsBuilder<never>["exchanges"];
-  readonly products: OptionsBuilder<never>["products"];
-  readonly coins: OptionsBuilder<never>["coins"];
-  readonly between: OptionsBuilder<never>["between"];
-  readonly last: OptionsBuilder<never>["last"];
-  readonly resolution: OptionsBuilder<never>["resolution"];
 
   constructor(http: Http) {
     const query = new OptionsQuery(http);
@@ -43,10 +38,5 @@ export class Options {
     this.dvol = builder.dvol.bind(builder);
     this.indexPrice = builder.indexPrice.bind(builder);
     this.exchanges = builder.exchanges.bind(builder);
-    this.products = builder.products.bind(builder);
-    this.coins = builder.coins.bind(builder);
-    this.between = builder.between.bind(builder);
-    this.last = builder.last.bind(builder);
-    this.resolution = builder.resolution.bind(builder);
   }
 }

@@ -131,7 +131,7 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
 
   /**
    * Iterates the flat rows, equivalent to iterating
-   * {@link Data.rows | rows()}.
+   * {@link Data#rows | rows()}.
    */
   [Symbol.iterator](): Iterator<Row<E, C>> {
     return this.#rows[Symbol.iterator]();

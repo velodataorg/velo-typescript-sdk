@@ -182,7 +182,7 @@ export class Http {
    *
    * @remarks
    * HTTP failures retain the retry and typed-error behavior of
-   * {@link Http.text | text()}. The parsed value remains `unknown`: endpoint
+   * {@link Http#text | text()}. The parsed value remains `unknown`: endpoint
    * code must validate its own response contract before exposing a type.
    *
    * @param path - The endpoint path, starting with `/`.

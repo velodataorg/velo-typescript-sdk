@@ -19,7 +19,7 @@ export interface QueryRequest {
  * Everything a query needs to execute and decode its responses.
  *
  * @typeParam T - One decoded response item.
- * @typeParam D - The value {@link Query.execute | execute()} resolves to.
+ * @typeParam D - The value {@link Query#execute | execute()} resolves to.
  */
 export interface QueryOptions<T, D = T[]> {
   readonly requests: readonly QueryRequest[];
@@ -36,11 +36,11 @@ export interface QueryOptions<T, D = T[]> {
 /**
  * A lazy, self-contained query bound to an HTTP transport.
  *
- * No request is sent until {@link Query.execute | execute()} is called or the
- * iterator returned by {@link Query.stream | stream()} is advanced.
+ * No request is sent until {@link Query#execute | execute()} is called or the
+ * iterator returned by {@link Query#stream | stream()} is advanced.
  *
  * @typeParam T - One decoded response item.
- * @typeParam D - The value {@link Query.execute | execute()} resolves to.
+ * @typeParam D - The value {@link Query#execute | execute()} resolves to.
  */
 export class Query<T, D = T[]> {
   readonly #http: Http;

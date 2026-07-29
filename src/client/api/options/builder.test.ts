@@ -22,6 +22,7 @@ function search(url: string): URLSearchParams {
 describe("options fluent builder", () => {
   const begin = Date.UTC(2026, 6, 13, 8);
   const end = Date.UTC(2026, 6, 13, 10);
+  const scope = { coins: ["BTC"], between: [begin, end], resolution: "1h" } as const;
 
   it("keeps builder terminal methods off the options namespace", () => {
     const { options } = client().velo;
@@ -58,12 +59,9 @@ describe("options fluent builder", () => {
       .iv(["1w", "3m"])
       .delta(["call"], { metric: "coin" })
       .dvol(["close"])
-      .indexPrice()
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h");
+      .indexPrice();
 
-    expect(builder.params().columns).toEqual([
+    expect(builder.params(scope).columns).toEqual([
       "iv_1m",
       "iv_1w",
       "iv_3m",
@@ -79,26 +77,16 @@ describe("options fluent builder", () => {
   });
 
   it("defaults to every options exchange and accepts an explicit replacement", () => {
-    const base = client()
-      .velo.options.iv(["1m"])
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h");
+    const base = client().velo.options.iv(["1m"]);
 
-    expect(base.params().exchanges).toEqual(OPTIONS_EXCHANGES);
-    expect(base.exchanges(["deribit"]).params().exchanges).toEqual(["deribit"]);
+    expect(base.params(scope).exchanges).toEqual(OPTIONS_EXCHANGES);
+    expect(base.exchanges(["deribit"]).params(scope).exchanges).toEqual(["deribit"]);
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {
-    const builder = client()
-      .velo.options.iv()
-      .skew()
-      .dvol()
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h");
+    const builder = client().velo.options.iv().skew().dvol();
 
-    expect(builder.params().columns).toEqual([
+    expect(builder.params(scope).columns).toEqual([
       "iv_1w",
       "iv_1m",
       "iv_3m",
@@ -131,15 +119,9 @@ describe("options fluent builder", () => {
   });
 
   it("uses dollar defaults for metric-based Greek selectors", () => {
-    const builder = client()
-      .velo.options.vega()
-      .delta()
-      .gamma()
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h");
+    const builder = client().velo.options.vega().delta().gamma();
 
-    expect(builder.params().columns).toEqual([
+    expect(builder.params(scope).columns).toEqual([
       "vega_dollars",
       "call_delta_dollars",
       "put_delta_dollars",
@@ -158,12 +140,9 @@ describe("options fluent builder", () => {
       .volume(["call"])
       .dollarVolume()
       .premium(["put"])
-      .notional(["call"])
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h");
+      .notional(["call"]);
 
-    expect(builder.params().columns).toEqual([
+    expect(builder.params(scope).columns).toEqual([
       "vega_coins",
       "put_delta_coins",
       "gamma_coins",
@@ -201,34 +180,22 @@ describe("options fluent builder", () => {
       .notional()
       .dvol()
       .indexPrice()
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h")
-      .params().columns;
+      .params(scope).columns;
 
     expect(columns).toHaveLength(OPTIONS_COLUMNS.length);
     expect(new Set(columns)).toEqual(new Set(OPTIONS_COLUMNS));
   });
 
-  it("snapshots caller-owned arrays and dates", () => {
+  it("snapshots chain arrays, lowers the scope per call, and returns fresh copies", () => {
     const { velo } = client();
     const exchanges: OptionsExchange[] = ["deribit"];
     const coins = ["BTC"];
-    const rangeBegin = new Date(begin);
-    const rangeEnd = new Date(end);
-    const builder = velo.options
-      .iv(["1m"])
-      .exchanges(exchanges)
-      .coins(coins)
-      .between(rangeBegin, rangeEnd)
-      .resolution("1h");
+    const builder = velo.options.iv(["1m"]).exchanges(exchanges);
+    const liveScope = { coins, between: [begin, end], resolution: "1h" } as const;
 
     exchanges.push("deribit");
-    coins[0] = "ETH";
-    rangeBegin.setTime(begin + 60_000);
-    rangeEnd.setTime(end + 60_000);
 
-    const first = builder.params();
+    const first = builder.params(liveScope);
     expect(first).toMatchObject({
       exchanges: ["deribit"],
       coins: ["BTC"],
@@ -238,19 +205,21 @@ describe("options fluent builder", () => {
 
     (first.exchanges as OptionsExchange[]).push("deribit");
     (first.coins as string[]).push("ETH");
-    expect(builder.params()).toMatchObject({
+    expect(builder.params(liveScope)).toMatchObject({
       exchanges: ["deribit"],
       coins: ["BTC"],
     });
+
+    coins[0] = "ETH";
+    expect(builder.params(liveScope).coins).toEqual(["ETH"]);
   });
 
   it("supports immutable branching", () => {
-    const base = client().velo.options.coins(["BTC"]).between(begin, end).resolution("1h");
-    const volatility = base.iv(["1m"]);
+    const base = client().velo.options.iv(["1m"]);
     const greeks = base.delta(["call"]);
 
-    expect(volatility.params().columns).toEqual(["iv_1m"]);
-    expect(greeks.params().columns).toEqual(["call_delta_dollars"]);
+    expect(base.params(scope).columns).toEqual(["iv_1m"]);
+    expect(greeks.params(scope).columns).toEqual(["iv_1m", "call_delta_dollars"]);
   });
 
   it("rejects empty and possibly-undefined selections", () => {
@@ -275,24 +244,54 @@ describe("options fluent builder", () => {
     void compileTimeOnly;
   });
 
-  it("rejects conflicting selectors and malformed eager inputs", () => {
+  it("rejects incomplete scopes at compile time", () => {
     const { velo } = client();
 
-    expect(() => velo.options.products(["BTC-OPTION"]).coins(["BTC"])).toThrow(VeloError);
-    expect(() => velo.options.coins(["BTC"]).products(["BTC-OPTION"])).toThrow(VeloError);
-    expect(() => velo.options.last("0m")).toThrow(VeloError);
-    expect(() => velo.options.last("1d" as LastDuration)).toThrow(VeloError);
+    /* Never called: these statements pin compile-time rejections only. */
+    const compileTimeOnly = () => {
+      // @ts-expect-error the scope must select products or coins
+      velo.options.iv(["1m"]).params({ between: [begin, end], resolution: "1h" });
+      // @ts-expect-error the scope must set between or last
+      velo.options.iv(["1m"]).params({ coins: ["BTC"], resolution: "1h" });
+      // @ts-expect-error the scope must set a resolution
+      velo.options.iv(["1m"]).params({ coins: ["BTC"], between: [begin, end] });
+      // @ts-expect-error the scope cannot select both products and coins
+      velo.options.iv(["1m"]).build({ ...scope, products: ["BTC-OPTION"] });
+      // @ts-expect-error a terminal method requires a scope
+      velo.options.iv(["1m"]).execute();
+    };
+    void compileTimeOnly;
   });
 
-  it("uses the existing schema for incomplete chains", () => {
+  it("rejects malformed scopes loudly at runtime", () => {
     const { velo } = client();
-    const incomplete = [
-      () => velo.options.coins(["BTC"]).between(begin, end).resolution("1h").params(),
-      () => velo.options.iv(["1m"]).between(begin, end).resolution("1h").params(),
-      () => velo.options.iv(["1m"]).coins(["BTC"]).resolution("1h").params(),
+    const base = velo.options.iv(["1m"]);
+
+    expect(() => base.params({ ...scope, products: ["BTC-OPTION"] } as never)).toThrow(
+      /scope cannot select both products and coins/,
+    );
+    expect(() => base.params({ between: [begin, end], resolution: "1h" } as never)).toThrow(
+      /scope must select products or coins/,
+    );
+    expect(() => base.params({ coins: ["BTC"], resolution: "1h" } as never)).toThrow(
+      /scope must set between or last/,
+    );
+    expect(() => base.params({ coins: ["BTC"], last: "0m", resolution: "1m" })).toThrow(VeloError);
+    expect(() =>
+      base.params({ coins: ["BTC"], last: "1d" as LastDuration, resolution: "1m" }),
+    ).toThrow(VeloError);
+  });
+
+  it("delegates remaining validation to the params schema", () => {
+    const { velo } = client();
+    const invalid = [
+      /* No columns selected. */
+      () => velo.options.exchanges(["deribit"]).params(scope),
+      /* Inverted time range. */
+      () => velo.options.iv(["1m"]).params({ ...scope, between: [end, begin] }),
     ];
 
-    for (const lower of incomplete) {
+    for (const lower of invalid) {
       expect(lower).toThrow(VeloError);
       expect(lower).toThrow(/Invalid options params/);
     }
@@ -303,24 +302,31 @@ describe("options fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,iv_1m\n", urls);
-      const builder = velo.options.iv(["1m"]).coins(["BTC"]).last("11m").resolution("1m");
+      const builder = velo.options.iv(["1m"]);
+      const trailing = { coins: ["BTC"], last: "11m", resolution: "1m" } as const;
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
       vi.setSystemTime(firstEnd);
-      expect(builder.params()).toMatchObject({ begin: firstEnd - 11 * 60_000, end: firstEnd });
+      expect(builder.params(trailing)).toMatchObject({
+        begin: firstEnd - 11 * 60_000,
+        end: firstEnd,
+      });
       vi.setSystemTime(secondEnd);
-      expect(builder.params()).toMatchObject({ begin: secondEnd - 11 * 60_000, end: secondEnd });
+      expect(builder.params(trailing)).toMatchObject({
+        begin: secondEnd - 11 * 60_000,
+        end: secondEnd,
+      });
 
       vi.setSystemTime(firstEnd);
-      await builder.execute();
+      await builder.execute(trailing);
       vi.setSystemTime(secondEnd);
-      await builder.execute();
+      await builder.execute(trailing);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build();
+      const query = builder.build(trailing);
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);
@@ -343,10 +349,7 @@ describe("options fluent builder", () => {
       .dvol(["close"])
       .indexPrice()
       .exchanges(["deribit"])
-      .coins(["BTC"])
-      .between(begin, end)
-      .resolution("1h")
-      .execute();
+      .execute({ coins: ["BTC"], between: [begin, end], resolution: "1h" });
 
     expect(data.rows()).toEqual([
       {

@@ -1,18 +1,10 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { assert } from "../../../util/assert.js";
+import { lowerRowsScope, type RowsScope } from "../../common/builder/scope.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
-import {
-  betweenTime,
-  type BuilderTime,
-  lastTime,
-  type LastDuration,
-  lowerTime,
-} from "../../common/builder/time.js";
 import type { Data } from "../../common/data/data.js";
 import type { SpotColumn } from "../../common/market/columns.js";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.js";
 import type { Query } from "../../common/query.js";
-import type { Resolution } from "../../common/rows/resolution.js";
 import { SpotParams } from "./params.js";
 import { SpotQuery, type SpotRow } from "./query.js";
 import {
@@ -27,6 +19,7 @@ import {
 } from "./selectors.js";
 
 export type { LastDuration } from "../../common/builder/time.js";
+export type { RowsScope, TargetScope, TimeScope } from "../../common/builder/scope.js";
 export type {
   SpotPricePart,
   SpotTradePart,
@@ -40,14 +33,9 @@ const {
   trades: TRADE_COLUMNS,
 } = SPOT_SELECTOR_COLUMNS;
 
-interface State {
-  readonly columns: readonly SpotColumn[];
+interface State<C extends SpotColumn> {
+  readonly columns: readonly C[];
   readonly exchanges?: readonly SpotExchange[];
-  readonly selection?:
-    | { readonly kind: "products"; readonly values: readonly string[] }
-    | { readonly kind: "coins"; readonly values: readonly string[] };
-  readonly time?: BuilderTime;
-  readonly resolution?: Resolution;
 }
 
 /**
@@ -60,9 +48,9 @@ interface State {
  */
 export class SpotBuilder<C extends SpotColumn = never> {
   readonly #query: SpotQuery;
-  readonly #state: State;
+  readonly #state: State<C>;
 
-  constructor(query: SpotQuery, state: State = { columns: [] }) {
+  constructor(query: SpotQuery, state: State<C> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }
@@ -147,118 +135,53 @@ export class SpotBuilder<C extends SpotColumn = never> {
   }
 
   /**
-   * Replaces the products selected by the chain.
-   *
-   * @throws {@link VeloError} when coins have already been selected.
-   */
-  products(products: readonly string[]): SpotBuilder<C> {
-    assert(
-      this.#state.selection?.kind !== "coins",
-      "products() cannot be used after coins() on the same chain",
-    );
-    return this.#with({ selection: { kind: "products", values: [...products] } });
-  }
-
-  /**
-   * Replaces the coins selected by the chain.
-   *
-   * @throws {@link VeloError} when products have already been selected.
-   */
-  coins(coins: readonly string[]): SpotBuilder<C> {
-    assert(
-      this.#state.selection?.kind !== "products",
-      "coins() cannot be used after products() on the same chain",
-    );
-    return this.#with({ selection: { kind: "coins", values: [...coins] } });
-  }
-
-  /**
-   * Replaces the time selection with an explicit half-open range.
-   *
-   * Date inputs are snapshotted as millisecond timestamps when this method is
-   * called.
-   */
-  between(begin: number | Date, end: number | Date): SpotBuilder<C> {
-    return this.#with({ time: betweenTime(begin, end) });
-  }
-
-  /**
-   * Replaces the time selection with a trailing duration.
-   *
-   * The current time is read by {@link SpotBuilder.params | params()},
-   * {@link SpotBuilder.build | build()}, or
-   * {@link SpotBuilder.execute | execute()}, rather than by this method.
-   */
-  last(duration: LastDuration): SpotBuilder<C> {
-    return this.#with({ time: lastTime(duration) });
-  }
-
-  /** Replaces the query resolution. */
-  resolution(resolution: Resolution): SpotBuilder<C> {
-    return this.#with({ resolution });
-  }
-
-  /**
    * Lowers and validates the chain into raw spot parameters.
    *
+   * @param scope - The target, time range, and resolution to query.
    * @returns A fresh validated parameter object.
    */
-  params(): SpotParams<C> {
-    return SpotParams.parse(this.#lower());
+  params(scope: RowsScope): SpotParams<C> {
+    const lowered: SpotParams<C> = {
+      exchanges: [...(this.#state.exchanges ?? SPOT_EXCHANGES)],
+      columns: [...this.#state.columns],
+      ...lowerRowsScope(scope),
+    };
+    return SpotParams.parse(lowered);
   }
 
   /**
    * Lowers the chain into a lazy query without sending a request.
    *
-   * A trailing duration is fixed when this method is called.
+   * A trailing duration in the scope is fixed when this method is called.
+   *
+   * @param scope - The target, time range, and resolution to query.
    */
-  build(): Query<SpotRow<C>, Data<SpotExchange, C>> {
-    return this.#query.build(this.#lower());
+  build(scope: RowsScope): Query<SpotRow<C>, Data<SpotExchange, C>> {
+    return this.#query.build(this.params(scope));
   }
 
   /**
    * Lowers and immediately executes the chain.
    *
+   * @param scope - The target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  execute(options?: HttpRequestOptions): Promise<Data<SpotExchange, C>> {
-    return this.build().execute(options);
+  execute(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<SpotExchange, C>> {
+    return this.build(scope).execute(options);
   }
 
-  #with(patch: Partial<State>): SpotBuilder<C> {
+  #with(patch: Partial<State<C>>): SpotBuilder<C> {
     return new SpotBuilder(this.#query, { ...this.#state, ...patch });
   }
 
   #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added> {
-    const accumulated = [...this.#state.columns];
-    const seen = new Set(accumulated);
+    const accumulated: (C | Added)[] = [...this.#state.columns];
+    const seen = new Set<C | Added>(accumulated);
     for (const column of columns) {
       if (seen.has(column)) continue;
       seen.add(column);
       accumulated.push(column);
     }
     return new SpotBuilder(this.#query, { ...this.#state, columns: accumulated });
-  }
-
-  #lower(): SpotParams<C> {
-    const selection = this.#state.selection;
-    const target =
-      selection === undefined
-        ? {}
-        : selection.kind === "products"
-          ? { products: [...selection.values] }
-          : { coins: [...selection.values] };
-
-    const resolution =
-      this.#state.resolution === undefined ? {} : { resolution: this.#state.resolution };
-
-    /* The parser or raw query immediately validates builders that are still incomplete. */
-    return {
-      exchanges: [...(this.#state.exchanges ?? SPOT_EXCHANGES)],
-      columns: [...this.#state.columns] as C[],
-      ...target,
-      ...lowerTime(this.#state.time),
-      ...resolution,
-    } as unknown as SpotParams<C>;
   }
 }
