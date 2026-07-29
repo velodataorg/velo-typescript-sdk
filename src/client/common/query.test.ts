@@ -202,6 +202,31 @@ describe("Query.stream", () => {
     expect(signals[1]?.aborted).toBe(true);
   });
 
+  it("aborts in-flight requests when the caller's signal aborts mid-stream", async () => {
+    const signals: AbortSignal[] = [];
+    const controller = new AbortController();
+    const fetch: typeof globalThis.fetch = async (input, init) => {
+      const signal = init?.signal as AbortSignal;
+      signals.push(signal);
+
+      if (stepFrom(input) === 1) return response(1);
+      return new Promise((_, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      });
+    };
+
+    const stream = new Query(http(fetch), OPTIONS).stream({ signal: controller.signal });
+    await expect(stream.next()).resolves.toMatchObject({
+      value: { step: 1, value: 10 },
+      done: false,
+    });
+
+    controller.abort();
+    const error = await stream.next().catch((e: unknown) => e);
+    expect((error as Error).name).toBe("AbortError");
+    expect(signals[1]?.aborted).toBe(true);
+  });
+
   it("surfaces a prefetched failure after yielding earlier items", async () => {
     const fetch: typeof globalThis.fetch = async (input) => {
       if (stepFrom(input) === 1) return response(1);

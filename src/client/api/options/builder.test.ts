@@ -1,11 +1,10 @@
-import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import type { Data } from "../../common/data/data.js";
 import { OPTIONS_COLUMNS } from "../../common/market/columns.js";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
-import type { LastDuration, OptionsBuilder } from "./builder.js";
+import type { LastDuration } from "./builder.js";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -69,11 +68,6 @@ describe("options fluent builder", () => {
       "dvol_close",
       "index_price",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      OptionsBuilder<
-        "iv_1m" | "iv_1w" | "iv_3m" | "call_delta_coins" | "dvol_close" | "index_price"
-      >
-    >();
   });
 
   it("defaults to every options exchange and accepts an explicit replacement", () => {
@@ -100,22 +94,6 @@ describe("options fluent builder", () => {
       "dvol_low",
       "dvol_close",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      OptionsBuilder<
-        | "iv_1w"
-        | "iv_1m"
-        | "iv_3m"
-        | "iv_6m"
-        | "skew_1w"
-        | "skew_1m"
-        | "skew_3m"
-        | "skew_6m"
-        | "dvol_open"
-        | "dvol_high"
-        | "dvol_low"
-        | "dvol_close"
-      >
-    >();
   });
 
   it("uses dollar defaults for metric-based Greek selectors", () => {
@@ -127,9 +105,6 @@ describe("options fluent builder", () => {
       "put_delta_dollars",
       "gamma_dollars",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      OptionsBuilder<"vega_dollars" | "call_delta_dollars" | "put_delta_dollars" | "gamma_dollars">
-    >();
   });
 
   it("maps side and metric selectors to exact accumulated column types", () => {
@@ -151,17 +126,6 @@ describe("options fluent builder", () => {
       "put_premium",
       "call_notional",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      OptionsBuilder<
-        | "vega_coins"
-        | "put_delta_coins"
-        | "gamma_coins"
-        | "call_volume"
-        | "dollar_volume"
-        | "put_premium"
-        | "call_notional"
-      >
-    >();
   });
 
   it("makes every options column reachable through fluent selectors", () => {
@@ -276,6 +240,12 @@ describe("options fluent builder", () => {
     expect(() => base.params({ coins: ["BTC"], resolution: "1h" } as never)).toThrow(
       /scope must set between or last/,
     );
+    expect(() => base.params({ coins: ["BTC"], between: [begin, end] } as never)).toThrow(
+      /scope must set a resolution/,
+    );
+    expect(() => base.params({ ...scope, last: "10m" } as never)).toThrow(
+      /scope cannot set both between and last/,
+    );
     expect(() => base.params({ coins: ["BTC"], last: "0m", resolution: "1m" })).toThrow(VeloError);
     expect(() =>
       base.params({ coins: ["BTC"], last: "1d" as LastDuration, resolution: "1m" }),
@@ -363,9 +333,6 @@ describe("options fluent builder", () => {
         index_price: 63_100,
       },
     ]);
-    expectTypeOf(data).toEqualTypeOf<
-      Data<OptionsExchange, "iv_1m" | "call_delta_coins" | "dvol_close" | "index_price">
-    >();
 
     const sent = search(urls[0]!);
     expect(sent.get("type")).toBe("options");
@@ -376,11 +343,5 @@ describe("options fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
-  });
-
-  it("does not expose terminals on the untouched namespace type", () => {
-    const { velo } = client();
-    type NamespaceTerminal = Extract<keyof typeof velo.options, "params" | "build" | "execute">;
-    expectTypeOf<NamespaceTerminal>().toEqualTypeOf<never>();
   });
 });

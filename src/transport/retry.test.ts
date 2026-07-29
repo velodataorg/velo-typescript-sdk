@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.js";
 import {
@@ -7,6 +7,7 @@ import {
   DEFAULT_RETRYABLE_STATUSES,
   isRetryable,
   MAX_TIMER_MS,
+  retryAfterMs,
   validateRetryOptions,
 } from "./retry.js";
 
@@ -70,6 +71,41 @@ describe("validateRetryOptions", () => {
         VeloError,
       );
     }
+  });
+});
+
+describe("retryAfterMs", () => {
+  function respondWith(retryAfter?: string): Response {
+    return new Response(
+      "",
+      retryAfter === undefined ? {} : { headers: { "retry-after": retryAfter } },
+    );
+  }
+
+  it("returns undefined without a Retry-After header", () => {
+    expect(retryAfterMs(respondWith())).toBeUndefined();
+  });
+
+  it("converts delta-seconds to milliseconds and rejects negative ones", () => {
+    expect(retryAfterMs(respondWith("2"))).toBe(2_000);
+    expect(retryAfterMs(respondWith("0"))).toBe(0);
+    expect(retryAfterMs(respondWith("-1"))).toBeUndefined();
+  });
+
+  it("converts an HTTP-date to a wait from now, clamping past dates to zero", () => {
+    vi.useFakeTimers();
+    try {
+      const now = Date.UTC(2026, 6, 13, 10);
+      vi.setSystemTime(now);
+      expect(retryAfterMs(respondWith(new Date(now + 2_000).toUTCString()))).toBe(2_000);
+      expect(retryAfterMs(respondWith(new Date(now - 2_000).toUTCString()))).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns undefined for a malformed header", () => {
+    expect(retryAfterMs(respondWith("soon"))).toBeUndefined();
   });
 });
 

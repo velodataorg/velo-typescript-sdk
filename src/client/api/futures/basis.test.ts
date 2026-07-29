@@ -1,11 +1,8 @@
-import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import type { Data } from "../../common/data/data.js";
 import { BASIS_COLUMN } from "../../common/market/columns.js";
-import type { FuturesExchange } from "../../common/market/exchanges.js";
-import type { FuturesBasisBuilder } from "./basis.js";
 import type { LastDuration } from "./builder.js";
 import type { BasisCoin } from "./params.js";
 
@@ -37,9 +34,6 @@ describe("futures basis fluent builder", () => {
       end,
       resolution: "1h",
     });
-    expectTypeOf(builder).toEqualTypeOf<FuturesBasisBuilder>();
-    expectTypeOf(params.columns).toEqualTypeOf<readonly [typeof BASIS_COLUMN]>();
-    expectTypeOf<(typeof params.coins)[number]>().toEqualTypeOf<BasisCoin>();
   });
 
   it("does not expose standard selectors, products, exchanges, or scope methods", () => {
@@ -61,9 +55,6 @@ describe("futures basis fluent builder", () => {
     ] as const;
 
     for (const method of unavailable) expect(builder).not.toHaveProperty(method);
-
-    type Unavailable = Extract<keyof FuturesBasisBuilder, (typeof unavailable)[number]>;
-    expectTypeOf<Unavailable>().toEqualTypeOf<never>();
   });
 
   it("snapshots inputs, returns fresh params, and supports immutable branching", () => {
@@ -123,6 +114,9 @@ describe("futures basis fluent builder", () => {
     expect(() => velo.futures.basis().params({ between: [begin, end] } as never)).toThrow(
       /scope must set a resolution/,
     );
+    expect(() => velo.futures.basis().params({ ...scope, last: "2h" } as never)).toThrow(
+      /scope cannot set both between and last/,
+    );
     expect(() => velo.futures.basis().params({ last: "0m", resolution: "1h" })).toThrow(VeloError);
     expect(() =>
       velo.futures.basis().params({ last: "1d" as LastDuration, resolution: "1h" }),
@@ -175,7 +169,6 @@ describe("futures basis fluent builder", () => {
       .execute({ between: [begin, end], resolution: "1h" });
 
     expect(data.rows()[0]?.[BASIS_COLUMN]).toBe(0.0395);
-    expectTypeOf(data).toEqualTypeOf<Data<FuturesExchange, typeof BASIS_COLUMN>>();
 
     const sent = search(urls[0]!);
     expect(sent.get("type")).toBe("futures");

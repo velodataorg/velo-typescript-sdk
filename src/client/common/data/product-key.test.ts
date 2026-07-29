@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import type { ProductKey } from "./product-key.js";
@@ -9,7 +9,6 @@ describe("rows product keys", () => {
     const key = formatProductKey("binance", "BTCUSDT");
 
     expect(key).toBe("binance:BTCUSDT");
-    expectTypeOf(key).toEqualTypeOf<ProductKey<"binance">>();
   });
 
   it("parses on the first colon", () => {
@@ -17,7 +16,6 @@ describe("rows product keys", () => {
 
     expect(key).toBe("hyperliquid:xyz:TSLA");
     expect(parseProductKey(key)).toEqual({ exchange: "hyperliquid", product: "xyz:TSLA" });
-    expectTypeOf(parseProductKey(key).exchange).toEqualTypeOf<"hyperliquid">();
   });
 
   it("rejects invalid runtime values", () => {

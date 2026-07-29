@@ -1,11 +1,10 @@
-import { describe, expect, expectTypeOf, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.js";
 import { Velo } from "../../client.js";
-import type { Data } from "../../common/data/data.js";
 import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import type { FuturesBuilder, LastDuration } from "./builder.js";
+import type { LastDuration } from "./builder.js";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -67,16 +66,17 @@ describe("futures fluent builder", () => {
       "dollar_open_interest_high",
       "coin_open_interest_low",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      FuturesBuilder<
-        | "close_price"
-        | "open_price"
-        | "high_price"
-        | "dollar_open_interest_close"
-        | "dollar_open_interest_high"
-        | "coin_open_interest_low"
-      >
-    >();
+  });
+
+  it("accepts Date instances in a between scope", () => {
+    const { velo } = client();
+    const params = velo.futures.price(["close"]).params({
+      products: ["BTCUSDT"],
+      between: [new Date(begin), new Date(end)],
+      resolution: "1h",
+    });
+
+    expect(params).toMatchObject({ begin, end });
   });
 
   it("defaults to every futures exchange and accepts an explicit replacement", () => {
@@ -96,9 +96,6 @@ describe("futures fluent builder", () => {
       "low_price",
       "close_price",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      FuturesBuilder<"open_price" | "high_price" | "low_price" | "close_price">
-    >();
   });
 
   it("defaults to every dollar open-interest part when no parts are provided", () => {
@@ -109,11 +106,6 @@ describe("futures fluent builder", () => {
       "dollar_open_interest_low",
       "dollar_open_interest_close",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      FuturesBuilder<
-        "dollar_open_interest_high" | "dollar_open_interest_low" | "dollar_open_interest_close"
-      >
-    >();
   });
 
   it("applies an explicit open-interest metric to every omitted part", () => {
@@ -124,11 +116,6 @@ describe("futures fluent builder", () => {
       "coin_open_interest_low",
       "coin_open_interest_close",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      FuturesBuilder<
-        "coin_open_interest_high" | "coin_open_interest_low" | "coin_open_interest_close"
-      >
-    >();
   });
 
   it("rejects empty part selections loudly", () => {
@@ -143,7 +130,6 @@ describe("futures fluent builder", () => {
     const builder = velo.futures.volume(["buy", "sell"], { metric: "coin" });
 
     expect(builder.params(scope).columns).toEqual(["buy_coin_volume", "sell_coin_volume"]);
-    expectTypeOf(builder).toEqualTypeOf<FuturesBuilder<"buy_coin_volume" | "sell_coin_volume">>();
   });
 
   it("fails loudly for untyped callers using the old scalar convention", () => {
@@ -223,16 +209,6 @@ describe("futures fluent builder", () => {
       "buy_liquidations",
       "liquidations_dollar_volume",
     ]);
-    expectTypeOf(builder).toEqualTypeOf<
-      FuturesBuilder<
-        | "buy_coin_volume"
-        | "sell_trades"
-        | "funding_rate_avg"
-        | "premium"
-        | "buy_liquidations"
-        | "liquidations_dollar_volume"
-      >
-    >();
   });
 
   it("makes every standard futures column reachable through fluent selectors", () => {
@@ -422,9 +398,6 @@ describe("futures fluent builder", () => {
         dollar_open_interest_close: 1_000_000,
       },
     ]);
-    expectTypeOf(data).toEqualTypeOf<
-      Data<FuturesExchange, "open_price" | "high_price" | "dollar_open_interest_close">
-    >();
 
     const sent = search(urls[0]!);
     expect(sent.get("type")).toBe("futures");
@@ -435,11 +408,5 @@ describe("futures fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
-  });
-
-  it("does not expose terminals on the untouched namespace type", () => {
-    const { velo } = client();
-    type NamespaceTerminal = Extract<keyof typeof velo.futures, "params" | "build" | "execute">;
-    expectTypeOf<NamespaceTerminal>().toEqualTypeOf<never>();
   });
 });

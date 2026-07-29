@@ -41,6 +41,8 @@ describe("decodeNewsMessage", () => {
       "null",
       '{"heartbeat":false}',
       '{"heartbeat":true,"id":1}',
+      '{"deleted":true,"id":"1646"}',
+      '{"id":1646}',
       JSON.stringify({ ...STORY, edit: false }),
       JSON.stringify({ ...STORY, edit: true, deleted: true }),
     ];

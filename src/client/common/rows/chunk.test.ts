@@ -95,6 +95,14 @@ describe("chunkRange", () => {
     ).toThrow(`Rows query requires more than ${MAX_REQUESTS_PER_QUERY} HTTP requests`);
   });
 
+  it("rejects params whose bucket prices at zero cells", () => {
+    const { exchanges: _exchanges, ...withoutExchanges } = params();
+
+    expect(() => chunkRange(withoutExchanges, { begin: 0, end: MINUTE })).toThrow(
+      /must have exchanges, products or coins, and columns/,
+    );
+  });
+
   it("rejects invalid ranges and over-wide buckets", () => {
     expect(() => chunkRange(params(), { begin: 0, end: 0 })).toThrow(VeloError);
     expect(() =>

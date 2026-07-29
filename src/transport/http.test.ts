@@ -6,6 +6,7 @@ import {
   VeloBadRequestError,
   VeloConnectionError,
   VeloError,
+  VeloHttpError,
   VeloRateLimitError,
   VeloRequestError,
   VeloServerError,
@@ -165,6 +166,15 @@ describe("Http", () => {
     }
   });
 
+  it("maps unlisted statuses to the base VeloHttpError", async () => {
+    const t = http([() => new Response("teapot", { status: 418 })]);
+    const error = await t.text("/x").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(VeloHttpError);
+    expect((error as object).constructor).toBe(VeloHttpError);
+    expect((error as VeloHttpError).status).toBe(418);
+  });
+
   it("retries 429 and 5xx, then succeeds", async () => {
     const calls: Call[] = [];
     const t = http(
@@ -248,6 +258,19 @@ describe("Http", () => {
     expect(error).toBeInstanceOf(VeloConnectionError);
     expect((error as VeloConnectionError).url).toBe("https://api.velo.xyz/x");
     expect((error as Error).cause).toBeInstanceOf(TypeError);
+  });
+
+  it("wraps a non-Error fetch rejection in VeloConnectionError", async () => {
+    /* A fetch adapter misbehaving with a bare string, not an Error. */
+    const boom = (): Response => {
+      throw "socket closed";
+    };
+    const t = http([boom, boom, boom]);
+    const error = await t.text("/x").catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect((error as Error).message).toContain("socket closed");
+    expect(((error as Error).cause as Error).message).toBe("socket closed");
   });
 
   it("redacts credentials from custom fetch errors and their causes", async () => {

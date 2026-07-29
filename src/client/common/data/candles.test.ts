@@ -53,15 +53,26 @@ describe("Data.candles", () => {
     ]);
   });
 
-  it("rejects partially null OHLC buckets", () => {
-    const data = Data.from([ohlcRow(1, [10, 12, null, 11])]);
-    expect(() => data.candles()).toThrow(/low_price is null/);
+  it("rejects a bucket with any single null OHLC value", () => {
+    const buckets: readonly (readonly [OhlcValues, string])[] = [
+      [[null, 12, 9, 11], "open_price"],
+      [[10, null, 9, 11], "high_price"],
+      [[10, 12, null, 11], "low_price"],
+      [[10, 12, 9, null], "close_price"],
+    ];
+
+    for (const [values, column] of buckets) {
+      const data = Data.from([ohlcRow(1, values)]);
+      expect(() => data.candles()).toThrow(`Bucket at time 1: ${column} is null`);
+    }
   });
 
   it("rejects a null volume in a non-empty bucket", () => {
-    const data = Data.from([{ ...ohlcRow(1, [10, 12, 9, 11]), coin_volume: null }]);
+    const coin = Data.from([{ ...ohlcRow(1, [10, 12, 9, 11]), coin_volume: null }]);
+    const dollar = Data.from([{ ...ohlcRow(1, [10, 12, 9, 11]), dollar_volume: null }]);
 
-    expect(() => data.candles()).toThrow(/coin_volume is null/);
+    expect(() => coin.candles()).toThrow(/coin_volume is null/);
+    expect(() => dollar.candles()).toThrow(/dollar_volume is null/);
   });
 
   it("mirrors the compile-time gate at runtime for cast-away columns", () => {

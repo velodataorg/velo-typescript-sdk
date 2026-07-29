@@ -170,4 +170,26 @@ describe("WebSocket runtime adapters", () => {
     });
     await expect(transport.connect()).rejects.toBeInstanceOf(VeloError);
   });
+
+  it("rejects an unparseable baseUrl with a configuration error, not a socket failure", async () => {
+    const transport = new WebSocketTransport({ apiKey: "key", baseUrl: "not a url" });
+    const error = await transport.connect().catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(VeloError);
+    expect(error).not.toBeInstanceOf(VeloConnectionError);
+    expect((error as Error).message).toMatch(/invalid baseUrl/);
+  });
+
+  it("surfaces the text of a non-Error connection failure", async () => {
+    const transport = new WebSocketTransport(
+      { apiKey: "key", baseUrl: "https://example.test" },
+      () => {
+        throw "handshake refused";
+      },
+    );
+    const error = await transport.connect().catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect((error as Error).message).toContain("handshake refused");
+  });
 });
