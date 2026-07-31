@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { VeloError } from "../../../errors.js";
 import type { Equals, Expect } from "../../../util/types.js";
 import type { Row } from "../../common/data/row.js";
 import { OPTIONS_COLUMNS, type OptionsColumn } from "../../common/market/columns.js";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
 import { RowsParams } from "../../common/rows/params.js";
+import { invalidParamsError } from "../../common/validation.js";
 
 export type OptionsRow<C extends OptionsColumn> = Row<OptionsExchange, C>;
 export type OptionsParams<C extends OptionsColumn = OptionsColumn> = RowsParams<OptionsExchange, C>;
@@ -22,7 +22,7 @@ export const OptionsParams = Object.freeze({
   parse<P extends OptionsParams>(params: P): P {
     const parsed = OptionsParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid options params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError("options", parsed.error);
     }
 
     /* Return a clone of the validated input: its type is already P, where Zod's

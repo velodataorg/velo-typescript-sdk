@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError } from "../../errors.js";
 import { Http } from "../../transport/http.js";
 import type { HttpParams } from "../../transport/http.js";
-import { MAX_REQUESTS_PER_QUERY, Query } from "./query.js";
+import { MAX_IN_FLIGHT_REQUESTS, MAX_REQUESTS_PER_QUERY, Query } from "./query.js";
 import type { QueryOptions, QueryRequest } from "./query.js";
 
 interface Point {
@@ -240,6 +240,60 @@ describe("Query.stream", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
     await expect(stream.next()).rejects.toBeInstanceOf(VeloError);
+  });
+
+  it("keeps at most MAX_IN_FLIGHT_REQUESTS requests in flight", async () => {
+    const resolvers = new Map<number, (response: Response) => void>();
+    const started: number[] = [];
+    let deferring = true;
+    const fetch: typeof globalThis.fetch = (input) => {
+      const step = stepFrom(input);
+      started.push(step);
+      if (!deferring) return Promise.resolve(response(step));
+      return new Promise((resolve) => resolvers.set(step, resolve));
+    };
+    const requests = Array.from({ length: MAX_IN_FLIGHT_REQUESTS + 2 }, (_, index) => ({
+      path: "/api/v1/test",
+      params: { step: index + 1 },
+    }));
+    const stream = new Query(http(fetch), { requests, decode: decodePoints }).stream();
+
+    const first = stream.next();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started).toHaveLength(MAX_IN_FLIGHT_REQUESTS);
+
+    deferring = false;
+    resolvers.get(1)!(response(1));
+    await expect(first).resolves.toMatchObject({ value: { step: 1, value: 10 } });
+    expect(started).toHaveLength(MAX_IN_FLIGHT_REQUESTS + 1);
+
+    for (const [step, resolve] of resolvers) {
+      if (step > 1) resolve(response(step));
+    }
+    const rest = await collect(stream);
+    expect(rest.map((point) => point.step)).toEqual([2, 3, 4, 5, 6]);
+    expect(started).toEqual([1, 2, 3, 4, 5, 6]);
+  });
+
+  it("yields rows in request order when responses complete out of order", async () => {
+    const resolvers = new Map<number, (response: Response) => void>();
+    const fetch: typeof globalThis.fetch = (input) =>
+      new Promise((resolve) => resolvers.set(stepFrom(input), resolve));
+    const requests = [1, 2, 3].map((step) => ({ path: "/api/v1/test", params: { step } }));
+
+    const points = collect(new Query(http(fetch), { requests, decode: decodePoints }).stream());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    resolvers.get(3)!(response(3));
+    resolvers.get(1)!(response(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    resolvers.get(2)!(response(2));
+
+    await expect(points).resolves.toEqual([
+      { step: 1, value: 10 },
+      { step: 2, value: 20 },
+      { step: 3, value: 30 },
+    ]);
   });
 
   it("propagates decoder failures", async () => {

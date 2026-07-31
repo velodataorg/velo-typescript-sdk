@@ -4,6 +4,11 @@ import { assert } from "../../util/assert.js";
 /** Maximum number of HTTP requests that one query may contain. */
 export const MAX_REQUESTS_PER_QUERY = 10_000;
 
+/* Bounded so a chunked query overlaps downloads without racing far ahead of
+ * the consumer or monopolizing the client-side rate limiter.
+ */
+export const MAX_IN_FLIGHT_REQUESTS = 4;
+
 /**
  * One HTTP request made by a query.
  *
@@ -88,16 +93,16 @@ export class Query<T, D = T[]> {
   /**
    * Executes the query and yields decoded rows in request order.
    *
-   * The next request is prefetched while the current request's rows are being
-   * consumed. Ending iteration early aborts that prefetch.
+   * Up to {@link MAX_IN_FLIGHT_REQUESTS} requests overlap while earlier
+   * responses are consumed; rows still arrive strictly in request order.
+   * Ending iteration early aborts the outstanding requests.
    *
    * @param options - Per-request transport options.
    * @returns An async generator of decoded rows.
    */
   async *stream(options: HttpRequestOptions = {}): AsyncGenerator<T, void, undefined> {
     const { requests } = this.#options;
-    const first = requests[0];
-    if (!first) return;
+    if (requests.length === 0) return;
 
     const controller = new AbortController();
     const signal = options.signal
@@ -105,18 +110,23 @@ export class Query<T, D = T[]> {
       : controller.signal;
     const requestOptions: HttpRequestOptions = { ...options, signal };
 
-    const start = (request: QueryRequest): Promise<readonly T[]> => {
-      const rows = this.#fetch(request, requestOptions);
+    /* A rejection is handled when its promise is dequeued below; the no-op
+     * catch keeps a failure from becoming an unhandled rejection while
+     * earlier responses are still being yielded.
+     */
+    const inFlight: Promise<readonly T[]>[] = [];
+    let next = 0;
+    const start = (): void => {
+      const rows = this.#fetch(requests[next++]!, requestOptions);
       rows.catch(() => {});
-      return rows;
+      inFlight.push(rows);
     };
 
-    let pending = start(first);
     try {
-      for (let index = 0; index < requests.length; index++) {
-        const rows = await pending;
-        const next = requests[index + 1];
-        if (next) pending = start(next);
+      while (next < requests.length && inFlight.length < MAX_IN_FLIGHT_REQUESTS) start();
+      while (inFlight.length > 0) {
+        const rows = await inFlight.shift()!;
+        if (next < requests.length) start();
         yield* rows;
       }
     } finally {

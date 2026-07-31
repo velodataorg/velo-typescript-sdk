@@ -1,11 +1,9 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { assert } from "../../../util/assert.js";
-import { lowerTimeScope, type TimeScope } from "../../common/builder/scope.js";
+import { lowerTimedScope, type TimedScope } from "../../common/builder/scope.js";
 import type { Data } from "../../common/data/data.js";
 import { BASIS_COLUMN } from "../../common/market/columns.js";
 import type { FuturesExchange } from "../../common/market/exchanges.js";
 import type { Query } from "../../common/query.js";
-import type { Resolution } from "../../common/rows/resolution.js";
 import { BASIS_COINS, FuturesParams, type BasisCoin, type FuturesBasisParams } from "./params.js";
 import { FuturesQuery, type FuturesRow } from "./query.js";
 
@@ -14,7 +12,7 @@ import { FuturesQuery, type FuturesRow } from "./query.js";
  *
  * Coins stay a chain method because they default to both BTC and ETH.
  */
-export type FuturesBasisScope = TimeScope & { readonly resolution: Resolution };
+export type FuturesBasisScope = TimedScope;
 
 interface State {
   readonly coins?: readonly BasisCoin[];
@@ -41,12 +39,10 @@ export class FuturesBasisBuilder {
    * @param scope - The time range and resolution to query.
    */
   params(scope: FuturesBasisScope): FuturesBasisParams {
-    assert(scope.resolution !== undefined, "scope must set a resolution");
     const lowered: FuturesBasisParams = {
       columns: [BASIS_COLUMN],
       coins: [...(this.#state.coins ?? BASIS_COINS)],
-      ...lowerTimeScope(scope),
-      resolution: scope.resolution,
+      ...lowerTimedScope(scope),
     };
     return FuturesParams.parse(lowered);
   }

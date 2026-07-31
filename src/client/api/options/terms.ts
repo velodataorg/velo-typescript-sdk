@@ -5,6 +5,7 @@ import { VeloError } from "../../../errors.js";
 import type { Http } from "../../../transport/http.js";
 import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.js";
 import { Query } from "../../common/query.js";
+import { invalidParamsError } from "../../common/validation.js";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];
@@ -34,7 +35,7 @@ export const TermsParams = Object.freeze({
   parse(params: TermsParams): TermsParams {
     const parsed = TermsParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid terms params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError("terms", parsed.error);
     }
 
     return parsed.data;

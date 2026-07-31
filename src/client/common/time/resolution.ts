@@ -29,6 +29,23 @@ const RESOLUTION_NAMES = Object.keys(RESOLUTIONS) as [Resolution, ...Resolution[
 export const ResolutionSchema = z.enum(RESOLUTION_NAMES);
 
 /**
+ * Resolution names that lower to a fixed minute count, for endpoints that
+ * take a minute-denominated bucket size and cannot serve calendar months.
+ */
+export type MinuteResolution = {
+  [K in Resolution]: (typeof RESOLUTIONS)[K] extends { unit: "minutes" } ? K : never;
+}[Resolution];
+
+/* The cast only asserts non-emptiness: the filter's unit predicate is the
+ * same one the MinuteResolution type is derived from.
+ */
+const MINUTE_RESOLUTION_NAMES = RESOLUTION_NAMES.filter(
+  (name) => RESOLUTIONS[name].unit === "minutes",
+) as [MinuteResolution, ...MinuteResolution[]];
+
+export const MinuteResolutionSchema = z.enum(MINUTE_RESOLUTION_NAMES);
+
+/**
  * Looks up the bucket size represented by a public resolution name.
  */
 export function toResolutionValue(resolution: Resolution): ResolutionValue {

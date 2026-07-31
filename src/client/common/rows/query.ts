@@ -1,16 +1,15 @@
 import { ROWS_PATH } from "../../../constants/endpoints.js";
 import { VeloError } from "../../../errors.js";
 import type { Http, HttpParams } from "../../../transport/http.js";
-import { assert } from "../../../util/assert.js";
 import { Data } from "../data/data.js";
 import { Row } from "../data/row.js";
 import { decode } from "../decode/csv.js";
 import { Query } from "../query.js";
+import { alignRange, clampEnd, type TimeRange } from "../time/range.js";
+import type { Resolution } from "../time/resolution.js";
+import { toResolutionValue } from "../time/resolution.js";
 import { chunkRange } from "./chunk.js";
 import type { MarketType, RowsQueryParams } from "./params.js";
-import { alignRange, type TimeRange } from "./range.js";
-import type { Resolution } from "./resolution.js";
-import { toResolutionValue } from "./resolution.js";
 
 export const RowsQuery = Object.freeze({
   /** Creates a lazy query from already validated market-specific parameters. */
@@ -60,29 +59,4 @@ function toResolutionParams(resolution: Resolution): { resolution: number; month
   return value.unit === "months"
     ? { resolution: value.count, months: true }
     : { resolution: value.count };
-}
-
-/**
- * Caps a range end that alignment ceiled into the future at the current time.
- *
- * @remarks
- * Weekly and monthly alignment can ceil the end days into the future, and the
- * API rejects timestamps more than a day ahead. The response cannot contain
- * data past now anyway, so request the partial trailing bucket instead.
- *
- * @param range - The aligned time range.
- * @param requestedBegin - The begin requested before alignment, which may be
- * later than the floored `range.begin`.
- * @param now - The current millisecond timestamp.
- * @returns The range with its end capped at `now`.
- * @throws {@link VeloError} when capping is needed but the requested range
- * lies entirely in the future.
- */
-function clampEnd(range: TimeRange, requestedBegin: number, now: number): TimeRange {
-  if (range.end <= now) return range;
-  assert(
-    requestedBegin < now,
-    `Invalid begin ${requestedBegin}: the requested range is entirely in the future`,
-  );
-  return { begin: range.begin, end: now };
 }

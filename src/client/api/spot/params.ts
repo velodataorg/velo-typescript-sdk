@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { VeloError } from "../../../errors.js";
 import type { Equals, Expect } from "../../../util/types.js";
 import { SPOT_COLUMNS, type SpotColumn } from "../../common/market/columns.js";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.js";
 import { RowsParams } from "../../common/rows/params.js";
+import { invalidParamsError } from "../../common/validation.js";
 
 export type SpotParams<C extends SpotColumn = SpotColumn> = RowsParams<SpotExchange, C>;
 
@@ -20,7 +20,7 @@ export const SpotParams = Object.freeze({
   parse<P extends SpotParams>(params: P): P {
     const parsed = SpotParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid spot params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError("spot", parsed.error);
     }
 
     /* Return a clone of the validated input: its type is already P, where Zod's

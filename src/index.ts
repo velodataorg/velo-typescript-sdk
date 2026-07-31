@@ -69,6 +69,20 @@ export type {
 export type { OptionsParams, OptionsRow } from "./client/api/options/params.js";
 export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.js";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.js";
+export type { Orderbook } from "./client/api/orderbook/orderbook.js";
+export { OrderbookData } from "./client/api/orderbook/data.js";
+export type {
+  OrderbookLevel,
+  OrderbookRow,
+  OrderbookSnapshot,
+} from "./client/api/orderbook/data.js";
+export type {
+  OrderbookParams,
+  OrderbookParamsCoin,
+  OrderbookParamsProduct,
+  OrderbookResolution,
+} from "./client/api/orderbook/params.js";
+export type { OrderbookScope, OrderbookTarget } from "./client/api/orderbook/scope.js";
 export type { SpotParams } from "./client/api/spot/params.js";
 export type { SpotRow } from "./client/api/spot/query.js";
 export type {
@@ -87,6 +101,7 @@ export {
   NEWS_PATH,
   NEWS_WEBSOCKET_PATH,
   OPTIONS_CATALOG_PATH,
+  ORDERBOOK_PATH,
   ROWS_PATH,
   SPOT_CATALOG_PATH,
   STATUS_PATH,
@@ -126,8 +141,8 @@ export type {
 } from "./client/common/data/candles.js";
 export type { ProductKey } from "./client/common/data/product-key.js";
 export { formatProductKey, parseProductKey } from "./client/common/data/product-key.js";
-export type { Resolution, ResolutionValue } from "./client/common/rows/resolution.js";
-export { RESOLUTIONS, toResolutionValue } from "./client/common/rows/resolution.js";
+export type { Resolution, ResolutionValue } from "./client/common/time/resolution.js";
+export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.js";
 export type { Row, RowBase, RowColumns } from "./client/common/data/row.js";
 export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.js";
 export {

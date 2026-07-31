@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { VeloError } from "../../../errors.js";
+import { invalidParamsError } from "../../common/validation.js";
 
 export type CatalogParams<E extends string> =
   | {
@@ -63,7 +63,7 @@ export const CatalogParams = Object.freeze({
 
     const parsed = catalogParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid ${market} catalog params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError(`${market} catalog`, parsed.error);
     }
 
     return {

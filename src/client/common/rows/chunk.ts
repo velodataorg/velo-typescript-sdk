@@ -3,9 +3,9 @@ import { DateTime } from "luxon";
 import { assert } from "../../../util/assert.js";
 import { BASIS_COLUMN } from "../market/columns.js";
 import { MAX_REQUESTS_PER_QUERY } from "../query.js";
+import { chunkByStep, type TimeRange } from "../time/range.js";
+import { toResolutionValue } from "../time/resolution.js";
 import type { RowsQueryParams } from "./params.js";
-import type { TimeRange } from "./range.js";
-import { toResolutionValue } from "./resolution.js";
 
 export const MAX_CELLS_PER_REQUEST = 22_500;
 
@@ -39,14 +39,9 @@ export function chunkRange(params: RowsQueryParams, range: TimeRange): TimeRange
   );
 
   const stepMs = bucketsPerRequest * value.count * 60_000;
-  const requestCount = Math.ceil((range.end - range.begin) / stepMs);
-  assertRequestCount(requestCount);
-
-  const chunks: TimeRange[] = [];
-  for (let begin = range.begin; begin < range.end; begin += stepMs) {
-    chunks.push({ begin, end: Math.min(begin + stepMs, range.end) });
-  }
-  return chunks;
+  return chunkByStep(range, stepMs, (requestCount) =>
+    rowsRequestLimitMessage(String(requestCount)),
+  );
 }
 
 function chunkMonths(range: TimeRange, count: number): TimeRange[] {
@@ -65,12 +60,6 @@ function chunkMonths(range: TimeRange, count: number): TimeRange[] {
     cursor = next;
   }
   return chunks;
-}
-
-function assertRequestCount(requestCount: number): void {
-  assert(requestCount <= MAX_REQUESTS_PER_QUERY, () =>
-    rowsRequestLimitMessage(String(requestCount)),
-  );
 }
 
 function rowsRequestLimitMessage(requestCount: string): string {

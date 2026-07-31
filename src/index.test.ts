@@ -10,6 +10,8 @@ import {
   OPTIONS_CATALOG_PATH,
   OPTIONS_COLUMNS,
   OPTIONS_EXCHANGES,
+  ORDERBOOK_PATH,
+  OrderbookData,
   RESOLUTIONS,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
@@ -63,6 +65,13 @@ describe("terms public exports", () => {
 describe("status public exports", () => {
   it("exports the endpoint contract", () => {
     expect(STATUS_PATH).toBe("/api/v1/status");
+  });
+});
+
+describe("orderbook public exports", () => {
+  it("exports the endpoint contract and data view", () => {
+    expect(ORDERBOOK_PATH).toBe("/api/l/levels");
+    expect(new OrderbookData([]).snapshots()).toEqual([]);
   });
 });
 

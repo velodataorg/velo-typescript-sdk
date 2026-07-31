@@ -5,6 +5,7 @@ import { VeloError } from "../../../errors.js";
 import type { Http } from "../../../transport/http.js";
 import { decode } from "../../common/decode/csv.js";
 import { Query } from "../../common/query.js";
+import { invalidParamsError } from "../../common/validation.js";
 import { marketCapSchema, type MarketCap } from "./validation.js";
 
 export interface MarketCapsParams {
@@ -20,7 +21,7 @@ export const MarketCapsParams = Object.freeze({
   parse(params: MarketCapsParams): MarketCapsParams {
     const parsed = MarketCapsParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid market-caps params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError("market-caps", parsed.error);
     }
 
     return parsed.data;

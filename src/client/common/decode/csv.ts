@@ -3,13 +3,24 @@ import { z } from "zod";
 
 import { timestamp } from "../validation.js";
 
-/* Both transforms trim-check before converting: Number() turns
- * whitespace-only strings into 0, which would fabricate data from a
- * corrupt cell.
+/**
+ * Converts one CSV cell to a finite number.
+ *
+ * Trim-checks before converting because `Number()` turns empty and
+ * whitespace-only strings into 0, which would fabricate data from a corrupt
+ * cell.
+ *
+ * @param raw - The raw cell text.
+ * @returns The finite number, or undefined when the cell is not one.
  */
-export const csvNumber = z.string().transform((raw, context) => {
+export function parseFiniteNumber(raw: string): number | undefined {
   const value = Number(raw);
-  if (raw.trim() !== "" && Number.isFinite(value)) return value;
+  return raw.trim() !== "" && Number.isFinite(value) ? value : undefined;
+}
+
+export const csvNumber = z.string().transform((raw, context) => {
+  const value = parseFiniteNumber(raw);
+  if (value !== undefined) return value;
 
   context.addIssue({
     code: "custom",
@@ -32,8 +43,8 @@ const NULL_MARKERS = new Set(["", "null", "undefined", "NaN"]);
 export const csvNumberOrNull = z.string().transform((raw, context) => {
   if (NULL_MARKERS.has(raw)) return null;
 
-  const value = Number(raw);
-  if (raw.trim() !== "" && Number.isFinite(value)) return value;
+  const value = parseFiniteNumber(raw);
+  if (value !== undefined) return value;
 
   context.addIssue({
     code: "custom",

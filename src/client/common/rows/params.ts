@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { timestamp, uniqueArray } from "../validation.js";
-import type { Resolution } from "./resolution.js";
-import { ResolutionSchema } from "./resolution.js";
+import type { Resolution } from "../time/resolution.js";
+import { ResolutionSchema } from "../time/resolution.js";
+import { END_AFTER_BEGIN, timestamp, uniqueArray } from "../validation.js";
 
 export type MarketType = "futures" | "options" | "spot";
 
@@ -96,9 +96,6 @@ export const RowsParams = Object.freeze({
           coins: NonEmptyStringArraySchema,
         }),
       ])
-      .refine((params) => params.end > params.begin, {
-        path: ["end"],
-        message: "must be a millisecond timestamp after begin",
-      });
+      .refine(...END_AFTER_BEGIN);
   },
 });

@@ -7,6 +7,7 @@ import { Futures } from "./api/futures/futures.js";
 import { MarketCaps } from "./api/market-caps/market-caps.js";
 import { News } from "./api/news/news.js";
 import { Options } from "./api/options/options.js";
+import { Orderbook } from "./api/orderbook/orderbook.js";
 import { Spot } from "./api/spot/spot.js";
 import { Status } from "./api/status/status.js";
 
@@ -22,6 +23,7 @@ export class Velo {
   readonly #news: News;
   readonly #futures: Futures;
   readonly #options: Options;
+  readonly #orderbook: Orderbook;
   readonly #spot: Spot;
   readonly #status: Status;
 
@@ -33,6 +35,7 @@ export class Velo {
     this.#news = new News(this.#http, webSocket);
     this.#futures = new Futures(this.#http);
     this.#options = new Options(this.#http);
+    this.#orderbook = new Orderbook(this.#http);
     this.#spot = new Spot(this.#http);
     this.#status = new Status(this.#http);
   }
@@ -55,6 +58,10 @@ export class Velo {
 
   get options(): Options {
     return this.#options;
+  }
+
+  get orderbook(): Orderbook {
+    return this.#orderbook;
   }
 
   get spot(): Spot {

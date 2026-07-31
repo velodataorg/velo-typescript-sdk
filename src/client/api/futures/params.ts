@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { VeloError } from "../../../errors.js";
 import type { Equals, Expect } from "../../../util/types.js";
 import {
   BASIS_COLUMN,
@@ -9,9 +8,14 @@ import {
 } from "../../common/market/columns.js";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
 import { RowsParams } from "../../common/rows/params.js";
-import type { Resolution } from "../../common/rows/resolution.js";
-import { ResolutionSchema } from "../../common/rows/resolution.js";
-import { timestamp, uniqueArray } from "../../common/validation.js";
+import type { Resolution } from "../../common/time/resolution.js";
+import { ResolutionSchema } from "../../common/time/resolution.js";
+import {
+  END_AFTER_BEGIN,
+  invalidParamsError,
+  timestamp,
+  uniqueArray,
+} from "../../common/validation.js";
 
 export type FuturesStandardParams<C extends FuturesStandardColumn = FuturesStandardColumn> =
   RowsParams<FuturesExchange, C>;
@@ -41,10 +45,7 @@ const FuturesBasisParamsSchema = z
     end: timestamp,
     resolution: ResolutionSchema,
   })
-  .refine((params) => params.end > params.begin, {
-    path: ["end"],
-    message: "must be a millisecond timestamp after begin",
-  });
+  .refine(...END_AFTER_BEGIN);
 
 const FuturesParamsSchema = z.union([FuturesStandardParamsSchema, FuturesBasisParamsSchema]);
 
@@ -58,7 +59,7 @@ export const FuturesParams = Object.freeze({
   parse<P extends FuturesParams>(params: P): P {
     const parsed = FuturesParamsSchema.safeParse(params);
     if (!parsed.success) {
-      throw new VeloError(`Invalid futures params:\n${z.prettifyError(parsed.error)}`);
+      throw invalidParamsError("futures", parsed.error);
     }
 
     /* Return a clone of the validated input: its type is already P, where Zod's

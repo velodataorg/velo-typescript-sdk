@@ -1,5 +1,5 @@
 import { assert } from "../../../util/assert.js";
-import type { Resolution } from "../rows/resolution.js";
+import type { Resolution } from "../time/resolution.js";
 import { durationMilliseconds, type LastDuration, timestamp } from "./time.js";
 
 /** Selects the instruments a query targets: exchange products or Velo coins. */
@@ -12,13 +12,18 @@ export type TimeScope =
   | { readonly between: readonly [number | Date, number | Date]; readonly last?: never }
   | { readonly last: LastDuration; readonly between?: never };
 
+/** The time range and bucket size shared by every resolution-carrying scope. */
+export type TimedScope<R extends Resolution = Resolution> = TimeScope & {
+  readonly resolution: R;
+};
+
 /**
  * The required query scope accepted by a builder's terminal methods.
  *
  * Everything a `/rows` query cannot run without lives here, so an incomplete
  * query is a compile-time error rather than a runtime one.
  */
-export type RowsScope = TargetScope & TimeScope & { readonly resolution: Resolution };
+export type RowsScope = TargetScope & TimedScope;
 
 /**
  * Lowers a target selection into its params counterpart.
@@ -62,6 +67,26 @@ export function lowerTimeScope(scope: TimeScope): {
 }
 
 /**
+ * Lowers a timed selection into begin, end, and resolution.
+ *
+ * A trailing duration is anchored to the current time when this function
+ * runs, which is why builders defer lowering until a terminal method.
+ *
+ * @throws {@link VeloError} when the resolution is missing at runtime, which
+ * the {@link TimedScope} type rules out for TypeScript callers.
+ */
+export function lowerTimedScope<R extends Resolution>(
+  scope: TimedScope<R>,
+): {
+  readonly begin: number;
+  readonly end: number;
+  readonly resolution: R;
+} {
+  assert(scope.resolution !== undefined, "scope must set a resolution");
+  return { ...lowerTimeScope(scope), resolution: scope.resolution };
+}
+
+/**
  * Lowers a full rows scope into its params fields.
  *
  * @throws {@link VeloError} when the scope is malformed at runtime; the
@@ -75,10 +100,8 @@ export function lowerRowsScope(scope: RowsScope): (
   readonly end: number;
   readonly resolution: Resolution;
 } {
-  assert(scope.resolution !== undefined, "scope must set a resolution");
   return {
     ...lowerTargetScope(scope),
-    ...lowerTimeScope(scope),
-    resolution: scope.resolution,
+    ...lowerTimedScope(scope),
   };
 }
