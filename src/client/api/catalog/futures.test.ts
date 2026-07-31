@@ -84,6 +84,23 @@ describe("Velo.catalog.futures", () => {
     }
   });
 
+  it("filters on depth locally without sending it", async () => {
+    const { velo, urls } = client(FUTURES_CSV);
+
+    await expect(velo.catalog.futures({ depth: true })).resolves.toEqual([
+      expect.objectContaining({ product: "BTC-USD", depth: true }),
+    ]);
+    await expect(velo.catalog.futures({ depth: false })).resolves.toHaveLength(2);
+    await expect(velo.catalog.futures({ coin: "BTC", depth: false })).resolves.toEqual([
+      expect.objectContaining({ product: "BTCUSDT" }),
+    ]);
+
+    expect(urls).toHaveLength(3);
+    for (const raw of urls) {
+      expect(Array.from(new URL(raw).searchParams.keys())).toEqual(["delisted"]);
+    }
+  });
+
   it("selects the delisted-only catalog", async () => {
     const { velo, urls } = client(DELISTED_FUTURES_CSV);
 
@@ -105,6 +122,7 @@ describe("Velo.catalog.futures", () => {
       { coin: "BTC", product: "BTCUSDT" },
       { exchange: "coinbase" },
       { delisted: "true" },
+      { depth: "true" },
       { unexpected: true },
     ];
 

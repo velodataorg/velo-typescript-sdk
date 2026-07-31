@@ -40,7 +40,10 @@ export class SpotCatalogQuery {
 
   /** Fetches the spot product catalog from raw parameters. */
   build(params: SpotCatalogParams = {}, options?: HttpRequestOptions): Promise<SpotProduct[]> {
-    const prepared = CatalogParams.parse("spot", params, SPOT_EXCHANGES, true);
+    const prepared = CatalogParams.parse("spot", params, SPOT_EXCHANGES, {
+      delisted: true,
+      depth: false,
+    });
     return this.#http
       .text(SPOT_CATALOG_PATH, { delisted: prepared.delisted ? 1 : 0 }, options)
       .then((body) => this.#decodeSpotCatalog(body, prepared.delisted))

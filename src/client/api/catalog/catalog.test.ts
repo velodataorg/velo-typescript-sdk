@@ -21,6 +21,13 @@ const validDelistedFuturesSearch: FuturesCatalogParams = {
 };
 void validDelistedFuturesSearch;
 
+const validDepthFuturesSearch: FuturesCatalogParams = {
+  coin: "BTC",
+  exchange: "hyperliquid",
+  depth: true,
+};
+void validDepthFuturesSearch;
+
 const validDelistedSpotSearch: SpotCatalogParams = {
   coin: "BTC",
   exchange: "coinbase",
@@ -46,6 +53,14 @@ void invalidSpotExchange;
 // @ts-expect-error options do not expose a delisted catalog
 const invalidOptionsDelisted: OptionsCatalogParams = { delisted: true };
 void invalidOptionsDelisted;
+
+// @ts-expect-error spot products do not track depth coverage
+const invalidSpotDepth: SpotCatalogParams = { depth: true };
+void invalidSpotDepth;
+
+// @ts-expect-error options products do not track depth coverage
+const invalidOptionsDepth: OptionsCatalogParams = { depth: true };
+void invalidOptionsDepth;
 
 describe("Velo.catalog", () => {
   it("exposes one stable catalog namespace", () => {

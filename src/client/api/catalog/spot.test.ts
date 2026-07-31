@@ -54,6 +54,15 @@ describe("Velo.catalog.spot", () => {
     expect(products[0]?.end).toBe(1764172800000);
   });
 
+  it("rejects unsupported depth params before requesting", () => {
+    const { velo, urls } = client(SPOT_CSV);
+
+    expect(() => velo.catalog.spot({ depth: true } as never)).toThrow(
+      /does not support depth filtering/,
+    );
+    expect(urls).toHaveLength(0);
+  });
+
   it("rejects invalid spot responses with endpoint context", async () => {
     const invalid = [
       "exchange,coin,product,begin\nunknown,BTC,BTC-USD,1417411980000\n",

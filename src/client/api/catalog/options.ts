@@ -27,7 +27,10 @@ export class OptionsCatalogQuery {
 
   /** Fetches the options product catalog from raw parameters. */
   build(params: OptionsCatalogParams = {}, options?: HttpRequestOptions): Promise<OptionProduct[]> {
-    const prepared = CatalogParams.parse("options", params, OPTIONS_EXCHANGES, false);
+    const prepared = CatalogParams.parse("options", params, OPTIONS_EXCHANGES, {
+      delisted: false,
+      depth: false,
+    });
     return this.#http
       .text(OPTIONS_CATALOG_PATH, { delisted: 0 }, options)
       .then((body) => this.#decodeOptionsCatalog(body))

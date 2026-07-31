@@ -47,6 +47,15 @@ describe("Velo.catalog.options", () => {
     expect(urls).toHaveLength(0);
   });
 
+  it("rejects unsupported depth params before requesting", () => {
+    const { velo, urls } = client(OPTIONS_CSV);
+
+    expect(() => velo.catalog.options({ depth: true } as never)).toThrow(
+      /does not support depth filtering/,
+    );
+    expect(urls).toHaveLength(0);
+  });
+
   it("rejects invalid options responses with endpoint context", async () => {
     const invalid = [
       "exchange,coin,product,begin\nunknown,BTC,BTC,1617206400000\n",

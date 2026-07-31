@@ -35,8 +35,8 @@ export interface OrderbookParamsCoin extends OrderbookParamsBase {
  *
  * @remarks
  * The target is one specific product or one aggregated coin, never both.
- * Depth history exists for futures products only; `catalog.futures()` flags
- * covered products with `depth: true`.
+ * Depth history exists for futures products only;
+ * `catalog.futures({ depth: true })` lists the covered products.
  */
 export type OrderbookParams = OrderbookParamsProduct | OrderbookParamsCoin;
 

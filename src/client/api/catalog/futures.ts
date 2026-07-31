@@ -30,6 +30,15 @@ export type FutureProduct = z.output<typeof futureProductSchema> & {
 
 export type FuturesCatalogParams = CatalogParams<FuturesExchange> & {
   readonly delisted?: boolean;
+
+  /**
+   * Keeps only rows whose `depth` flag matches.
+   *
+   * @remarks
+   * The flag reflects live orderbook coverage, so `depth: true` combined with
+   * `delisted: true` matches nothing in practice.
+   */
+  readonly depth?: boolean;
 };
 
 /** Fetches validated futures product catalogs bound to an HTTP transport. */
@@ -42,7 +51,10 @@ export class FuturesCatalogQuery {
 
   /** Fetches the futures product catalog from raw parameters. */
   build(params: FuturesCatalogParams = {}, options?: HttpRequestOptions): Promise<FutureProduct[]> {
-    const prepared = CatalogParams.parse("futures", params, FUTURES_EXCHANGES, true);
+    const prepared = CatalogParams.parse("futures", params, FUTURES_EXCHANGES, {
+      delisted: true,
+      depth: true,
+    });
     return this.#http
       .text(FUTURES_CATALOG_PATH, { delisted: prepared.delisted ? 1 : 0 }, options)
       .then((body) => this.#decodeFuturesCatalog(body, prepared.delisted))
