@@ -6,6 +6,7 @@ import {
   type MarketScope,
   snapshotBuilderMarket,
   snapshotBuilderWindow,
+  type TargetScope,
   type WindowScope,
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
@@ -74,9 +75,9 @@ const {
   liquidationVolume: LIQUIDATION_VOLUME_COLUMNS,
 } = FUTURES_SELECTOR_COLUMNS;
 
-interface State<C extends FuturesStandardColumn> {
+interface State<C extends FuturesStandardColumn, E extends FuturesExchange> {
   readonly columns: readonly C[];
-  readonly market?: BuilderMarket<FuturesExchange>;
+  readonly market?: BuilderMarket<E>;
   readonly window?: BuilderWindow;
 }
 
@@ -87,22 +88,24 @@ interface State<C extends FuturesStandardColumn> {
  * safely reused as the base for multiple queries.
  *
  * @typeParam C - Raw futures columns selected by the chain.
+ * @typeParam E - Exchanges selected by the chain.
  * @typeParam S - Scope-setting methods completed by the chain.
  */
 export class FuturesBuilder<
   C extends FuturesStandardColumn = never,
+  E extends FuturesExchange = FuturesExchange,
   S extends ScopeBuilderStep = never,
 > {
   readonly #query: FuturesQuery;
-  readonly #state: State<C>;
+  readonly #state: State<C, E>;
 
-  constructor(query: FuturesQuery, state: State<C> = { columns: [] }) {
+  constructor(query: FuturesQuery, state: State<C, E> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }
 
   /** Adds all four OHLC price columns. */
-  price(): FuturesBuilder<C | FuturesPriceColumn, S>;
+  price(): FuturesBuilder<C | FuturesPriceColumn, E, S>;
   /**
    * Adds the given OHLC price columns.
    *
@@ -111,16 +114,16 @@ export class FuturesBuilder<
    */
   price<P extends FuturesPricePart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesPriceColumn<P>, S>;
+  ): FuturesBuilder<C | FuturesPriceColumn<P>, E, S>;
   price<P extends FuturesPricePart>(
     parts?: readonly P[],
-  ): FuturesBuilder<C | FuturesPriceColumn<P>, S> {
+  ): FuturesBuilder<C | FuturesPriceColumn<P>, E, S> {
     const columns = partColumns("price", PRICE_COLUMNS, parts);
-    return this.#withColumns(columns) as FuturesBuilder<C | FuturesPriceColumn<P>, S>;
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesPriceColumn<P>, E, S>;
   }
 
   /** Adds every dollar-volume column. */
-  volume(): FuturesBuilder<C | FuturesVolumeColumn<"dollar">, S>;
+  volume(): FuturesBuilder<C | FuturesVolumeColumn<"dollar">, E, S>;
   /**
    * Adds every volume column for one metric.
    *
@@ -129,7 +132,7 @@ export class FuturesBuilder<
    */
   volume<M extends FuturesVolumeMetric>(options: {
     readonly metric: M;
-  }): FuturesBuilder<C | FuturesVolumeColumn<M>, S>;
+  }): FuturesBuilder<C | FuturesVolumeColumn<M>, E, S>;
   /**
    * Adds the given dollar-volume columns.
    *
@@ -138,7 +141,7 @@ export class FuturesBuilder<
    */
   volume<P extends FuturesVolumePart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesVolumeColumn<"dollar", P>, S>;
+  ): FuturesBuilder<C | FuturesVolumeColumn<"dollar", P>, E, S>;
   /**
    * Adds the given volume columns for one metric.
    *
@@ -149,21 +152,22 @@ export class FuturesBuilder<
   volume<P extends FuturesVolumePart, M extends FuturesVolumeMetric>(
     parts: readonly P[],
     options: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>, S>;
+  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>, E, S>;
   volume<P extends FuturesVolumePart, M extends FuturesVolumeMetric>(
     partsOrOptions?: readonly P[] | { readonly metric: M },
     metricOptions?: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>, S> {
+  ): FuturesBuilder<C | FuturesVolumeColumn<M, P>, E, S> {
     const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
     const columns = metricColumns("volume", VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("volume", columns, parts)) as FuturesBuilder<
       C | FuturesVolumeColumn<M, P>,
+      E,
       S
     >;
   }
 
   /** Adds every trade-count column. */
-  trades(): FuturesBuilder<C | FuturesTradeColumn, S>;
+  trades(): FuturesBuilder<C | FuturesTradeColumn, E, S>;
   /**
    * Adds the given trade-count columns.
    *
@@ -172,16 +176,16 @@ export class FuturesBuilder<
    */
   trades<P extends FuturesTradePart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesTradeColumn<P>, S>;
+  ): FuturesBuilder<C | FuturesTradeColumn<P>, E, S>;
   trades<P extends FuturesTradePart>(
     parts?: readonly P[],
-  ): FuturesBuilder<C | FuturesTradeColumn<P>, S> {
+  ): FuturesBuilder<C | FuturesTradeColumn<P>, E, S> {
     const columns = partColumns("trades", TRADE_COLUMNS, parts);
-    return this.#withColumns(columns) as FuturesBuilder<C | FuturesTradeColumn<P>, S>;
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesTradeColumn<P>, E, S>;
   }
 
   /** Adds every dollar open-interest column. */
-  openInterest(): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar">, S>;
+  openInterest(): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar">, E, S>;
   /**
    * Adds every open-interest column for one metric.
    *
@@ -190,7 +194,7 @@ export class FuturesBuilder<
    */
   openInterest<M extends FuturesOpenInterestMetric>(options: {
     readonly metric: M;
-  }): FuturesBuilder<C | FuturesOpenInterestColumn<M>, S>;
+  }): FuturesBuilder<C | FuturesOpenInterestColumn<M>, E, S>;
   /**
    * Adds the given dollar open-interest columns.
    *
@@ -199,7 +203,7 @@ export class FuturesBuilder<
    */
   openInterest<P extends FuturesOpenInterestPart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar", P>, S>;
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<"dollar", P>, E, S>;
   /**
    * Adds the given open-interest columns for one metric.
    *
@@ -210,21 +214,22 @@ export class FuturesBuilder<
   openInterest<P extends FuturesOpenInterestPart, M extends FuturesOpenInterestMetric>(
     parts: readonly P[],
     options: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>, S>;
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>, E, S>;
   openInterest<P extends FuturesOpenInterestPart, M extends FuturesOpenInterestMetric>(
     partsOrOptions?: readonly P[] | { readonly metric: M },
     metricOptions?: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>, S> {
+  ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>, E, S> {
     const { parts, options } = splitParts("openInterest", partsOrOptions, metricOptions);
     const columns = metricColumns("openInterest", OPEN_INTEREST_COLUMNS, options);
     return this.#withColumns(partColumns("openInterest", columns, parts)) as FuturesBuilder<
       C | FuturesOpenInterestColumn<M, P>,
+      E,
       S
     >;
   }
 
   /** Adds both funding-rate columns. */
-  fundingRate(): FuturesBuilder<C | FuturesFundingRateColumn, S>;
+  fundingRate(): FuturesBuilder<C | FuturesFundingRateColumn, E, S>;
   /**
    * Adds the given funding-rate columns.
    *
@@ -233,21 +238,21 @@ export class FuturesBuilder<
    */
   fundingRate<P extends FuturesFundingRatePart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesFundingRateColumn<P>, S>;
+  ): FuturesBuilder<C | FuturesFundingRateColumn<P>, E, S>;
   fundingRate<P extends FuturesFundingRatePart>(
     parts?: readonly P[],
-  ): FuturesBuilder<C | FuturesFundingRateColumn<P>, S> {
+  ): FuturesBuilder<C | FuturesFundingRateColumn<P>, E, S> {
     const columns = partColumns("fundingRate", FUNDING_RATE_COLUMNS, parts);
-    return this.#withColumns(columns) as FuturesBuilder<C | FuturesFundingRateColumn<P>, S>;
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesFundingRateColumn<P>, E, S>;
   }
 
   /** Adds the futures premium column. */
-  premium(): FuturesBuilder<C | FuturesPremiumColumn, S> {
+  premium(): FuturesBuilder<C | FuturesPremiumColumn, E, S> {
     return this.#withColumns([PREMIUM_COLUMN]);
   }
 
   /** Adds both liquidation-count columns. */
-  liquidations(): FuturesBuilder<C | FuturesLiquidationColumn, S>;
+  liquidations(): FuturesBuilder<C | FuturesLiquidationColumn, E, S>;
   /**
    * Adds the given liquidation-count columns.
    *
@@ -256,16 +261,16 @@ export class FuturesBuilder<
    */
   liquidations<P extends FuturesLiquidationPart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesLiquidationColumn<P>, S>;
+  ): FuturesBuilder<C | FuturesLiquidationColumn<P>, E, S>;
   liquidations<P extends FuturesLiquidationPart>(
     parts?: readonly P[],
-  ): FuturesBuilder<C | FuturesLiquidationColumn<P>, S> {
+  ): FuturesBuilder<C | FuturesLiquidationColumn<P>, E, S> {
     const columns = partColumns("liquidations", LIQUIDATION_COLUMNS, parts);
-    return this.#withColumns(columns) as FuturesBuilder<C | FuturesLiquidationColumn<P>, S>;
+    return this.#withColumns(columns) as FuturesBuilder<C | FuturesLiquidationColumn<P>, E, S>;
   }
 
   /** Adds every dollar liquidation-volume column. */
-  liquidationVolume(): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar">, S>;
+  liquidationVolume(): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar">, E, S>;
   /**
    * Adds every liquidation-volume column for one metric.
    *
@@ -274,7 +279,7 @@ export class FuturesBuilder<
    */
   liquidationVolume<M extends FuturesLiquidationVolumeMetric>(options: {
     readonly metric: M;
-  }): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M>, S>;
+  }): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M>, E, S>;
   /**
    * Adds the given dollar liquidation-volume columns.
    *
@@ -283,7 +288,7 @@ export class FuturesBuilder<
    */
   liquidationVolume<P extends FuturesLiquidationVolumePart>(
     parts: readonly P[],
-  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar", P>, S>;
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<"dollar", P>, E, S>;
   /**
    * Adds the given liquidation-volume columns for one metric.
    *
@@ -297,40 +302,45 @@ export class FuturesBuilder<
   >(
     parts: readonly P[],
     options: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>, S>;
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>, E, S>;
   liquidationVolume<
     P extends FuturesLiquidationVolumePart,
     M extends FuturesLiquidationVolumeMetric,
   >(
     partsOrOptions?: readonly P[] | { readonly metric: M },
     metricOptions?: { readonly metric: M },
-  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>, S> {
+  ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>, E, S> {
     const { parts, options } = splitParts("liquidationVolume", partsOrOptions, metricOptions);
     const columns = metricColumns("liquidationVolume", LIQUIDATION_VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("liquidationVolume", columns, parts)) as FuturesBuilder<
       C | FuturesLiquidationVolumeColumn<M, P>,
+      E,
       S
     >;
   }
 
   /** Replaces the instruments and exchanges selected by the chain. */
-  for(scope: FuturesMarketScope): FuturesBuilder<C, S | "for"> {
-    return new FuturesBuilder<C, S | "for">(this.#query, {
+  for<SE extends FuturesExchange>(
+    scope: TargetScope & { readonly exchanges: readonly SE[] },
+  ): FuturesBuilder<C, SE, S | "for">;
+  for(scope: FuturesMarketScope): FuturesBuilder<C, FuturesExchange, S | "for">;
+  for(scope: FuturesMarketScope): FuturesBuilder<C, FuturesExchange, S | "for"> {
+    return new FuturesBuilder<C, FuturesExchange, S | "for">(this.#query, {
       ...this.#state,
       market: snapshotBuilderMarket(scope, FUTURES_EXCHANGES),
     });
   }
 
   /** Replaces the time window and resolution selected by the chain. */
-  over(scope: WindowScope): FuturesBuilder<C, S | "over"> {
-    return new FuturesBuilder<C, S | "over">(this.#query, {
+  over(scope: WindowScope): FuturesBuilder<C, E, S | "over"> {
+    return new FuturesBuilder<C, E, S | "over">(this.#query, {
       ...this.#state,
       window: snapshotBuilderWindow(scope),
     });
   }
 
   /** Lowers and validates the chain into fresh raw futures parameters. */
-  params(this: ScopedBuilder<FuturesBuilder<C, S>, S>): FuturesStandardParams<C> {
+  params(this: ScopedBuilder<FuturesBuilder<C, E, S>, S>): FuturesStandardParams<C, E> {
     return this.#params();
   }
 
@@ -339,9 +349,7 @@ export class FuturesBuilder<
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(
-    this: ScopedBuilder<FuturesBuilder<C, S>, S>,
-  ): Query<FuturesRow<C>, Data<FuturesExchange, C>> {
+  build(this: ScopedBuilder<FuturesBuilder<C, E, S>, S>): Query<FuturesRow<C, E>, Data<E, C>> {
     return this.#build();
   }
 
@@ -351,23 +359,23 @@ export class FuturesBuilder<
    * @param options - Per-request transport options.
    */
   fetch(
-    this: ScopedBuilder<FuturesBuilder<C, S>, S>,
+    this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
-  ): Promise<Data<FuturesExchange, C>> {
+  ): Promise<Data<E, C>> {
     return this.#build().execute(options);
   }
 
   /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
   stream(
-    this: ScopedBuilder<FuturesBuilder<C, S>, S>,
+    this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
-  ): AsyncIterable<FuturesRow<C>> {
+  ): AsyncIterable<FuturesRow<C, E>> {
     return this.#build().stream(options);
   }
 
   #withColumns<Added extends FuturesStandardColumn>(
     columns: readonly Added[],
-  ): FuturesBuilder<C | Added, S> {
+  ): FuturesBuilder<C | Added, E, S> {
     const accumulated: (C | Added)[] = [...this.#state.columns];
     const seen = new Set<C | Added>(accumulated);
     for (const column of columns) {
@@ -375,21 +383,21 @@ export class FuturesBuilder<
       seen.add(column);
       accumulated.push(column);
     }
-    return new FuturesBuilder<C | Added, S>(this.#query, {
+    return new FuturesBuilder<C | Added, E, S>(this.#query, {
       ...this.#state,
       columns: accumulated,
     });
   }
 
-  #params(): FuturesStandardParams<C> {
-    const lowered: FuturesStandardParams<C> = {
+  #params(): FuturesStandardParams<C, E> {
+    const lowered: FuturesStandardParams<C, E> = {
       columns: [...this.#state.columns],
       ...lowerBuilderScope(this.#state.market, this.#state.window),
     };
     return FuturesParams.parse(lowered);
   }
 
-  #build(): Query<FuturesRow<C>, Data<FuturesExchange, C>> {
+  #build(): Query<FuturesRow<C, E>, Data<E, C>> {
     return this.#query.build(this.#params());
   }
 }

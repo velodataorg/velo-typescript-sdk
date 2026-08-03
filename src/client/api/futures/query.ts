@@ -11,7 +11,10 @@ import type { Query } from "../../common/query.ts";
 import { RowsQuery } from "../../common/rows/query.ts";
 import { FuturesParams, type FuturesBasisParams, type FuturesStandardParams } from "./params.ts";
 
-export type FuturesRow<C extends FuturesColumn> = Row<FuturesExchange, C>;
+export type FuturesRow<C extends FuturesColumn, E extends FuturesExchange = FuturesExchange> = Row<
+  E,
+  C
+>;
 
 /** Creates validated lazy futures queries bound to an HTTP transport. */
 export class FuturesQuery {
@@ -24,10 +27,17 @@ export class FuturesQuery {
   build(
     params: FuturesBasisParams,
   ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>>;
-  build<C extends FuturesStandardColumn>(
-    params: FuturesStandardParams<C>,
-  ): Query<FuturesRow<C>, Data<FuturesExchange, C>>;
+  build<C extends FuturesStandardColumn, E extends FuturesExchange>(
+    params: FuturesStandardParams<C, E>,
+  ): Query<FuturesRow<C, E>, Data<E, C>>;
   build(params: FuturesParams): Query<unknown, unknown> {
-    return RowsQuery.create(this.#http, "futures", FuturesParams.parse(params), FUTURES_EXCHANGES);
+    const parsed = FuturesParams.parse(params);
+    /* Standard params validation guarantees a non-empty exchange selection;
+       basis params omit exchanges and accept every futures response exchange. */
+    const responseExchanges = (parsed.exchanges ?? FUTURES_EXCHANGES) as readonly [
+      FuturesExchange,
+      ...FuturesExchange[],
+    ];
+    return RowsQuery.create(this.#http, "futures", parsed, responseExchanges);
   }
 }

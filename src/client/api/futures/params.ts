@@ -17,8 +17,10 @@ import {
   uniqueArray,
 } from "../../common/validation.ts";
 
-export type FuturesStandardParams<C extends FuturesStandardColumn = FuturesStandardColumn> =
-  RowsParams<FuturesExchange, C>;
+export type FuturesStandardParams<
+  C extends FuturesStandardColumn = FuturesStandardColumn,
+  E extends FuturesExchange = FuturesExchange,
+> = RowsParams<E, C>;
 
 export const BASIS_COINS = ["BTC", "ETH"] as const;
 export type BasisCoin = (typeof BASIS_COINS)[number];

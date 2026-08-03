@@ -31,7 +31,7 @@ describe("Velo.spot", () => {
     const rows = (await velo.spot.query(params).execute()).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("spot");
 
-    const exchange: "binance" | "bybit-spot" | "coinbase" | "okex" = rows[0]!.exchange;
+    const exchange: "binance" | "coinbase" = rows[0]!.exchange;
     const volume: number | null = rows[0]!.coin_volume;
     expect(exchange).toBe("coinbase");
     expect(volume).toBe(12.5);
@@ -45,5 +45,14 @@ describe("Velo.spot", () => {
     expect(() => velo.spot.query({ ...params, exchanges: ["binance-futures"] } as never)).toThrow(
       VeloError,
     );
+  });
+
+  it("rejects response rows from an unrequested supported exchange", async () => {
+    const body =
+      "exchange,coin,product,time,close_price,coin_volume\n" +
+      "okex,BTC,BTC-USDT,1767225600000,100000,12.5\n";
+    const { velo } = client(body);
+
+    await expect(velo.spot.query(params).execute()).rejects.toThrow(VeloError);
   });
 });

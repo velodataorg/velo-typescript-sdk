@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
@@ -17,6 +17,8 @@ function client(body = "", urls: string[] = []) {
 function search(url: string): URLSearchParams {
   return new URL(url).searchParams;
 }
+
+type StreamExchange<T> = T extends AsyncIterable<{ readonly exchange: infer E }> ? E : never;
 
 describe("spot fluent builder", () => {
   const begin = Date.UTC(2026, 6, 13, 8);
@@ -69,6 +71,28 @@ describe("spot fluent builder", () => {
         .over(window)
         .params().exchanges,
     ).toEqual(["coinbase"]);
+  });
+
+  it("tracks exchange selections through fluent result types", () => {
+    const base = client().velo.spot.price(["close"]);
+    const selected = base
+      .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+      .trades(["buy"])
+      .over(window)
+      .build();
+    const omitted = base
+      .for({ coins: ["BTC"] })
+      .over(window)
+      .build();
+    const reset = base
+      .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+      .for({ coins: ["ETH"] })
+      .over(window)
+      .build();
+
+    expectTypeOf<StreamExchange<ReturnType<typeof selected.stream>>>().toEqualTypeOf<"coinbase">();
+    expectTypeOf<StreamExchange<ReturnType<typeof omitted.stream>>>().toEqualTypeOf<SpotExchange>();
+    expectTypeOf<StreamExchange<ReturnType<typeof reset.stream>>>().toEqualTypeOf<SpotExchange>();
   });
 
   it("defaults selectors to every applicable column", () => {
@@ -331,5 +355,19 @@ describe("spot fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
+  });
+
+  it("rejects response rows from an unrequested spot exchange", async () => {
+    const body =
+      "exchange,coin,product,time,close_price\n" + "okex,BTC,BTC-USDT,1783929600000,63100\n";
+    const { velo } = client(body);
+
+    await expect(
+      velo.spot
+        .price(["close"])
+        .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+        .over(window)
+        .fetch(),
+    ).rejects.toThrow(VeloError);
   });
 });

@@ -6,7 +6,10 @@ import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges
 import { RowsParams } from "../../common/rows/params.ts";
 import { invalidParamsError } from "../../common/validation.ts";
 
-export type SpotParams<C extends SpotColumn = SpotColumn> = RowsParams<SpotExchange, C>;
+export type SpotParams<
+  C extends SpotColumn = SpotColumn,
+  E extends SpotExchange = SpotExchange,
+> = RowsParams<E, C>;
 
 const SpotParamsSchema = RowsParams.schema(SPOT_EXCHANGES, SPOT_COLUMNS);
 

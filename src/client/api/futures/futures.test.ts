@@ -83,15 +83,7 @@ describe("Velo.futures", () => {
     expect(sent.get("end")).toBe(String(Date.UTC(2026, 5, 17, 10)));
 
     const price: number | null = rows[0]!.close_price;
-    const exchange:
-      | "binance-futures"
-      | "bybit"
-      | "deribit"
-      | "hyperliquid"
-      | "binance-coin-margin"
-      | "bybit-coin-margin"
-      | "okex-coin-margin"
-      | "okex-swap" = rows[0]!.exchange;
+    const exchange: "binance-futures" | "bybit" = rows[0]!.exchange;
     expect(price).toBe(63174.9);
     expect(exchange).toBe("binance-futures");
 
