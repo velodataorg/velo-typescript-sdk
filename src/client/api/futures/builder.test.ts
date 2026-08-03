@@ -185,9 +185,9 @@ describe("futures fluent builder", () => {
       // @ts-expect-error the scope cannot select both products and coins
       velo.futures.price(["close"]).build({ ...scope, coins: ["BTC"] });
       // @ts-expect-error the scope cannot set both between and last
-      velo.futures.price(["close"]).execute({ ...scope, last: "10m" });
+      velo.futures.price(["close"]).fetch({ ...scope, last: "10m" });
       // @ts-expect-error a terminal method requires a scope
-      velo.futures.price(["close"]).execute();
+      velo.futures.price(["close"]).fetch();
     };
     void compileTimeOnly;
   });
@@ -331,9 +331,9 @@ describe("futures fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       vi.setSystemTime(secondEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
@@ -385,7 +385,7 @@ describe("futures fluent builder", () => {
       .price(["open", "high"])
       .openInterest(["close"])
       .exchanges(["bybit"])
-      .execute({ products: ["BTCUSDT"], between: [begin, end], resolution: "1h" });
+      .fetch({ products: ["BTCUSDT"], between: [begin, end], resolution: "1h" });
 
     expect(data.rows()).toEqual([
       {

@@ -222,7 +222,7 @@ describe("options fluent builder", () => {
       // @ts-expect-error the scope cannot select both products and coins
       velo.options.iv(["1m"]).build({ ...scope, products: ["BTC-OPTION"] });
       // @ts-expect-error a terminal method requires a scope
-      velo.options.iv(["1m"]).execute();
+      velo.options.iv(["1m"]).fetch();
     };
     void compileTimeOnly;
   });
@@ -289,9 +289,9 @@ describe("options fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       vi.setSystemTime(secondEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
@@ -319,7 +319,7 @@ describe("options fluent builder", () => {
       .dvol(["close"])
       .indexPrice()
       .exchanges(["deribit"])
-      .execute({ coins: ["BTC"], between: [begin, end], resolution: "1h" });
+      .fetch({ coins: ["BTC"], between: [begin, end], resolution: "1h" });
 
     expect(data.rows()).toEqual([
       {

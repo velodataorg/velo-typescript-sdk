@@ -147,7 +147,7 @@ describe("spot fluent builder", () => {
       // @ts-expect-error the scope cannot select both products and coins
       velo.spot.price(["close"]).build({ ...scope, coins: ["BTC"] });
       // @ts-expect-error a terminal method requires a scope
-      velo.spot.price(["close"]).execute();
+      velo.spot.price(["close"]).fetch();
     };
     void compileTimeOnly;
   });
@@ -216,9 +216,9 @@ describe("spot fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       vi.setSystemTime(secondEnd);
-      await builder.execute(trailing);
+      await builder.fetch(trailing);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
@@ -244,7 +244,7 @@ describe("spot fluent builder", () => {
       .price(["open", "high"])
       .volume(["buy"], { metric: "coin" })
       .exchanges(["coinbase"])
-      .execute({ products: ["BTC-USD"], between: [begin, end], resolution: "1h" });
+      .fetch({ products: ["BTC-USD"], between: [begin, end], resolution: "1h" });
 
     expect(data.rows()).toEqual([
       {

@@ -87,7 +87,7 @@ describe("futures basis fluent builder", () => {
       // @ts-expect-error the scope cannot set both between and last
       velo.futures.basis().build({ ...scope, last: "2h" });
       // @ts-expect-error a terminal method requires a scope
-      velo.futures.basis().execute();
+      velo.futures.basis().fetch();
     };
     void compileTimeOnly;
   });
@@ -166,7 +166,7 @@ describe("futures basis fluent builder", () => {
     const data = await velo.futures
       .basis()
       .coins(["BTC"])
-      .execute({ between: [begin, end], resolution: "1h" });
+      .fetch({ between: [begin, end], resolution: "1h" });
 
     expect(data.rows()[0]?.[BASIS_COLUMN]).toBe(0.0395);
 

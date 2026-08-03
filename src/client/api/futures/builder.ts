@@ -320,12 +320,12 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
   }
 
   /**
-   * Lowers and immediately executes the chain.
+   * Builds and immediately fetches the query.
    *
    * @param scope - The target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  execute(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<FuturesExchange, C>> {
+  fetch(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<FuturesExchange, C>> {
     return this.build(scope).execute(options);
   }
 

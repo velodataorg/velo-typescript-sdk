@@ -61,12 +61,12 @@ export class FuturesBasisBuilder {
   }
 
   /**
-   * Lowers and immediately executes the chain.
+   * Builds and immediately fetches the query.
    *
    * @param scope - The time range and resolution to query.
    * @param options - Per-request transport options.
    */
-  execute(
+  fetch(
     scope: FuturesBasisScope,
     options?: HttpRequestOptions,
   ): Promise<Data<FuturesExchange, typeof BASIS_COLUMN>> {

@@ -31,7 +31,7 @@ async function main() {
     .volume(["total"])
     .premium()
     .trades(["total"])
-    .execute({
+    .fetch({
       coins: ["BTC"], // `coins` accepts the Velo-aggregated symbols
       last: "11m",
       resolution: "1m",
@@ -100,7 +100,8 @@ const options = await velo.catalog.options({ coin: "BTC" });
 
 ### Result views
 
-`execute()` resolves to a `Data` object: lazily computed views over the fetched rows.
+`fetch()` and a built query's `execute()` resolve to a `Data` object: lazily
+computed views over the fetched rows.
 
 ```ts
 const data = await velo.futures
