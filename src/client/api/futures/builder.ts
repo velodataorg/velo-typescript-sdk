@@ -11,7 +11,7 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { FuturesStandardColumn } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
@@ -349,7 +349,9 @@ export class FuturesBuilder<
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(this: ScopedBuilder<FuturesBuilder<C, E, S>, S>): Query<FuturesRow<C, E>, Data<E, C>> {
+  build(
+    this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
+  ): Query<FuturesRow<C, E>, DataResult<E, C>> {
     return this.#build();
   }
 
@@ -361,11 +363,11 @@ export class FuturesBuilder<
   fetch(
     this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
-  ): Promise<Data<E, C>> {
+  ): Promise<DataResult<E, C>> {
     return this.#build().execute(options);
   }
 
-  /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
+  /** Builds and streams decoded rows without collecting them into a data object. */
   stream(
     this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
@@ -397,7 +399,7 @@ export class FuturesBuilder<
     return FuturesParams.parse(lowered);
   }
 
-  #build(): Query<FuturesRow<C, E>, Data<E, C>> {
+  #build(): Query<FuturesRow<C, E>, DataResult<E, C>> {
     return this.#query.build(this.#params());
   }
 }

@@ -1,5 +1,5 @@
 import type { Http } from "../../../transport/http.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { Row } from "../../common/data/row.ts";
 import {
   BASIS_COLUMN,
@@ -26,10 +26,10 @@ export class FuturesQuery {
 
   build(
     params: FuturesBasisParams,
-  ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>>;
+  ): Query<FuturesRow<typeof BASIS_COLUMN>, DataResult<FuturesExchange, typeof BASIS_COLUMN>>;
   build<C extends FuturesStandardColumn, E extends FuturesExchange>(
     params: FuturesStandardParams<C, E>,
-  ): Query<FuturesRow<C, E>, Data<E, C>>;
+  ): Query<FuturesRow<C, E>, DataResult<E, C>>;
   build(params: FuturesParams): Query<unknown, unknown> {
     const parsed = FuturesParams.parse(params);
     /* Standard params validation guarantees a non-empty exchange selection;

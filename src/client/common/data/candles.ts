@@ -37,15 +37,6 @@ export type CanCandle<C extends string> = OhlcColumn extends C
   : false;
 
 /**
- * The `this` type `candles()` requires when the requested columns cannot
- * form candles. Its name and property surface the rule in the resulting
- * compile error.
- */
-export interface CandlesUnavailable {
-  readonly "candles() requires all four OHLC columns and at most one volume column": never;
-}
-
-/**
  * The fields candle conversion reads: the base fields plus whichever OHLCV
  * columns the query requested.
  */

@@ -1,5 +1,5 @@
 import type { Http } from "../../../transport/http.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { Row } from "../../common/data/row.ts";
 import type { SpotColumn } from "../../common/market/columns.ts";
 import type { SpotExchange } from "../../common/market/exchanges.ts";
@@ -20,7 +20,7 @@ export class SpotQuery {
   /** Creates a lazy query from raw spot parameters. */
   build<C extends SpotColumn, E extends SpotExchange>(
     params: SpotParams<C, E>,
-  ): Query<SpotRow<C, E>, Data<E, C>> {
+  ): Query<SpotRow<C, E>, DataResult<E, C>> {
     const parsed = SpotParams.parse(params);
     /* Params validation guarantees a non-empty exchange selection. */
     const responseExchanges = parsed.exchanges as readonly [E, ...E[]];

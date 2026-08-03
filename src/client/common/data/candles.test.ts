@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { Data } from "./data.ts";
+import { Data, type CandleData } from "./data.ts";
 import type { Row } from "./row.ts";
 
 type Ohlc = "open_price" | "high_price" | "low_price" | "close_price";
@@ -26,6 +26,23 @@ function ohlcRow(time: number, [open, high, low, close]: OhlcValues): Row<"binan
 }
 
 describe("Data.candles", () => {
+  it("exposes the candle view only when Data.from() receives compatible rows", () => {
+    const compatible = Data.from([ohlcRow(1, [10, 12, 9, 11])]);
+    const closeOnly: Row<"binance", "close_price"> = {
+      exchange: "binance",
+      coin: "BTC",
+      product: "BTCUSDT",
+      time: 1,
+      close_price: 11,
+    };
+    const incompatible = Data.from([closeOnly]);
+
+    expectTypeOf(compatible).toEqualTypeOf<CandleData<"binance", Ohlc>>();
+    expectTypeOf(incompatible).toEqualTypeOf<Data<"binance", "close_price">>();
+    expectTypeOf(compatible).toHaveProperty("candles");
+    expectTypeOf(incompatible).not.toHaveProperty("candles");
+  });
+
   it("converts each series' buckets to candles", () => {
     const data = Data.from([ohlcRow(1, [10, 12, 9, 11]), ohlcRow(2, [11, 14, 11, 13])]);
 
@@ -92,13 +109,20 @@ describe("Data.candles", () => {
     expect(() => bothVolumes.candles()).toThrow(/mutually exclusive/);
   });
 
-  it("compile-gates candles() on the requested columns", () => {
+  it("types direct construction by its candle capability", () => {
     const ohlc = new Data<"binance", Ohlc>([]);
     const withVolume = new Data<"binance", Ohlc | "coin_volume">([]);
     const missingOhlc = new Data<"binance", "close_price">([]);
     const bothVolumes = new Data<"binance", Ohlc | "coin_volume" | "dollar_volume">([]);
     const extraColumn = new Data<"binance", Ohlc | "buy_trades">([]);
 
+    expectTypeOf(ohlc).toEqualTypeOf<CandleData<"binance", Ohlc>>();
+    expectTypeOf(withVolume).toEqualTypeOf<CandleData<"binance", Ohlc | "coin_volume">>();
+    expectTypeOf(missingOhlc).toEqualTypeOf<Data<"binance", "close_price">>();
+    expectTypeOf(bothVolumes).toEqualTypeOf<
+      Data<"binance", Ohlc | "coin_volume" | "dollar_volume">
+    >();
+    expectTypeOf(extraColumn).toEqualTypeOf<Data<"binance", Ohlc | "buy_trades">>();
     expect(ohlc.candles().size).toBe(0);
     expect(withVolume.candles().size).toBe(0);
     // @ts-expect-error candles() requires all four OHLC columns

@@ -95,6 +95,18 @@ describe("spot fluent builder", () => {
     expectTypeOf<StreamExchange<ReturnType<typeof reset.stream>>>().toEqualTypeOf<SpotExchange>();
   });
 
+  it("exposes candles only for candle-compatible result columns", () => {
+    const exact = client().velo.spot.price().for(market).over(window);
+    const withVolume = exact.volume(["total"]);
+    const incomplete = client().velo.spot.price(["close"]).for(market).over(window);
+    const extra = exact.trades(["buy"]);
+
+    expectTypeOf<Awaited<ReturnType<typeof exact.fetch>>>().toHaveProperty("candles");
+    expectTypeOf<Awaited<ReturnType<typeof withVolume.fetch>>>().toHaveProperty("candles");
+    expectTypeOf<Awaited<ReturnType<typeof incomplete.fetch>>>().not.toHaveProperty("candles");
+    expectTypeOf<Awaited<ReturnType<typeof extra.fetch>>>().not.toHaveProperty("candles");
+  });
+
   it("defaults selectors to every applicable column", () => {
     const prices = client().velo.spot.price();
     const dollarVolume = client().velo.spot.volume();

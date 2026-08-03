@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { Data } from "../../common/data/data.ts";
 import { OPTIONS_COLUMNS } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
 import type { LastDuration } from "./builder.ts";
+import type { OptionsIvColumn } from "./selectors.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -84,6 +86,18 @@ describe("options fluent builder", () => {
         .over(window)
         .params().exchanges,
     ).toEqual(["deribit"]);
+  });
+
+  it("omits candles from options result types", () => {
+    const iv = client().velo.options.iv().for(market).over(window);
+
+    expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().toEqualTypeOf<
+      Data<OptionsExchange, OptionsIvColumn>
+    >();
+    expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().not.toHaveProperty("candles");
+    expectTypeOf<Awaited<ReturnType<ReturnType<typeof iv.build>["execute"]>>>().not.toHaveProperty(
+      "candles",
+    );
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {

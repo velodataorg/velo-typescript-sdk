@@ -1,7 +1,7 @@
 import { ROWS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import type { Http, HttpParams } from "../../../transport/http.ts";
-import { Data } from "../data/data.ts";
+import { Data, type DataResult } from "../data/data.ts";
 import { Row } from "../data/row.ts";
 import { decode } from "../decode/csv.ts";
 import { Query } from "../query.ts";
@@ -18,7 +18,7 @@ export const RowsQuery = Object.freeze({
     type: MarketType,
     params: RowsQueryParams<C>,
     responseExchanges: readonly [E, ...E[]],
-  ): Query<Row<E, C>, Data<E, C>> {
+  ): Query<Row<E, C>, DataResult<E, C>> {
     const aligned = alignRange({ begin: params.begin, end: params.end }, params.resolution);
     const range = clampEnd(aligned, params.begin, Date.now());
     const requests = chunkRange(params, range).map((chunk) => ({
@@ -36,7 +36,7 @@ export const RowsQuery = Object.freeze({
           throw new VeloError(`Unexpected ${ROWS_PATH} response`, { cause });
         }
       },
-      collect: (rows) => new Data(rows),
+      collect: (rows): DataResult<E, C> => new Data<E, C>(rows),
     });
   },
 });

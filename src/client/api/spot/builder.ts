@@ -11,7 +11,7 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { SpotColumn } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
@@ -183,7 +183,7 @@ export class SpotBuilder<
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(this: ScopedBuilder<SpotBuilder<C, E, S>, S>): Query<SpotRow<C, E>, Data<E, C>> {
+  build(this: ScopedBuilder<SpotBuilder<C, E, S>, S>): Query<SpotRow<C, E>, DataResult<E, C>> {
     return this.#build();
   }
 
@@ -195,11 +195,11 @@ export class SpotBuilder<
   fetch(
     this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
-  ): Promise<Data<E, C>> {
+  ): Promise<DataResult<E, C>> {
     return this.#build().execute(options);
   }
 
-  /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
+  /** Builds and streams decoded rows without collecting them into a data object. */
   stream(
     this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
@@ -229,7 +229,7 @@ export class SpotBuilder<
     return SpotParams.parse(lowered);
   }
 
-  #build(): Query<SpotRow<C, E>, Data<E, C>> {
+  #build(): Query<SpotRow<C, E>, DataResult<E, C>> {
     return this.#query.build(this.#params());
   }
 }

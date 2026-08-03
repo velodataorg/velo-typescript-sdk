@@ -126,7 +126,7 @@ export {
   SPOT_COLUMNS,
 } from "./client/common/market/columns.ts";
 export { Data } from "./client/common/data/data.ts";
-export type { SeriesColumns } from "./client/common/data/data.ts";
+export type { CandleData, DataResult, SeriesColumns } from "./client/common/data/data.ts";
 export type {
   Exchange,
   FuturesExchange,
@@ -139,12 +139,7 @@ export {
   SPOT_EXCHANGES,
 } from "./client/common/market/exchanges.ts";
 export type { MarketType } from "./client/common/rows/params.ts";
-export type {
-  CanCandle,
-  Candle,
-  CandlesUnavailable,
-  OhlcColumn,
-} from "./client/common/data/candles.ts";
+export type { CanCandle, Candle, OhlcColumn } from "./client/common/data/candles.ts";
 export type { ProductKey } from "./client/common/data/product-key.ts";
 export { formatProductKey, parseProductKey } from "./client/common/data/product-key.ts";
 export type { Resolution, ResolutionValue } from "./client/common/time/resolution.ts";

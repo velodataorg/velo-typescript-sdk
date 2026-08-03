@@ -1,5 +1,5 @@
 import type { Http } from "../../../transport/http.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { OptionsColumn } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
@@ -17,7 +17,7 @@ export class OptionsQuery {
   /** Creates a lazy query from raw options parameters. */
   build<C extends OptionsColumn>(
     params: OptionsParams<C>,
-  ): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+  ): Query<OptionsRow<C>, DataResult<OptionsExchange, C>> {
     return RowsQuery.create(this.#http, "options", OptionsParams.parse(params), OPTIONS_EXCHANGES);
   }
 }

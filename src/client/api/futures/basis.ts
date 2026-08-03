@@ -1,6 +1,6 @@
 import type { HttpRequestOptions } from "../../../transport/http.ts";
 import { lowerTimedScope, type TimedScope } from "../../common/builder/scope.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import { BASIS_COLUMN } from "../../common/market/columns.ts";
 import type { FuturesExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
@@ -56,7 +56,7 @@ export class FuturesBasisBuilder {
    */
   build(
     scope: FuturesBasisScope,
-  ): Query<FuturesRow<typeof BASIS_COLUMN>, Data<FuturesExchange, typeof BASIS_COLUMN>> {
+  ): Query<FuturesRow<typeof BASIS_COLUMN>, DataResult<FuturesExchange, typeof BASIS_COLUMN>> {
     return this.#query.build(this.params(scope));
   }
 
@@ -69,7 +69,7 @@ export class FuturesBasisBuilder {
   fetch(
     scope: FuturesBasisScope,
     options?: HttpRequestOptions,
-  ): Promise<Data<FuturesExchange, typeof BASIS_COLUMN>> {
+  ): Promise<DataResult<FuturesExchange, typeof BASIS_COLUMN>> {
     return this.build(scope).execute(options);
   }
 

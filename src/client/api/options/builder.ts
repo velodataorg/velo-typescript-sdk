@@ -10,7 +10,7 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { Data } from "../../common/data/data.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import type { OptionsColumn } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
@@ -324,7 +324,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
    */
   build(
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
-  ): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+  ): Query<OptionsRow<C>, DataResult<OptionsExchange, C>> {
     return this.#build();
   }
 
@@ -336,11 +336,11 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
   fetch(
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
     options?: HttpRequestOptions,
-  ): Promise<Data<OptionsExchange, C>> {
+  ): Promise<DataResult<OptionsExchange, C>> {
     return this.#build().execute(options);
   }
 
-  /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
+  /** Builds and streams decoded rows without collecting them into a data object. */
   stream(
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
     options?: HttpRequestOptions,
@@ -372,7 +372,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     return OptionsParams.parse(lowered);
   }
 
-  #build(): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+  #build(): Query<OptionsRow<C>, DataResult<OptionsExchange, C>> {
     return this.#query.build(this.#params());
   }
 }

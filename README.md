@@ -128,7 +128,11 @@ const columns = data.columns();
 const candles = data.candles();
 ```
 
-`candles()` is only available when the requested columns are the four OHLC prices plus at most one volume column; buckets without trades are skipped. When accumulating rows from `stream()` instead, build the same views with `Data.from(rows)`.
+Results whose requested columns are the four OHLC prices plus at most one volume
+column are typed as `CandleData`; other results are typed as `Data`. Only
+`CandleData` exposes `candles()`, and buckets without trades are skipped. When
+accumulating rows from `stream()` instead, build the same views with
+`Data.from(rows)`.
 
 ### News
 

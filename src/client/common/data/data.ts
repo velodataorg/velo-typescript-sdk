@@ -1,5 +1,5 @@
 import { assert } from "../../../util/assert.ts";
-import type { Candle, CanCandle, CandlesUnavailable } from "./candles.ts";
+import type { Candle, CanCandle } from "./candles.ts";
 import { toCandles } from "./candles.ts";
 import type { ProductKey } from "./product-key.ts";
 import { formatProductKey } from "./product-key.ts";
@@ -101,7 +101,68 @@ export const SeriesColumns = Object.freeze({
  * @typeParam E - Exchanges the market may return.
  * @typeParam C - Columns requested by the query.
  */
-export class Data<E extends string, C extends string> implements Iterable<Row<E, C>> {
+export type Data<E extends string, C extends string> = Iterable<Row<E, C>> & {
+  /**
+   * Iterates the flat rows, equivalent to iterating {@link Data#rows | rows()}.
+   */
+  [Symbol.iterator](): Iterator<Row<E, C>>;
+
+  /** The flat rows in response order, with series interleaved. */
+  rows(): readonly Row<E, C>[];
+
+  /**
+   * Groups the rows into one entry per series.
+   *
+   * Entries appear in first-appearance order; rows within an entry keep
+   * their time-ascending response order.
+   */
+  series(): Series<E, C>;
+
+  /** Converts every series to columnar form. */
+  columns(): ReadonlyMap<ProductKey<E>, SeriesColumns<E, C>>;
+};
+
+/**
+ * A rows-query result whose selected columns can be converted to candles.
+ */
+export interface CandleData<E extends string, C extends string> extends Data<E, C> {
+  /**
+   * Converts every series to candles.
+   *
+   * Buckets whose OHLC values are all null (no trades) are skipped.
+   */
+  candles(): ReadonlyMap<ProductKey<E>, readonly Candle[]>;
+}
+
+/**
+ * Resolves a row selection to its public result capability.
+ *
+ * Candle conversion is exposed only when the selected columns contain all
+ * four OHLC prices, at most one total-volume column, and no other columns.
+ */
+export type DataResult<E extends string, C extends string> =
+  CanCandle<C> extends true ? CandleData<E, C> : Data<E, C>;
+
+interface DataConstructor {
+  readonly prototype: Data<string, never>;
+
+  /** Creates data while inferring exchanges and columns from the row type. */
+  new <R extends RowBase>(rows: readonly R[]): DataResult<R["exchange"], RowColumns<R>>;
+
+  /** Creates data with explicit exchange and column type parameters. */
+  new <E extends string, C extends string>(rows: readonly Row<E, C>[]): DataResult<E, C>;
+
+  /**
+   * Builds data from already-decoded rows, inferring exchanges and columns
+   * from the row type — for example rows accumulated from `stream()`.
+   */
+  from<R extends RowBase>(rows: readonly R[]): DataResult<R["exchange"], RowColumns<R>>;
+}
+
+const DataImplementation = class Data<E extends string, C extends string> implements CandleData<
+  E,
+  C
+> {
   readonly #rows: readonly Row<E, C>[];
   #series: Series<E, C> | undefined;
   #columns: ReadonlyMap<ProductKey<E>, SeriesColumns<E, C>> | undefined;
@@ -119,14 +180,14 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
    * column type parameters from the row type — for example rows accumulated
    * from `stream()`.
    *
-   * Prefer this over the constructor, whose type parameters only infer when
-   * they are already known from context.
-   *
    * @param rows - Decoded rows; each series' rows must be time-ascending.
    */
-  static from<R extends RowBase>(rows: readonly R[]): Data<R["exchange"], RowColumns<R>> {
+  static from<R extends RowBase>(rows: readonly R[]): DataResult<R["exchange"], RowColumns<R>> {
     /* The cast is sound: R is exactly a row over its own column keys. */
-    return new Data(rows as unknown as readonly Row<R["exchange"], RowColumns<R>>[]);
+    return new Data(rows as unknown as readonly Row<R["exchange"], RowColumns<R>>[]) as DataResult<
+      R["exchange"],
+      RowColumns<R>
+    >;
   }
 
   /**
@@ -166,15 +227,13 @@ export class Data<E extends string, C extends string> implements Iterable<Row<E,
   /**
    * Converts every series to candles.
    *
-   * Only callable when the query requested the four OHLC columns and at
-   * most one volume column. Buckets whose OHLC values are all null (no
-   * trades) are skipped.
+   * Buckets whose OHLC values are all null (no trades) are skipped.
    */
-  candles(
-    this: CanCandle<C> extends true ? Data<E, C> : CandlesUnavailable,
-  ): ReadonlyMap<ProductKey<E>, readonly Candle[]> {
-    const data = this as Data<E, C>;
-    data.#candles ??= Series.map(data.series(), toCandles);
-    return data.#candles;
+  candles(): ReadonlyMap<ProductKey<E>, readonly Candle[]> {
+    this.#candles ??= Series.map(this.series(), toCandles);
+    return this.#candles;
   }
-}
+};
+
+/** Creates lazily computed data views over already-decoded rows. */
+export const Data = DataImplementation as DataConstructor;
