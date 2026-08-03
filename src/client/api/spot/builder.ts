@@ -1,5 +1,5 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerRowsScope, type RowsScope } from "../../common/builder/scope.js";
+import { lowerMarketRowsScope, type MarketRowsScope } from "../../common/builder/scope.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import type { Data } from "../../common/data/data.js";
 import type { SpotColumn } from "../../common/market/columns.js";
@@ -19,7 +19,14 @@ import {
 } from "./selectors.js";
 
 export type { LastDuration } from "../../common/builder/time.js";
-export type { RowsScope, TargetScope, TimeScope } from "../../common/builder/scope.js";
+export type {
+  MarketRowsScope,
+  RowsScope,
+  TargetScope,
+  TimeScope,
+} from "../../common/builder/scope.js";
+/** Target, time, resolution, and optional exchanges for a spot rows query. */
+export type SpotScope = MarketRowsScope<SpotExchange>;
 export type {
   SpotPricePart,
   SpotTradePart,
@@ -35,7 +42,6 @@ const {
 
 interface State<C extends SpotColumn> {
   readonly columns: readonly C[];
-  readonly exchanges?: readonly SpotExchange[];
 }
 
 /**
@@ -126,25 +132,15 @@ export class SpotBuilder<C extends SpotColumn = never> {
   }
 
   /**
-   * Replaces the exchanges selected by the chain.
-   *
-   * When omitted, all spot exchanges are queried.
-   */
-  exchanges(exchanges: readonly SpotExchange[]): SpotBuilder<C> {
-    return this.#with({ exchanges: [...exchanges] });
-  }
-
-  /**
    * Lowers and validates the chain into raw spot parameters.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @returns A fresh validated parameter object.
    */
-  params(scope: RowsScope): SpotParams<C> {
+  params(scope: SpotScope): SpotParams<C> {
     const lowered: SpotParams<C> = {
-      exchanges: [...(this.#state.exchanges ?? SPOT_EXCHANGES)],
       columns: [...this.#state.columns],
-      ...lowerRowsScope(scope),
+      ...lowerMarketRowsScope(scope, SPOT_EXCHANGES),
     };
     return SpotParams.parse(lowered);
   }
@@ -154,24 +150,20 @@ export class SpotBuilder<C extends SpotColumn = never> {
    *
    * A trailing duration in the scope is fixed when this method is called.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    */
-  build(scope: RowsScope): Query<SpotRow<C>, Data<SpotExchange, C>> {
+  build(scope: SpotScope): Query<SpotRow<C>, Data<SpotExchange, C>> {
     return this.#query.build(this.params(scope));
   }
 
   /**
    * Builds and immediately fetches the query.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  fetch(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<SpotExchange, C>> {
+  fetch(scope: SpotScope, options?: HttpRequestOptions): Promise<Data<SpotExchange, C>> {
     return this.build(scope).execute(options);
-  }
-
-  #with(patch: Partial<State<C>>): SpotBuilder<C> {
-    return new SpotBuilder(this.#query, { ...this.#state, ...patch });
   }
 
   #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added> {

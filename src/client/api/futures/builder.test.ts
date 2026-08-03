@@ -28,7 +28,9 @@ describe("futures fluent builder", () => {
 
     expect(futures).not.toHaveProperty("params");
     expect(futures).not.toHaveProperty("build");
-    expect(futures).not.toHaveProperty("execute");
+    expect(futures).not.toHaveProperty("fetch");
+    expect(futures).not.toHaveProperty("exchanges");
+    expect(futures.price(["close"])).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as a futures namespace entry point", () => {
@@ -84,7 +86,7 @@ describe("futures fluent builder", () => {
     const base = velo.futures.price(["close"]);
 
     expect(base.params(scope).exchanges).toEqual(FUTURES_EXCHANGES);
-    expect(base.exchanges(["bybit"]).params(scope).exchanges).toEqual(["bybit"]);
+    expect(base.params({ ...scope, exchanges: ["bybit"] }).exchanges).toEqual(["bybit"]);
   });
 
   it("defaults to every price column when no parts are provided", () => {
@@ -186,6 +188,10 @@ describe("futures fluent builder", () => {
       velo.futures.price(["close"]).build({ ...scope, coins: ["BTC"] });
       // @ts-expect-error the scope cannot set both between and last
       velo.futures.price(["close"]).fetch({ ...scope, last: "10m" });
+      // @ts-expect-error spot exchanges are not valid futures exchanges
+      velo.futures.price(["close"]).fetch({ ...scope, exchanges: ["coinbase"] });
+      // @ts-expect-error exchanges belong to the terminal scope
+      velo.futures.price(["close"]).exchanges(["bybit"]);
       // @ts-expect-error a terminal method requires a scope
       velo.futures.price(["close"]).fetch();
     };
@@ -230,14 +236,12 @@ describe("futures fluent builder", () => {
     expect(new Set(columns)).toEqual(new Set(FUTURES_STANDARD_COLUMNS));
   });
 
-  it("snapshots chain arrays, lowers the scope per call, and returns fresh copies", () => {
+  it("lowers scope arrays per call and returns fresh copies", () => {
     const { velo } = client();
     const exchanges: FuturesExchange[] = ["bybit"];
     const products = ["BTCUSDT"];
-    const builder = velo.futures.price(["close"]).exchanges(exchanges);
-    const liveScope = { products, between: [begin, end], resolution: "1h" } as const;
-
-    exchanges.push("deribit");
+    const builder = velo.futures.price(["close"]);
+    const liveScope = { exchanges, products, between: [begin, end], resolution: "1h" } as const;
 
     const first = builder.params(liveScope);
     expect(first).toMatchObject({
@@ -254,8 +258,12 @@ describe("futures fluent builder", () => {
       products: ["BTCUSDT"],
     });
 
+    exchanges.push("deribit");
     products[0] = "ETHUSDT";
-    expect(builder.params(liveScope).products).toEqual(["ETHUSDT"]);
+    expect(builder.params(liveScope)).toMatchObject({
+      exchanges: ["bybit", "deribit"],
+      products: ["ETHUSDT"],
+    });
   });
 
   it("supports immutable branching", () => {
@@ -265,6 +273,27 @@ describe("futures fluent builder", () => {
 
     expect(base.params(scope).columns).toEqual(["open_price"]);
     expect(interest.params(scope).columns).toEqual(["open_price", "dollar_open_interest_close"]);
+  });
+
+  it("fixes scope arrays in a built query", async () => {
+    const urls: string[] = [];
+    const { velo } = client("exchange,coin,product,time,close_price\n", urls);
+    const exchanges: FuturesExchange[] = ["bybit"];
+    const products = ["BTCUSDT"];
+    const query = velo.futures.price(["close"]).build({
+      exchanges,
+      products,
+      between: [begin, end],
+      resolution: "1h",
+    });
+
+    exchanges[0] = "deribit";
+    products[0] = "ETHUSDT";
+    await query.execute();
+
+    const sent = search(urls[0]!);
+    expect(sent.get("exchanges")).toBe("bybit");
+    expect(sent.get("products")).toBe("BTCUSDT");
   });
 
   it("rejects malformed scopes loudly at runtime", () => {
@@ -297,8 +326,12 @@ describe("futures fluent builder", () => {
   it("delegates remaining validation to the params schema", () => {
     const { velo } = client();
     const invalid = [
-      /* No columns selected. */
-      () => velo.futures.exchanges(["bybit"]).params(scope),
+      /* Empty exchanges. */
+      () => velo.futures.price(["close"]).params({ ...scope, exchanges: [] }),
+      /* Duplicate exchanges. */
+      () => velo.futures.price(["close"]).params({ ...scope, exchanges: ["bybit", "bybit"] }),
+      /* Unsupported exchanges from untyped input. */
+      () => velo.futures.price(["close"]).params({ ...scope, exchanges: ["coinbase"] } as never),
       /* Inverted time range. */
       () => velo.futures.price(["close"]).params({ ...scope, between: [end, begin] }),
     ];
@@ -384,8 +417,12 @@ describe("futures fluent builder", () => {
     const data = await velo.futures
       .price(["open", "high"])
       .openInterest(["close"])
-      .exchanges(["bybit"])
-      .fetch({ products: ["BTCUSDT"], between: [begin, end], resolution: "1h" });
+      .fetch({
+        exchanges: ["bybit"],
+        products: ["BTCUSDT"],
+        between: [begin, end],
+        resolution: "1h",
+      });
 
     expect(data.rows()).toEqual([
       {

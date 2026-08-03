@@ -28,7 +28,9 @@ describe("spot fluent builder", () => {
 
     expect(spot).not.toHaveProperty("params");
     expect(spot).not.toHaveProperty("build");
-    expect(spot).not.toHaveProperty("execute");
+    expect(spot).not.toHaveProperty("fetch");
+    expect(spot).not.toHaveProperty("exchanges");
+    expect(spot.price(["close"])).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as a spot namespace entry point", () => {
@@ -59,7 +61,7 @@ describe("spot fluent builder", () => {
     const base = client().velo.spot.price(["close"]);
 
     expect(base.params(scope).exchanges).toEqual(SPOT_EXCHANGES);
-    expect(base.exchanges(["coinbase"]).params(scope).exchanges).toEqual(["coinbase"]);
+    expect(base.params({ ...scope, exchanges: ["coinbase"] }).exchanges).toEqual(["coinbase"]);
   });
 
   it("defaults selectors to every applicable column", () => {
@@ -97,14 +99,12 @@ describe("spot fluent builder", () => {
     expect(new Set(columns)).toEqual(new Set(SPOT_COLUMNS));
   });
 
-  it("snapshots chain arrays, lowers the scope per call, and returns fresh copies", () => {
+  it("lowers scope arrays per call and returns fresh copies", () => {
     const { velo } = client();
     const exchanges: SpotExchange[] = ["coinbase"];
     const products = ["BTC-USD"];
-    const builder = velo.spot.price(["close"]).exchanges(exchanges);
-    const liveScope = { products, between: [begin, end], resolution: "1h" } as const;
-
-    exchanges.push("binance");
+    const builder = velo.spot.price(["close"]);
+    const liveScope = { exchanges, products, between: [begin, end], resolution: "1h" } as const;
 
     const first = builder.params(liveScope);
     expect(first).toMatchObject({
@@ -121,8 +121,12 @@ describe("spot fluent builder", () => {
       products: ["BTC-USD"],
     });
 
+    exchanges.push("binance");
     products[0] = "ETH-USD";
-    expect(builder.params(liveScope).products).toEqual(["ETH-USD"]);
+    expect(builder.params(liveScope)).toMatchObject({
+      exchanges: ["coinbase", "binance"],
+      products: ["ETH-USD"],
+    });
   });
 
   it("supports immutable branching", () => {
@@ -146,6 +150,10 @@ describe("spot fluent builder", () => {
       velo.spot.price(["close"]).params({ products: ["BTC-USD"], between: [begin, end] });
       // @ts-expect-error the scope cannot select both products and coins
       velo.spot.price(["close"]).build({ ...scope, coins: ["BTC"] });
+      // @ts-expect-error futures exchanges are not valid spot exchanges
+      velo.spot.price(["close"]).fetch({ ...scope, exchanges: ["bybit"] });
+      // @ts-expect-error exchanges belong to the terminal scope
+      velo.spot.price(["close"]).exchanges(["coinbase"]);
       // @ts-expect-error a terminal method requires a scope
       velo.spot.price(["close"]).fetch();
     };
@@ -182,8 +190,12 @@ describe("spot fluent builder", () => {
   it("delegates remaining validation to the params schema", () => {
     const { velo } = client();
     const invalid = [
-      /* No columns selected. */
-      () => velo.spot.exchanges(["coinbase"]).params(scope),
+      /* Empty exchanges. */
+      () => velo.spot.price(["close"]).params({ ...scope, exchanges: [] }),
+      /* Duplicate exchanges. */
+      () => velo.spot.price(["close"]).params({ ...scope, exchanges: ["coinbase", "coinbase"] }),
+      /* Unsupported exchanges from untyped input. */
+      () => velo.spot.price(["close"]).params({ ...scope, exchanges: ["bybit"] } as never),
       /* Inverted time range. */
       () => velo.spot.price(["close"]).params({ ...scope, between: [end, begin] }),
     ];
@@ -243,8 +255,12 @@ describe("spot fluent builder", () => {
     const data = await velo.spot
       .price(["open", "high"])
       .volume(["buy"], { metric: "coin" })
-      .exchanges(["coinbase"])
-      .fetch({ products: ["BTC-USD"], between: [begin, end], resolution: "1h" });
+      .fetch({
+        exchanges: ["coinbase"],
+        products: ["BTC-USD"],
+        between: [begin, end],
+        resolution: "1h",
+      });
 
     expect(data.rows()).toEqual([
       {

@@ -15,7 +15,6 @@ export class Futures {
   readonly premium: FuturesBuilder<never>["premium"];
   readonly liquidations: FuturesBuilder<never>["liquidations"];
   readonly liquidationVolume: FuturesBuilder<never>["liquidationVolume"];
-  readonly exchanges: FuturesBuilder<never>["exchanges"];
 
   constructor(http: Http) {
     const query = new FuturesQuery(http);
@@ -30,6 +29,5 @@ export class Futures {
     this.premium = builder.premium.bind(builder);
     this.liquidations = builder.liquidations.bind(builder);
     this.liquidationVolume = builder.liquidationVolume.bind(builder);
-    this.exchanges = builder.exchanges.bind(builder);
   }
 }

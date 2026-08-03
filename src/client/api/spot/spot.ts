@@ -8,7 +8,6 @@ export class Spot {
   readonly price: SpotBuilder<never>["price"];
   readonly volume: SpotBuilder<never>["volume"];
   readonly trades: SpotBuilder<never>["trades"];
-  readonly exchanges: SpotBuilder<never>["exchanges"];
 
   constructor(http: Http) {
     const query = new SpotQuery(http);
@@ -17,6 +16,5 @@ export class Spot {
     this.price = builder.price.bind(builder);
     this.volume = builder.volume.bind(builder);
     this.trades = builder.trades.bind(builder);
-    this.exchanges = builder.exchanges.bind(builder);
   }
 }

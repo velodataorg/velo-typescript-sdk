@@ -25,6 +25,12 @@ export type TimedScope<R extends Resolution = Resolution> = TimeScope & {
  */
 export type RowsScope = TargetScope & TimedScope;
 
+/** A rows scope with an optional selection from one market's exchanges. */
+export type MarketRowsScope<E extends string> = RowsScope & {
+  /** Defaults to every exchange supported by the market when omitted. */
+  readonly exchanges?: readonly E[];
+};
+
 /**
  * Lowers a target selection into its params counterpart.
  *
@@ -103,5 +109,21 @@ export function lowerRowsScope(scope: RowsScope): (
   return {
     ...lowerTargetScope(scope),
     ...lowerTimedScope(scope),
+  };
+}
+
+/**
+ * Lowers a market rows scope and supplies the market's default exchanges.
+ *
+ * Explicit exchange arrays are copied when the scope is lowered. Supported,
+ * non-empty, unique exchanges are validated by the market params schema.
+ */
+export function lowerMarketRowsScope<E extends string>(
+  scope: MarketRowsScope<E>,
+  defaultExchanges: readonly E[],
+): ReturnType<typeof lowerRowsScope> & { readonly exchanges: readonly E[] } {
+  return {
+    exchanges: [...(scope.exchanges ?? defaultExchanges)],
+    ...lowerRowsScope(scope),
   };
 }

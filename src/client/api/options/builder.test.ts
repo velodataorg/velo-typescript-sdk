@@ -28,7 +28,9 @@ describe("options fluent builder", () => {
 
     expect(options).not.toHaveProperty("params");
     expect(options).not.toHaveProperty("build");
-    expect(options).not.toHaveProperty("execute");
+    expect(options).not.toHaveProperty("fetch");
+    expect(options).not.toHaveProperty("exchanges");
+    expect(options.iv(["1m"])).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as an options namespace entry point", () => {
@@ -74,7 +76,7 @@ describe("options fluent builder", () => {
     const base = client().velo.options.iv(["1m"]);
 
     expect(base.params(scope).exchanges).toEqual(OPTIONS_EXCHANGES);
-    expect(base.exchanges(["deribit"]).params(scope).exchanges).toEqual(["deribit"]);
+    expect(base.params({ ...scope, exchanges: ["deribit"] }).exchanges).toEqual(["deribit"]);
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {
@@ -150,14 +152,12 @@ describe("options fluent builder", () => {
     expect(new Set(columns)).toEqual(new Set(OPTIONS_COLUMNS));
   });
 
-  it("snapshots chain arrays, lowers the scope per call, and returns fresh copies", () => {
+  it("lowers scope arrays per call and returns fresh copies", () => {
     const { velo } = client();
     const exchanges: OptionsExchange[] = ["deribit"];
     const coins = ["BTC"];
-    const builder = velo.options.iv(["1m"]).exchanges(exchanges);
-    const liveScope = { coins, between: [begin, end], resolution: "1h" } as const;
-
-    exchanges.push("deribit");
+    const builder = velo.options.iv(["1m"]);
+    const liveScope = { exchanges, coins, between: [begin, end], resolution: "1h" } as const;
 
     const first = builder.params(liveScope);
     expect(first).toMatchObject({
@@ -175,7 +175,10 @@ describe("options fluent builder", () => {
     });
 
     coins[0] = "ETH";
-    expect(builder.params(liveScope).coins).toEqual(["ETH"]);
+    expect(builder.params(liveScope)).toMatchObject({
+      exchanges: ["deribit"],
+      coins: ["ETH"],
+    });
   });
 
   it("supports immutable branching", () => {
@@ -221,6 +224,10 @@ describe("options fluent builder", () => {
       velo.options.iv(["1m"]).params({ coins: ["BTC"], between: [begin, end] });
       // @ts-expect-error the scope cannot select both products and coins
       velo.options.iv(["1m"]).build({ ...scope, products: ["BTC-OPTION"] });
+      // @ts-expect-error spot exchanges are not valid options exchanges
+      velo.options.iv(["1m"]).fetch({ ...scope, exchanges: ["coinbase"] });
+      // @ts-expect-error exchanges belong to the terminal scope
+      velo.options.iv(["1m"]).exchanges(["deribit"]);
       // @ts-expect-error a terminal method requires a scope
       velo.options.iv(["1m"]).fetch();
     };
@@ -255,8 +262,12 @@ describe("options fluent builder", () => {
   it("delegates remaining validation to the params schema", () => {
     const { velo } = client();
     const invalid = [
-      /* No columns selected. */
-      () => velo.options.exchanges(["deribit"]).params(scope),
+      /* Empty exchanges. */
+      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: [] }),
+      /* Duplicate exchanges. */
+      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: ["deribit", "deribit"] }),
+      /* Unsupported exchanges from untyped input. */
+      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: ["coinbase"] } as never),
       /* Inverted time range. */
       () => velo.options.iv(["1m"]).params({ ...scope, between: [end, begin] }),
     ];
@@ -318,8 +329,12 @@ describe("options fluent builder", () => {
       .delta(["call"], { metric: "coin" })
       .dvol(["close"])
       .indexPrice()
-      .exchanges(["deribit"])
-      .fetch({ coins: ["BTC"], between: [begin, end], resolution: "1h" });
+      .fetch({
+        exchanges: ["deribit"],
+        coins: ["BTC"],
+        between: [begin, end],
+        resolution: "1h",
+      });
 
     expect(data.rows()).toEqual([
       {

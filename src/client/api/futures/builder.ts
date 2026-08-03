@@ -1,5 +1,5 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerRowsScope, type RowsScope } from "../../common/builder/scope.js";
+import { lowerMarketRowsScope, type MarketRowsScope } from "../../common/builder/scope.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import type { Data } from "../../common/data/data.js";
 import type { FuturesStandardColumn } from "../../common/market/columns.js";
@@ -42,7 +42,15 @@ export type {
   FuturesVolumePart,
 } from "./selectors.js";
 export type { LastDuration } from "../../common/builder/time.js";
-export type { RowsScope, TargetScope, TimeScope } from "../../common/builder/scope.js";
+export type {
+  MarketRowsScope,
+  RowsScope,
+  TargetScope,
+  TimeScope,
+} from "../../common/builder/scope.js";
+
+/** Target, time, resolution, and optional exchanges for a futures rows query. */
+export type FuturesScope = MarketRowsScope<FuturesExchange>;
 
 const {
   price: PRICE_COLUMNS,
@@ -57,7 +65,6 @@ const {
 
 interface State<C extends FuturesStandardColumn> {
   readonly columns: readonly C[];
-  readonly exchanges?: readonly FuturesExchange[];
 }
 
 /**
@@ -285,25 +292,15 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
   }
 
   /**
-   * Replaces the exchanges selected by the chain.
-   *
-   * When omitted, all futures exchanges are queried.
-   */
-  exchanges(exchanges: readonly FuturesExchange[]): FuturesBuilder<C> {
-    return this.#with({ exchanges: [...exchanges] });
-  }
-
-  /**
    * Lowers and validates the chain into raw futures parameters.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @returns A fresh validated parameter object.
    */
-  params(scope: RowsScope): FuturesStandardParams<C> {
+  params(scope: FuturesScope): FuturesStandardParams<C> {
     const lowered: FuturesStandardParams<C> = {
-      exchanges: [...(this.#state.exchanges ?? FUTURES_EXCHANGES)],
       columns: [...this.#state.columns],
-      ...lowerRowsScope(scope),
+      ...lowerMarketRowsScope(scope, FUTURES_EXCHANGES),
     };
     return FuturesParams.parse(lowered);
   }
@@ -313,24 +310,20 @@ export class FuturesBuilder<C extends FuturesStandardColumn = never> {
    *
    * A trailing duration in the scope is fixed when this method is called.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    */
-  build(scope: RowsScope): Query<FuturesRow<C>, Data<FuturesExchange, C>> {
+  build(scope: FuturesScope): Query<FuturesRow<C>, Data<FuturesExchange, C>> {
     return this.#query.build(this.params(scope));
   }
 
   /**
    * Builds and immediately fetches the query.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  fetch(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<FuturesExchange, C>> {
+  fetch(scope: FuturesScope, options?: HttpRequestOptions): Promise<Data<FuturesExchange, C>> {
     return this.build(scope).execute(options);
-  }
-
-  #with(patch: Partial<State<C>>): FuturesBuilder<C> {
-    return new FuturesBuilder(this.#query, { ...this.#state, ...patch });
   }
 
   #withColumns<Added extends FuturesStandardColumn>(

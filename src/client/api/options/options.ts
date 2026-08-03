@@ -18,7 +18,6 @@ export class Options {
   readonly notional: OptionsBuilder<never>["notional"];
   readonly dvol: OptionsBuilder<never>["dvol"];
   readonly indexPrice: OptionsBuilder<never>["indexPrice"];
-  readonly exchanges: OptionsBuilder<never>["exchanges"];
 
   constructor(http: Http) {
     const query = new OptionsQuery(http);
@@ -37,6 +36,5 @@ export class Options {
     this.notional = builder.notional.bind(builder);
     this.dvol = builder.dvol.bind(builder);
     this.indexPrice = builder.indexPrice.bind(builder);
-    this.exchanges = builder.exchanges.bind(builder);
   }
 }

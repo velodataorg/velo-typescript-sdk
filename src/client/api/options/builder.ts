@@ -1,5 +1,5 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerRowsScope, type RowsScope } from "../../common/builder/scope.js";
+import { lowerMarketRowsScope, type MarketRowsScope } from "../../common/builder/scope.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import type { Data } from "../../common/data/data.js";
 import type { OptionsColumn } from "../../common/market/columns.js";
@@ -33,7 +33,14 @@ import {
 } from "./selectors.js";
 
 export type { LastDuration } from "../../common/builder/time.js";
-export type { RowsScope, TargetScope, TimeScope } from "../../common/builder/scope.js";
+export type {
+  MarketRowsScope,
+  RowsScope,
+  TargetScope,
+  TimeScope,
+} from "../../common/builder/scope.js";
+/** Target, time, resolution, and optional exchanges for an options rows query. */
+export type OptionsScope = MarketRowsScope<OptionsExchange>;
 export type {
   OptionsDeltaMetric,
   OptionsDeltaPart,
@@ -63,7 +70,6 @@ const {
 
 interface State<C extends OptionsColumn> {
   readonly columns: readonly C[];
-  readonly exchanges?: readonly OptionsExchange[];
 }
 
 /**
@@ -270,25 +276,15 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
   }
 
   /**
-   * Replaces the exchanges selected by the chain.
-   *
-   * When omitted, all options exchanges are queried.
-   */
-  exchanges(exchanges: readonly OptionsExchange[]): OptionsBuilder<C> {
-    return this.#with({ exchanges: [...exchanges] });
-  }
-
-  /**
    * Lowers and validates the chain into raw options parameters.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @returns A fresh validated parameter object.
    */
-  params(scope: RowsScope): OptionsParams<C> {
+  params(scope: OptionsScope): OptionsParams<C> {
     const lowered: OptionsParams<C> = {
-      exchanges: [...(this.#state.exchanges ?? OPTIONS_EXCHANGES)],
       columns: [...this.#state.columns],
-      ...lowerRowsScope(scope),
+      ...lowerMarketRowsScope(scope, OPTIONS_EXCHANGES),
     };
     return OptionsParams.parse(lowered);
   }
@@ -298,24 +294,20 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    *
    * A trailing duration in the scope is fixed when this method is called.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    */
-  build(scope: RowsScope): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+  build(scope: OptionsScope): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
     return this.#query.build(this.params(scope));
   }
 
   /**
    * Builds and immediately fetches the query.
    *
-   * @param scope - The target, time range, and resolution to query.
+   * @param scope - The exchanges, target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  fetch(scope: RowsScope, options?: HttpRequestOptions): Promise<Data<OptionsExchange, C>> {
+  fetch(scope: OptionsScope, options?: HttpRequestOptions): Promise<Data<OptionsExchange, C>> {
     return this.build(scope).execute(options);
-  }
-
-  #with(patch: Partial<State<C>>): OptionsBuilder<C> {
-    return new OptionsBuilder(this.#query, { ...this.#state, ...patch });
   }
 
   #withColumns<Added extends OptionsColumn>(columns: readonly Added[]): OptionsBuilder<C | Added> {
