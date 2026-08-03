@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { BASIS_COLUMN } from "../../common/market/columns.js";
-import type { LastDuration } from "./builder.js";
-import type { BasisCoin } from "./params.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { BASIS_COLUMN } from "../../common/market/columns.ts";
+import type { LastDuration } from "./builder.ts";
+import type { BasisCoin } from "./params.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {

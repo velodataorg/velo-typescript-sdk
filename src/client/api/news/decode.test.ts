@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import { VeloError } from "../../../errors.js";
-import { decodeNewsMessage, frameText } from "./decode.js";
+import { VeloError } from "../../../errors.ts";
+import { decodeNewsMessage, frameText } from "./decode.ts";
 
 const STORY = {
   id: 1646,

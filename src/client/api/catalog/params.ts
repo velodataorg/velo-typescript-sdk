@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { invalidParamsError } from "../../common/validation.js";
+import { invalidParamsError } from "../../common/validation.ts";
 
 export type CatalogParams<E extends string> =
   | {

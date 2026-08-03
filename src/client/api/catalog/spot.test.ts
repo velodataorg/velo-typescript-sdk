@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import type { SpotExchange } from "../../common/market/exchanges.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import type { SpotExchange } from "../../common/market/exchanges.ts";
 
 const SPOT_CSV =
   "exchange,coin,product,begin\n" +

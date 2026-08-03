@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../errors.js";
-import { Http } from "../../transport/http.js";
-import type { HttpParams } from "../../transport/http.js";
-import { MAX_IN_FLIGHT_REQUESTS, MAX_REQUESTS_PER_QUERY, Query } from "./query.js";
-import type { QueryOptions, QueryRequest } from "./query.js";
+import { VeloError } from "../../errors.ts";
+import { Http } from "../../transport/http.ts";
+import type { HttpParams } from "../../transport/http.ts";
+import { MAX_IN_FLIGHT_REQUESTS, MAX_REQUESTS_PER_QUERY, Query } from "./query.ts";
+import type { QueryOptions, QueryRequest } from "./query.ts";
 
 interface Point {
   step: number;

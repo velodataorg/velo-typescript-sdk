@@ -1,10 +1,10 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../../util/assert.js";
-import { MAX_REQUESTS_PER_QUERY } from "../query.js";
-import { MAX_TIMESTAMP_MS } from "../validation.js";
-import type { Resolution } from "./resolution.js";
-import { toResolutionValue } from "./resolution.js";
+import { assert } from "../../../util/assert.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { MAX_TIMESTAMP_MS } from "../validation.ts";
+import type { Resolution } from "./resolution.ts";
+import { toResolutionValue } from "./resolution.ts";
 
 export interface TimeRange {
   readonly begin: number;

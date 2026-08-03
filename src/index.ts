@@ -1,16 +1,16 @@
-export type { MarketCaps } from "./client/api/market-caps/market-caps.js";
-export type { MarketCapsParams } from "./client/api/market-caps/query.js";
-export type { MarketCap } from "./client/api/market-caps/validation.js";
-export { MARKET_CAPS_COLUMNS } from "./client/api/market-caps/validation.js";
-export type { Catalog } from "./client/api/catalog/catalog.js";
-export type { FutureProduct, FuturesCatalogParams } from "./client/api/catalog/futures.js";
-export type { OptionProduct, OptionsCatalogParams } from "./client/api/catalog/options.js";
-export type { CatalogParams } from "./client/api/catalog/params.js";
-export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.js";
-export type { VeloConfig } from "./client/client.js";
-export { Velo } from "./client/client.js";
-export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.js";
-export type { FuturesBuilder } from "./client/api/futures/builder.js";
+export type { MarketCaps } from "./client/api/market-caps/market-caps.ts";
+export type { MarketCapsParams } from "./client/api/market-caps/query.ts";
+export type { MarketCap } from "./client/api/market-caps/validation.ts";
+export { MARKET_CAPS_COLUMNS } from "./client/api/market-caps/validation.ts";
+export type { Catalog } from "./client/api/catalog/catalog.ts";
+export type { FutureProduct, FuturesCatalogParams } from "./client/api/catalog/futures.ts";
+export type { OptionProduct, OptionsCatalogParams } from "./client/api/catalog/options.ts";
+export type { CatalogParams } from "./client/api/catalog/params.ts";
+export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
+export type { VeloConfig } from "./client/client.ts";
+export { Velo } from "./client/client.ts";
+export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
+export type { FuturesBuilder } from "./client/api/futures/builder.ts";
 export type {
   FuturesFundingRatePart,
   FuturesLiquidationPart,
@@ -30,19 +30,19 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "./client/api/futures/builder.js";
-export type { Futures } from "./client/api/futures/futures.js";
+} from "./client/api/futures/builder.ts";
+export type { Futures } from "./client/api/futures/futures.ts";
 export type {
   BasisCoin,
   FuturesBasisParams,
   FuturesParams,
   FuturesStandardParams,
-} from "./client/api/futures/params.js";
-export { BASIS_COINS } from "./client/api/futures/params.js";
-export type { FuturesRow } from "./client/api/futures/query.js";
-export type { News } from "./client/api/news/news.js";
-export type { NewsStoriesParams } from "./client/api/news/stories.js";
-export type { NewsStory } from "./client/api/news/validation.js";
+} from "./client/api/futures/params.ts";
+export { BASIS_COINS } from "./client/api/futures/params.ts";
+export type { FuturesRow } from "./client/api/futures/query.ts";
+export type { News } from "./client/api/news/news.ts";
+export type { NewsStoriesParams } from "./client/api/news/stories.ts";
+export type { NewsStory } from "./client/api/news/validation.ts";
 export type {
   NewsClose,
   NewsDelete,
@@ -51,12 +51,12 @@ export type {
   NewsWatcherListener,
   NewsWatcherState,
   NewsWatchOptions,
-} from "./client/api/news/watcher.js";
+} from "./client/api/news/watcher.ts";
 export {
   DEFAULT_NEWS_CONNECT_TIMEOUT,
   DEFAULT_NEWS_HEARTBEAT_TIMEOUT,
-} from "./client/api/news/watcher.js";
-export type { Options } from "./client/api/options/options.js";
+} from "./client/api/news/watcher.ts";
+export type { Options } from "./client/api/options/options.ts";
 export type {
   OptionsBuilder,
   OptionsDeltaMetric,
@@ -70,26 +70,26 @@ export type {
   OptionsSkewTenor,
   OptionsVegaMetric,
   OptionsVolumePart,
-} from "./client/api/options/builder.js";
-export type { OptionsParams, OptionsRow } from "./client/api/options/params.js";
-export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.js";
-export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.js";
-export type { Orderbook } from "./client/api/orderbook/orderbook.js";
-export { OrderbookData } from "./client/api/orderbook/data.js";
+} from "./client/api/options/builder.ts";
+export type { OptionsParams, OptionsRow } from "./client/api/options/params.ts";
+export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.ts";
+export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.ts";
+export type { Orderbook } from "./client/api/orderbook/orderbook.ts";
+export { OrderbookData } from "./client/api/orderbook/data.ts";
 export type {
   OrderbookLevel,
   OrderbookRow,
   OrderbookSnapshot,
-} from "./client/api/orderbook/data.js";
+} from "./client/api/orderbook/data.ts";
 export type {
   OrderbookParams,
   OrderbookParamsCoin,
   OrderbookParamsProduct,
   OrderbookResolution,
-} from "./client/api/orderbook/params.js";
-export type { OrderbookScope, OrderbookTarget } from "./client/api/orderbook/scope.js";
-export type { SpotParams } from "./client/api/spot/params.js";
-export type { SpotRow } from "./client/api/spot/query.js";
+} from "./client/api/orderbook/params.ts";
+export type { OrderbookScope, OrderbookTarget } from "./client/api/orderbook/scope.ts";
+export type { SpotParams } from "./client/api/spot/params.ts";
+export type { SpotRow } from "./client/api/spot/query.ts";
 export type {
   SpotBuilder,
   SpotMarketScope,
@@ -97,9 +97,9 @@ export type {
   SpotTradePart,
   SpotVolumeMetric,
   SpotVolumePart,
-} from "./client/api/spot/builder.js";
-export type { Spot } from "./client/api/spot/spot.js";
-export type { Status, StatusResponse } from "./client/api/status/status.js";
+} from "./client/api/spot/builder.ts";
+export type { Spot } from "./client/api/spot/spot.ts";
+export type { Status, StatusResponse } from "./client/api/status/status.ts";
 export {
   BASE_URL,
   CAPS_PATH,
@@ -112,45 +112,45 @@ export {
   SPOT_CATALOG_PATH,
   STATUS_PATH,
   TERMS_PATH,
-} from "./constants/endpoints.js";
+} from "./constants/endpoints.ts";
 export type {
   FuturesColumn,
   FuturesStandardColumn,
   OptionsColumn,
   SpotColumn,
-} from "./client/common/market/columns.js";
+} from "./client/common/market/columns.ts";
 export {
   BASIS_COLUMN,
   FUTURES_COLUMNS,
   OPTIONS_COLUMNS,
   SPOT_COLUMNS,
-} from "./client/common/market/columns.js";
-export { Data } from "./client/common/data/data.js";
-export type { SeriesColumns } from "./client/common/data/data.js";
+} from "./client/common/market/columns.ts";
+export { Data } from "./client/common/data/data.ts";
+export type { SeriesColumns } from "./client/common/data/data.ts";
 export type {
   Exchange,
   FuturesExchange,
   OptionsExchange,
   SpotExchange,
-} from "./client/common/market/exchanges.js";
+} from "./client/common/market/exchanges.ts";
 export {
   FUTURES_EXCHANGES,
   OPTIONS_EXCHANGES,
   SPOT_EXCHANGES,
-} from "./client/common/market/exchanges.js";
-export type { MarketType } from "./client/common/rows/params.js";
+} from "./client/common/market/exchanges.ts";
+export type { MarketType } from "./client/common/rows/params.ts";
 export type {
   CanCandle,
   Candle,
   CandlesUnavailable,
   OhlcColumn,
-} from "./client/common/data/candles.js";
-export type { ProductKey } from "./client/common/data/product-key.js";
-export { formatProductKey, parseProductKey } from "./client/common/data/product-key.js";
-export type { Resolution, ResolutionValue } from "./client/common/time/resolution.js";
-export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.js";
-export type { Row, RowBase, RowColumns } from "./client/common/data/row.js";
-export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.js";
+} from "./client/common/data/candles.ts";
+export type { ProductKey } from "./client/common/data/product-key.ts";
+export { formatProductKey, parseProductKey } from "./client/common/data/product-key.ts";
+export type { Resolution, ResolutionValue } from "./client/common/time/resolution.ts";
+export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.ts";
+export type { Row, RowBase, RowColumns } from "./client/common/data/row.ts";
+export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.ts";
 export {
   VeloAuthError,
   VeloBadRequestError,
@@ -161,13 +161,13 @@ export {
   VeloRequestError,
   VeloServerError,
   VeloTimeoutError,
-} from "./errors.js";
-export { DEFAULT_TIMEOUT } from "./transport/http.js";
-export type { HttpParams, HttpRequestOptions } from "./transport/http.js";
-export { DEFAULT_RATE_LIMIT } from "./transport/rate-limit.js";
-export type { RateLimitOptions } from "./transport/rate-limit.js";
-export { DEFAULT_RETRY } from "./transport/retry.js";
-export type { RetryOptions } from "./transport/retry.js";
+} from "./errors.ts";
+export { DEFAULT_TIMEOUT } from "./transport/http.ts";
+export type { HttpParams, HttpRequestOptions } from "./transport/http.ts";
+export { DEFAULT_RATE_LIMIT } from "./transport/rate-limit.ts";
+export type { RateLimitOptions } from "./transport/rate-limit.ts";
+export { DEFAULT_RETRY } from "./transport/retry.ts";
+export type { RetryOptions } from "./transport/retry.ts";
 export type {
   WebSocketCloseEvent,
   WebSocketConnection,
@@ -176,4 +176,4 @@ export type {
   WebSocketFactory,
   WebSocketMessageEvent,
   WebSocketTarget,
-} from "./transport/websocket.js";
+} from "./transport/websocket.ts";

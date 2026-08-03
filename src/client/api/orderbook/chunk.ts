@@ -1,6 +1,6 @@
-import { assert } from "../../../util/assert.js";
-import { MAX_REQUESTS_PER_QUERY } from "../../common/query.js";
-import { chunkByStep, type TimeRange } from "../../common/time/range.js";
+import { assert } from "../../../util/assert.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../../common/query.ts";
+import { chunkByStep, type TimeRange } from "../../common/time/range.ts";
 
 /* The server rejects requests spanning more buckets with an HTTP 403, so
  * chunking is mandatory rather than an optimization.

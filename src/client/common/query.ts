@@ -1,5 +1,5 @@
-import type { Http, HttpParams, HttpRequestOptions } from "../../transport/http.js";
-import { assert } from "../../util/assert.js";
+import type { Http, HttpParams, HttpRequestOptions } from "../../transport/http.ts";
+import { assert } from "../../util/assert.ts";
 
 /** Maximum number of HTTP requests that one query may contain. */
 export const MAX_REQUESTS_PER_QUERY = 10_000;

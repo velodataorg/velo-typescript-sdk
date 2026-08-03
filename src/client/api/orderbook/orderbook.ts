@@ -1,8 +1,8 @@
-import type { Http, HttpRequestOptions } from "../../../transport/http.js";
-import type { Query } from "../../common/query.js";
-import type { OrderbookData, OrderbookRow } from "./data.js";
-import { OrderbookQuery } from "./query.js";
-import { lowerOrderbookScope, type OrderbookScope } from "./scope.js";
+import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
+import type { Query } from "../../common/query.ts";
+import type { OrderbookData, OrderbookRow } from "./data.ts";
+import { OrderbookQuery } from "./query.ts";
+import { lowerOrderbookScope, type OrderbookScope } from "./scope.ts";
 
 /** The orderbook depth namespace exposed by {@link Velo}. */
 export class Orderbook {

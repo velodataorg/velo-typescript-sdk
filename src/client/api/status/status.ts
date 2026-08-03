@@ -1,6 +1,6 @@
-import { STATUS_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpRequestOptions } from "../../../transport/http.js";
+import { STATUS_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
 
 /** The normalized response returned by the status endpoint. */
 export type StatusResponse = "ok";

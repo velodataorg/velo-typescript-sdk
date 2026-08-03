@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SafeEmitter } from "./emitter.js";
+import { SafeEmitter } from "./emitter.ts";
 
 interface TestEvents {
   readonly value: number;

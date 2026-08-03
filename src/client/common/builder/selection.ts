@@ -1,4 +1,4 @@
-import { assert } from "../../../util/assert.js";
+import { assert } from "../../../util/assert.ts";
 
 /**
  * Resolves an optional part selection against one selector's column map.

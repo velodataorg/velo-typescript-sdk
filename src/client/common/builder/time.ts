@@ -1,6 +1,6 @@
 import { Duration, type DurationUnit } from "luxon";
 
-import { assert } from "../../../util/assert.js";
+import { assert } from "../../../util/assert.ts";
 
 const LAST_UNITS = {
   m: "minutes",

@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import { MinuteResolutionSchema, type MinuteResolution } from "../../common/time/resolution.js";
-import { END_AFTER_BEGIN, invalidParamsError, timestamp } from "../../common/validation.js";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import { MinuteResolutionSchema, type MinuteResolution } from "../../common/time/resolution.ts";
+import { END_AFTER_BEGIN, invalidParamsError, timestamp } from "../../common/validation.ts";
 
 /* The levels endpoint takes a minute-denominated bucket size, so calendar
  * resolutions are out.

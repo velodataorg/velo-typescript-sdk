@@ -1,5 +1,5 @@
-import { assert } from "../util/assert.js";
-import { MAX_TIMER_MS, sleep } from "./retry.js";
+import { assert } from "../util/assert.ts";
+import { MAX_TIMER_MS, sleep } from "./retry.ts";
 
 export interface RateLimitOptions {
   /* Maximum requests the client may send within one trailing window. */

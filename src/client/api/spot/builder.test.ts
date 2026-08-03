@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { SPOT_COLUMNS } from "../../common/market/columns.js";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.js";
-import type { LastDuration } from "./builder.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { SPOT_COLUMNS } from "../../common/market/columns.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
+import type { LastDuration } from "./builder.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {

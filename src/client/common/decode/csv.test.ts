@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { csvBoolean, csvNumber, csvNumberOrNull, csvTimestamp, decode } from "./csv.js";
+import { csvBoolean, csvNumber, csvNumberOrNull, csvTimestamp, decode } from "./csv.ts";
 
 const RowSchema = z.strictObject({
   time: csvTimestamp,

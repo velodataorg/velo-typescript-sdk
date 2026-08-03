@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { VeloError, VeloHttpError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import type { OrderbookScope } from "./scope.js";
+import { VeloError, VeloHttpError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import type { OrderbookScope } from "./scope.ts";
 
 const HOUR = 3_600_000;
 const MINUTE = 60_000;

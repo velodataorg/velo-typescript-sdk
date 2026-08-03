@@ -1,21 +1,21 @@
 import { z } from "zod";
 
-import type { Equals, Expect } from "../../../util/types.js";
+import type { Equals, Expect } from "../../../util/types.ts";
 import {
   BASIS_COLUMN,
   FUTURES_STANDARD_COLUMNS,
   type FuturesStandardColumn,
-} from "../../common/market/columns.js";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import { RowsParams } from "../../common/rows/params.js";
-import type { Resolution } from "../../common/time/resolution.js";
-import { ResolutionSchema } from "../../common/time/resolution.js";
+} from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import { RowsParams } from "../../common/rows/params.ts";
+import type { Resolution } from "../../common/time/resolution.ts";
+import { ResolutionSchema } from "../../common/time/resolution.ts";
 import {
   END_AFTER_BEGIN,
   invalidParamsError,
   timestamp,
   uniqueArray,
-} from "../../common/validation.js";
+} from "../../common/validation.ts";
 
 export type FuturesStandardParams<C extends FuturesStandardColumn = FuturesStandardColumn> =
   RowsParams<FuturesExchange, C>;

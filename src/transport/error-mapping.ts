@@ -6,7 +6,7 @@ import {
   VeloRateLimitError,
   VeloServerError,
   VeloTimeoutError,
-} from "../errors.js";
+} from "../errors.ts";
 
 /**
  * Maps an HTTP error response to the matching typed error.

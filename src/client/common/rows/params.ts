@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import type { Resolution } from "../time/resolution.js";
-import { ResolutionSchema } from "../time/resolution.js";
-import { END_AFTER_BEGIN, timestamp, uniqueArray } from "../validation.js";
+import type { Resolution } from "../time/resolution.ts";
+import { ResolutionSchema } from "../time/resolution.ts";
+import { END_AFTER_BEGIN, timestamp, uniqueArray } from "../validation.ts";
 
 export type MarketType = "futures" | "options" | "spot";
 

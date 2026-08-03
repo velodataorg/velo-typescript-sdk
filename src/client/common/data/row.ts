@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { csvNumberOrNull, csvTimestamp } from "../decode/csv.js";
+import { csvNumberOrNull, csvTimestamp } from "../decode/csv.ts";
 
 /**
  * Fields present at the start of every `/rows` response.

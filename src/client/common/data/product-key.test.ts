@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import type { ProductKey } from "./product-key.js";
-import { formatProductKey, parseProductKey } from "./product-key.js";
+import { VeloError } from "../../../errors.ts";
+import type { ProductKey } from "./product-key.ts";
+import { formatProductKey, parseProductKey } from "./product-key.ts";
 
 describe("rows product keys", () => {
   it("formats an exchange and product", () => {

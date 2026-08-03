@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeOrderbook } from "./decode.js";
+import { decodeOrderbook } from "./decode.ts";
 
 describe("decodeOrderbook", () => {
   it("decodes the step line and variable-width bucket lines", () => {

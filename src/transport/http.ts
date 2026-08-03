@@ -1,12 +1,12 @@
 import queryString from "query-string";
 
 import { version } from "../../package.json";
-import { BASE_URL } from "../constants/endpoints.js";
-import { VeloError, VeloRequestError } from "../errors.js";
-import { assert } from "../util/assert.js";
-import { toConnectionError, toError } from "./error-mapping.js";
-import { DEFAULT_RATE_LIMIT, RateLimiter } from "./rate-limit.js";
-import type { RateLimitOptions } from "./rate-limit.js";
+import { BASE_URL } from "../constants/endpoints.ts";
+import { VeloError, VeloRequestError } from "../errors.ts";
+import { assert } from "../util/assert.ts";
+import { toConnectionError, toError } from "./error-mapping.ts";
+import { DEFAULT_RATE_LIMIT, RateLimiter } from "./rate-limit.ts";
+import type { RateLimitOptions } from "./rate-limit.ts";
 import {
   backoffMs,
   DEFAULT_RETRY,
@@ -15,8 +15,8 @@ import {
   retryAfterMs,
   sleep,
   validateRetryOptions,
-} from "./retry.js";
-import type { RetryOptions } from "./retry.js";
+} from "./retry.ts";
+import type { RetryOptions } from "./retry.ts";
 
 const USER_AGENT = `velo-sdk/${version}`;
 

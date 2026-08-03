@@ -1,4 +1,4 @@
-import type { HttpRequestOptions } from "../../../transport/http.js";
+import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -7,15 +7,15 @@ import {
   snapshotBuilderMarket,
   snapshotBuilderWindow,
   type WindowScope,
-} from "../../common/builder/scope.js";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.js";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
-import type { Data } from "../../common/data/data.js";
-import type { SpotColumn } from "../../common/market/columns.js";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { SpotParams } from "./params.js";
-import { SpotQuery, type SpotRow } from "./query.js";
+} from "../../common/builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
+import type { Data } from "../../common/data/data.ts";
+import type { SpotColumn } from "../../common/market/columns.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { SpotParams } from "./params.ts";
+import { SpotQuery, type SpotRow } from "./query.ts";
 import {
   SPOT_SELECTOR_COLUMNS,
   type SpotPriceColumn,
@@ -25,9 +25,9 @@ import {
   type SpotVolumeColumn,
   type SpotVolumeMetric,
   type SpotVolumePart,
-} from "./selectors.js";
+} from "./selectors.ts";
 
-export type { LastDuration } from "../../common/builder/time.js";
+export type { LastDuration } from "../../common/builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -35,7 +35,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.js";
+} from "../../common/builder/scope.ts";
 /** Instruments and optional exchanges configured by a spot builder's `for()` step. */
 export type SpotMarketScope = MarketScope<SpotExchange>;
 export type {
@@ -43,7 +43,7 @@ export type {
   SpotTradePart,
   SpotVolumeMetric,
   SpotVolumePart,
-} from "./selectors.js";
+} from "./selectors.ts";
 
 const {
   price: PRICE_COLUMNS,

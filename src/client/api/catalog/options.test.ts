@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import type { OptionsExchange } from "../../common/market/exchanges.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import type { OptionsExchange } from "../../common/market/exchanges.ts";
 
 const OPTIONS_CSV =
   "exchange,coin,product,begin\n" +

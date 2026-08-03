@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Data } from "./data.js";
-import type { Row } from "./row.js";
+import { VeloError } from "../../../errors.ts";
+import { Data } from "./data.ts";
+import type { Row } from "./row.ts";
 
 type TestExchange = "binance" | "bybit";
 type TestColumn = "close_price" | "dollar_volume";

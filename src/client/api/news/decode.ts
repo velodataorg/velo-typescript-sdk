@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import { newsStorySchema } from "./validation.js";
-import type { NewsStory } from "./validation.js";
+import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import { newsStorySchema } from "./validation.ts";
+import type { NewsStory } from "./validation.ts";
 
 const MessageObjectSchema = z.record(z.string(), z.unknown());
 const HeartbeatSchema = z.strictObject({ heartbeat: z.literal(true) });

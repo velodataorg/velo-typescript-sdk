@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { OPTIONS_CATALOG_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpRequestOptions } from "../../../transport/http.js";
-import { csvTimestamp, decode } from "../../common/decode/csv.js";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
-import { CatalogParams } from "./params.js";
+import { OPTIONS_CATALOG_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
+import { csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import { CatalogParams } from "./params.ts";
 
 const optionProductSchema = z.strictObject({
   exchange: z.enum(OPTIONS_EXCHANGES),

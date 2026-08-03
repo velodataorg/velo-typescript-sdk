@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import type { Equals, Expect } from "../../../util/types.js";
-import type { Row } from "../../common/data/row.js";
-import { OPTIONS_COLUMNS, type OptionsColumn } from "../../common/market/columns.js";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
-import { RowsParams } from "../../common/rows/params.js";
-import { invalidParamsError } from "../../common/validation.js";
+import type { Equals, Expect } from "../../../util/types.ts";
+import type { Row } from "../../common/data/row.ts";
+import { OPTIONS_COLUMNS, type OptionsColumn } from "../../common/market/columns.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import { RowsParams } from "../../common/rows/params.ts";
+import { invalidParamsError } from "../../common/validation.ts";
 
 export type OptionsRow<C extends OptionsColumn> = Row<OptionsExchange, C>;
 export type OptionsParams<C extends OptionsColumn = OptionsColumn> = RowsParams<OptionsExchange, C>;

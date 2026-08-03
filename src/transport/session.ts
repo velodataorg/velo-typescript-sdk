@@ -1,6 +1,6 @@
-import type { VeloConnectionError } from "../errors.js";
-import { assert } from "../util/assert.js";
-import { MAX_TIMER_MS } from "./retry.js";
+import type { VeloConnectionError } from "../errors.ts";
+import { assert } from "../util/assert.ts";
+import { MAX_TIMER_MS } from "./retry.ts";
 import type {
   WebSocketCloseEvent,
   WebSocketConnection,
@@ -8,7 +8,7 @@ import type {
   WebSocketEvents,
   WebSocketMessageEvent,
   WebSocketTransport,
-} from "./websocket.js";
+} from "./websocket.ts";
 
 /* Socket readyStates per the WHATWG WebSocket interface. */
 const CONNECTING = 0;

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { VeloConnectionError, VeloError } from "../errors.js";
-import { defaultWebSocketFactory, isNodeRuntime, WebSocketTransport } from "./websocket.js";
-import type { WebSocketConnection, WebSocketRuntime, WebSocketTarget } from "./websocket.js";
+import { VeloConnectionError, VeloError } from "../errors.ts";
+import { defaultWebSocketFactory, isNodeRuntime, WebSocketTransport } from "./websocket.ts";
+import type { WebSocketConnection, WebSocketRuntime, WebSocketTarget } from "./websocket.ts";
 
 const wsMock = vi.hoisted(() => ({
   calls: [] as { url: string; options: { headers?: Record<string, string> } }[],

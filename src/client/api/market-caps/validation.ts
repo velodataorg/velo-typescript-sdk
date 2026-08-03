@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { csvNumberOrNull, csvTimestamp } from "../../common/decode/csv.js";
+import { csvNumberOrNull, csvTimestamp } from "../../common/decode/csv.ts";
 
 export const marketCapSchema = z.strictObject({
   coin: z.string().min(1),

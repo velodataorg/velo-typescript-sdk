@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "moduleDetection": "force",
+    "rewriteRelativeImportExtensions": true,
     "resolveJsonModule": true,
     "types": ["node"],
 

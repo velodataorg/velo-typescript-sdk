@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { VeloError } from "../../../errors.js";
-import { assert } from "../../../util/assert.js";
-import type { RowBase } from "./row.js";
+import { VeloError } from "../../../errors.ts";
+import { assert } from "../../../util/assert.ts";
+import type { RowBase } from "./row.ts";
 
 export type OhlcColumn = "open_price" | "high_price" | "low_price" | "close_price";
 export type VolumeColumn = "coin_volume" | "dollar_volume";

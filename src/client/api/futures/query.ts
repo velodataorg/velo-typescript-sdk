@@ -1,15 +1,15 @@
-import type { Http } from "../../../transport/http.js";
-import type { Data } from "../../common/data/data.js";
-import type { Row } from "../../common/data/row.js";
+import type { Http } from "../../../transport/http.ts";
+import type { Data } from "../../common/data/data.ts";
+import type { Row } from "../../common/data/row.ts";
 import {
   BASIS_COLUMN,
   type FuturesColumn,
   type FuturesStandardColumn,
-} from "../../common/market/columns.js";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { RowsQuery } from "../../common/rows/query.js";
-import { FuturesParams, type FuturesBasisParams, type FuturesStandardParams } from "./params.js";
+} from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { RowsQuery } from "../../common/rows/query.ts";
+import { FuturesParams, type FuturesBasisParams, type FuturesStandardParams } from "./params.ts";
 
 export type FuturesRow<C extends FuturesColumn> = Row<FuturesExchange, C>;
 

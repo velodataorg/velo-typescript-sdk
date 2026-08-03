@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { TERMS_COLUMNS, type TermsCoin } from "./terms.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { TERMS_COLUMNS, type TermsCoin } from "./terms.ts";
 
 const TERMS_CSV =
   "coin,time,at_the_money_iv,dte,fwd_iv\n" +

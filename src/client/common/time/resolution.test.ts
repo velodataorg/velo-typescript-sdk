@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import type { Equals, Expect } from "../../../util/types.js";
-import type { MinuteResolution, Resolution } from "./resolution.js";
+import { VeloError } from "../../../errors.ts";
+import type { Equals, Expect } from "../../../util/types.ts";
+import type { MinuteResolution, Resolution } from "./resolution.ts";
 import {
   MinuteResolutionSchema,
   RESOLUTIONS,
   ResolutionSchema,
   toResolutionValue,
-} from "./resolution.js";
+} from "./resolution.ts";
 
 /* The minute subset must stay every published name except calendar months. */
 type _MinuteResolutionExcludesMonths = Expect<Equals<MinuteResolution, Exclude<Resolution, "1M">>>;

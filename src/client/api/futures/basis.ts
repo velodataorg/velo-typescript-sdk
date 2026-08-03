@@ -1,11 +1,11 @@
-import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerTimedScope, type TimedScope } from "../../common/builder/scope.js";
-import type { Data } from "../../common/data/data.js";
-import { BASIS_COLUMN } from "../../common/market/columns.js";
-import type { FuturesExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { BASIS_COINS, FuturesParams, type BasisCoin, type FuturesBasisParams } from "./params.js";
-import { FuturesQuery, type FuturesRow } from "./query.js";
+import type { HttpRequestOptions } from "../../../transport/http.ts";
+import { lowerTimedScope, type TimedScope } from "../../common/builder/scope.ts";
+import type { Data } from "../../common/data/data.ts";
+import { BASIS_COLUMN } from "../../common/market/columns.ts";
+import type { FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { BASIS_COINS, FuturesParams, type BasisCoin, type FuturesBasisParams } from "./params.ts";
+import { FuturesQuery, type FuturesRow } from "./query.ts";
 
 /**
  * The required query scope accepted by a basis builder's terminal methods.

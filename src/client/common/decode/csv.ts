@@ -1,7 +1,7 @@
 import { csvParseRows } from "d3-dsv";
 import { z } from "zod";
 
-import { timestamp } from "../validation.js";
+import { timestamp } from "../validation.ts";
 
 /**
  * Converts one CSV cell to a finite number.

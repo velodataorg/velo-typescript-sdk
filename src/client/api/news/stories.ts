@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { NEWS_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpParams, HttpRequestOptions } from "../../../transport/http.js";
-import { assert } from "../../../util/assert.js";
-import { newsResponseSchema, type NewsStory } from "./validation.js";
+import { NEWS_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpParams, HttpRequestOptions } from "../../../transport/http.ts";
+import { assert } from "../../../util/assert.ts";
+import { newsResponseSchema, type NewsStory } from "./validation.ts";
 
 /** Parameters for fetching historical news stories. */
 export interface NewsStoriesParams {

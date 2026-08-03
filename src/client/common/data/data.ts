@@ -1,9 +1,9 @@
-import { assert } from "../../../util/assert.js";
-import type { Candle, CanCandle, CandlesUnavailable } from "./candles.js";
-import { toCandles } from "./candles.js";
-import type { ProductKey } from "./product-key.js";
-import { formatProductKey } from "./product-key.js";
-import { Row, type RowBase, type RowColumns } from "./row.js";
+import { assert } from "../../../util/assert.ts";
+import type { Candle, CanCandle, CandlesUnavailable } from "./candles.ts";
+import { toCandles } from "./candles.ts";
+import type { ProductKey } from "./product-key.ts";
+import { formatProductKey } from "./product-key.ts";
+import { Row, type RowBase, type RowColumns } from "./row.ts";
 
 /*//////////////////////////////////////////////////////////////
                              SERIES

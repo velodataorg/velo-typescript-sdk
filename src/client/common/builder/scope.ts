@@ -1,6 +1,6 @@
-import { assert } from "../../../util/assert.js";
-import type { Resolution } from "../time/resolution.js";
-import { durationMilliseconds, type LastDuration, timestamp } from "./time.js";
+import { assert } from "../../../util/assert.ts";
+import type { Resolution } from "../time/resolution.ts";
+import { durationMilliseconds, type LastDuration, timestamp } from "./time.ts";
 
 /** Selects the instruments a query targets: exchange products or Velo coins. */
 export type TargetScope =

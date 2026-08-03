@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { VeloError } from "../../errors.js";
+import { VeloError } from "../../errors.ts";
 
 export const MAX_TIMESTAMP_MS = 8.64e15;
 

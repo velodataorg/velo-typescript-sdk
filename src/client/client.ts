@@ -1,15 +1,15 @@
-import { Http } from "../transport/http.js";
-import type { HttpConfig } from "../transport/http.js";
-import { WebSocketTransport } from "../transport/websocket.js";
-import type { WebSocketFactory } from "../transport/websocket.js";
-import { Catalog } from "./api/catalog/catalog.js";
-import { Futures } from "./api/futures/futures.js";
-import { MarketCaps } from "./api/market-caps/market-caps.js";
-import { News } from "./api/news/news.js";
-import { Options } from "./api/options/options.js";
-import { Orderbook } from "./api/orderbook/orderbook.js";
-import { Spot } from "./api/spot/spot.js";
-import { Status } from "./api/status/status.js";
+import { Http } from "../transport/http.ts";
+import type { HttpConfig } from "../transport/http.ts";
+import { WebSocketTransport } from "../transport/websocket.ts";
+import type { WebSocketFactory } from "../transport/websocket.ts";
+import { Catalog } from "./api/catalog/catalog.ts";
+import { Futures } from "./api/futures/futures.ts";
+import { MarketCaps } from "./api/market-caps/market-caps.ts";
+import { News } from "./api/news/news.ts";
+import { Options } from "./api/options/options.ts";
+import { Orderbook } from "./api/orderbook/orderbook.ts";
+import { Spot } from "./api/spot/spot.ts";
+import { Status } from "./api/status/status.ts";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */

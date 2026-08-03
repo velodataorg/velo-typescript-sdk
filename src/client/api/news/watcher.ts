@@ -1,14 +1,14 @@
-import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import { MAX_TIMER_MS } from "../../../transport/retry.js";
-import { WebSocketSession } from "../../../transport/session.js";
-import type { WebSocketSessionHandlers } from "../../../transport/session.js";
-import type { WebSocketTransport } from "../../../transport/websocket.js";
-import { assert } from "../../../util/assert.js";
-import { SafeEmitter } from "../../../util/emitter.js";
-import { decodeNewsMessage, frameText } from "./decode.js";
-import type { DecodedNewsMessage } from "./decode.js";
-import type { NewsStory } from "./validation.js";
+import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import { MAX_TIMER_MS } from "../../../transport/retry.ts";
+import { WebSocketSession } from "../../../transport/session.ts";
+import type { WebSocketSessionHandlers } from "../../../transport/session.ts";
+import type { WebSocketTransport } from "../../../transport/websocket.ts";
+import { assert } from "../../../util/assert.ts";
+import { SafeEmitter } from "../../../util/emitter.ts";
+import { decodeNewsMessage, frameText } from "./decode.ts";
+import type { DecodedNewsMessage } from "./decode.ts";
+import type { NewsStory } from "./validation.ts";
 
 const SUBSCRIBE_NEWS = "subscribe news_priority";
 const CLEAN_CLOSE_CODE = 1000;

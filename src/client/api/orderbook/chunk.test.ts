@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { chunkBuckets, MAX_BUCKETS_PER_REQUEST } from "./chunk.js";
+import { VeloError } from "../../../errors.ts";
+import { chunkBuckets, MAX_BUCKETS_PER_REQUEST } from "./chunk.ts";
 
 const MINUTE = 60_000;
 

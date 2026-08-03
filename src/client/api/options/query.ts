@@ -1,10 +1,10 @@
-import type { Http } from "../../../transport/http.js";
-import type { Data } from "../../common/data/data.js";
-import type { OptionsColumn } from "../../common/market/columns.js";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { RowsQuery } from "../../common/rows/query.js";
-import { OptionsParams, type OptionsRow } from "./params.js";
+import type { Http } from "../../../transport/http.ts";
+import type { Data } from "../../common/data/data.ts";
+import type { OptionsColumn } from "../../common/market/columns.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { RowsQuery } from "../../common/rows/query.ts";
+import { OptionsParams, type OptionsRow } from "./params.ts";
 
 /** Creates validated lazy options queries bound to an HTTP transport. */
 export class OptionsQuery {

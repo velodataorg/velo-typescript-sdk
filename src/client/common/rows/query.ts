@@ -1,15 +1,15 @@
-import { ROWS_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpParams } from "../../../transport/http.js";
-import { Data } from "../data/data.js";
-import { Row } from "../data/row.js";
-import { decode } from "../decode/csv.js";
-import { Query } from "../query.js";
-import { alignRange, clampEnd, type TimeRange } from "../time/range.js";
-import type { Resolution } from "../time/resolution.js";
-import { toResolutionValue } from "../time/resolution.js";
-import { chunkRange } from "./chunk.js";
-import type { MarketType, RowsQueryParams } from "./params.js";
+import { ROWS_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpParams } from "../../../transport/http.ts";
+import { Data } from "../data/data.ts";
+import { Row } from "../data/row.ts";
+import { decode } from "../decode/csv.ts";
+import { Query } from "../query.ts";
+import { alignRange, clampEnd, type TimeRange } from "../time/range.ts";
+import type { Resolution } from "../time/resolution.ts";
+import { toResolutionValue } from "../time/resolution.ts";
+import { chunkRange } from "./chunk.ts";
+import type { MarketType, RowsQueryParams } from "./params.ts";
 
 export const RowsQuery = Object.freeze({
   /** Creates a lazy query from already validated market-specific parameters. */

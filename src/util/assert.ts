@@ -1,4 +1,4 @@
-import { VeloError } from "../errors.js";
+import { VeloError } from "../errors.ts";
 
 /**
  * Asserts that `condition` is truthy.

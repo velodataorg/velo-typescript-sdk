@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { VeloConnectionError, VeloError } from "../errors.js";
-import { WebSocketSession } from "./session.js";
-import { WebSocketTransport } from "./websocket.js";
+import { VeloConnectionError, VeloError } from "../errors.ts";
+import { WebSocketSession } from "./session.ts";
+import { WebSocketTransport } from "./websocket.ts";
 import type {
   WebSocketCloseEvent,
   WebSocketConnection,
   WebSocketEvents,
   WebSocketFactory,
-} from "./websocket.js";
+} from "./websocket.ts";
 
 type Listener = (event: unknown) => void;
 

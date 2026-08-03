@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { FUTURES_COLUMNS } from "../../common/market/columns.js";
-import { FUTURES_EXCHANGES } from "../../common/market/exchanges.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { FUTURES_COLUMNS } from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES } from "../../common/market/exchanges.ts";
 
 const ROWS_CSV =
   "exchange,coin,product,time,close_price,funding_rate\n" +

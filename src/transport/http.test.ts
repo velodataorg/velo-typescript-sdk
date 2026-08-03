@@ -11,8 +11,8 @@ import {
   VeloRequestError,
   VeloServerError,
   VeloTimeoutError,
-} from "../errors.js";
-import { Http } from "./http.js";
+} from "../errors.ts";
+import { Http } from "./http.ts";
 
 const FAST_RETRY = { retries: 2, baseDelayMs: 1, maxDelayMs: 2 };
 

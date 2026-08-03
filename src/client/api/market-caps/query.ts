@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import { CAPS_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http } from "../../../transport/http.js";
-import { decode } from "../../common/decode/csv.js";
-import { Query } from "../../common/query.js";
-import { invalidParamsError } from "../../common/validation.js";
-import { marketCapSchema, type MarketCap } from "./validation.js";
+import { CAPS_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http } from "../../../transport/http.ts";
+import { decode } from "../../common/decode/csv.ts";
+import { Query } from "../../common/query.ts";
+import { invalidParamsError } from "../../common/validation.ts";
+import { marketCapSchema, type MarketCap } from "./validation.ts";
 
 export interface MarketCapsParams {
   readonly coins: readonly string[];

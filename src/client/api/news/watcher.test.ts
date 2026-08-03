@@ -1,18 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import NodeWebSocket from "ws";
 
-import { VeloConnectionError, VeloError } from "../../../errors.js";
-import { MAX_TIMER_MS } from "../../../transport/retry.js";
+import { VeloConnectionError, VeloError } from "../../../errors.ts";
+import { MAX_TIMER_MS } from "../../../transport/retry.ts";
 import type {
   WebSocketConnection,
   WebSocketEvents,
   WebSocketFactory,
   WebSocketTarget,
-} from "../../../transport/websocket.js";
-import { Velo } from "../../client.js";
-import type { NewsStory } from "./validation.js";
-import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.js";
-import type { NewsClose, NewsDelete, NewsWatcher, NewsWatcherState } from "./watcher.js";
+} from "../../../transport/websocket.ts";
+import { Velo } from "../../client.ts";
+import type { NewsStory } from "./validation.ts";
+import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.ts";
+import type { NewsClose, NewsDelete, NewsWatcher, NewsWatcherState } from "./watcher.ts";
 
 const STORY = {
   id: 1646,

@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpRequestOptions } from "../../../transport/http.js";
-import { csvBoolean, csvTimestamp, decode } from "../../common/decode/csv.js";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import { CatalogParams } from "./params.js";
+import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
+import { csvBoolean, csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import { CatalogParams } from "./params.ts";
 
 const futureProductSchema = z.strictObject({
   exchange: z.enum(FUTURES_EXCHANGES),

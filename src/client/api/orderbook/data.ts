@@ -1,4 +1,4 @@
-import { assert } from "../../../util/assert.js";
+import { assert } from "../../../util/assert.ts";
 
 /**
  * One time bucket of orderbook depth in columnar form.

@@ -19,8 +19,8 @@ import {
   TERMS_COINS,
   TERMS_COLUMNS,
   TERMS_PATH,
-} from "./index.js";
-import type { NewsWatcherEvents, NewsWatcherListener } from "./index.js";
+} from "./index.ts";
+import type { NewsWatcherEvents, NewsWatcherListener } from "./index.ts";
 
 describe("market caps public exports", () => {
   it("exports the wire endpoint and renamed market-caps contract", () => {

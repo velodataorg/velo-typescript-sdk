@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.js";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import type { LastDuration } from "./builder.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import type { LastDuration } from "./builder.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {

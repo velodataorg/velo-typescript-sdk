@@ -1,11 +1,11 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../../util/assert.js";
-import { BASIS_COLUMN } from "../market/columns.js";
-import { MAX_REQUESTS_PER_QUERY } from "../query.js";
-import { chunkByStep, type TimeRange } from "../time/range.js";
-import { toResolutionValue } from "../time/resolution.js";
-import type { RowsQueryParams } from "./params.js";
+import { assert } from "../../../util/assert.ts";
+import { BASIS_COLUMN } from "../market/columns.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { chunkByStep, type TimeRange } from "../time/range.ts";
+import { toResolutionValue } from "../time/resolution.ts";
+import type { RowsQueryParams } from "./params.ts";
 
 export const MAX_CELLS_PER_REQUEST = 22_500;
 

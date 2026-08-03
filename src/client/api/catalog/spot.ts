@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpRequestOptions } from "../../../transport/http.js";
-import { csvTimestamp, decode } from "../../common/decode/csv.js";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.js";
-import { CatalogParams } from "./params.js";
+import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
+import { csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
+import { CatalogParams } from "./params.ts";
 
 const spotProductSchema = z.strictObject({
   exchange: z.enum(SPOT_EXCHANGES),

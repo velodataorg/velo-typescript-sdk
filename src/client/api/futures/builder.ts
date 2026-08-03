@@ -1,4 +1,4 @@
-import type { HttpRequestOptions } from "../../../transport/http.js";
+import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -7,15 +7,15 @@ import {
   snapshotBuilderMarket,
   snapshotBuilderWindow,
   type WindowScope,
-} from "../../common/builder/scope.js";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.js";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
-import type { Data } from "../../common/data/data.js";
-import type { FuturesStandardColumn } from "../../common/market/columns.js";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { FuturesParams, type FuturesStandardParams } from "./params.js";
-import { FuturesQuery, type FuturesRow } from "./query.js";
+} from "../../common/builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
+import type { Data } from "../../common/data/data.ts";
+import type { FuturesStandardColumn } from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { FuturesParams, type FuturesStandardParams } from "./params.ts";
+import { FuturesQuery, type FuturesRow } from "./query.ts";
 import {
   FUTURES_SELECTOR_COLUMNS,
   type FuturesFundingRateColumn,
@@ -36,7 +36,7 @@ import {
   type FuturesVolumeColumn,
   type FuturesVolumeMetric,
   type FuturesVolumePart,
-} from "./selectors.js";
+} from "./selectors.ts";
 
 export type {
   FuturesFundingRatePart,
@@ -49,8 +49,8 @@ export type {
   FuturesTradePart,
   FuturesVolumeMetric,
   FuturesVolumePart,
-} from "./selectors.js";
-export type { LastDuration } from "../../common/builder/time.js";
+} from "./selectors.ts";
+export type { LastDuration } from "../../common/builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -58,7 +58,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.js";
+} from "../../common/builder/scope.ts";
 
 /** Instruments and optional exchanges configured by a futures builder's `for()` step. */
 export type FuturesMarketScope = MarketScope<FuturesExchange>;

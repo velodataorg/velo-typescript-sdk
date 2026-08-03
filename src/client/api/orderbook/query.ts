@@ -1,13 +1,13 @@
-import { ORDERBOOK_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http, HttpParams } from "../../../transport/http.js";
-import { Query } from "../../common/query.js";
-import { alignRange, clampEnd, type TimeRange } from "../../common/time/range.js";
-import { toResolutionValue } from "../../common/time/resolution.js";
-import { chunkBuckets } from "./chunk.js";
-import { OrderbookData, type OrderbookRow } from "./data.js";
-import { decodeOrderbook } from "./decode.js";
-import { OrderbookParams } from "./params.js";
+import { ORDERBOOK_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http, HttpParams } from "../../../transport/http.ts";
+import { Query } from "../../common/query.ts";
+import { alignRange, clampEnd, type TimeRange } from "../../common/time/range.ts";
+import { toResolutionValue } from "../../common/time/resolution.ts";
+import { chunkBuckets } from "./chunk.ts";
+import { OrderbookData, type OrderbookRow } from "./data.ts";
+import { decodeOrderbook } from "./decode.ts";
+import { OrderbookParams } from "./params.ts";
 
 /** Creates validated lazy orderbook queries bound to an HTTP transport. */
 export class OrderbookQuery {

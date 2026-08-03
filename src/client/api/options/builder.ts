@@ -1,4 +1,4 @@
-import type { HttpRequestOptions } from "../../../transport/http.js";
+import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -7,15 +7,15 @@ import {
   snapshotBuilderMarket,
   snapshotBuilderWindow,
   type WindowScope,
-} from "../../common/builder/scope.js";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.js";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
-import type { Data } from "../../common/data/data.js";
-import type { OptionsColumn } from "../../common/market/columns.js";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.js";
-import type { Query } from "../../common/query.js";
-import { OptionsParams, type OptionsRow } from "./params.js";
-import { OptionsQuery } from "./query.js";
+} from "../../common/builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
+import type { Data } from "../../common/data/data.ts";
+import type { OptionsColumn } from "../../common/market/columns.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import { OptionsParams, type OptionsRow } from "./params.ts";
+import { OptionsQuery } from "./query.ts";
 import {
   OPTIONS_SELECTOR_COLUMNS,
   type OptionsDeltaColumn,
@@ -39,9 +39,9 @@ import {
   type OptionsVegaMetric,
   type OptionsVolumeColumn,
   type OptionsVolumePart,
-} from "./selectors.js";
+} from "./selectors.ts";
 
-export type { LastDuration } from "../../common/builder/time.js";
+export type { LastDuration } from "../../common/builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -49,7 +49,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.js";
+} from "../../common/builder/scope.ts";
 /** Instruments and optional exchanges configured by an options builder's `for()` step. */
 export type OptionsMarketScope = MarketScope<OptionsExchange>;
 export type {
@@ -63,7 +63,7 @@ export type {
   OptionsSkewTenor,
   OptionsVegaMetric,
   OptionsVolumePart,
-} from "./selectors.js";
+} from "./selectors.ts";
 
 const {
   iv: IV_COLUMNS,

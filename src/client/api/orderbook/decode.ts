@@ -1,6 +1,6 @@
-import { parseFiniteNumber } from "../../common/decode/csv.js";
-import { MAX_TIMESTAMP_MS } from "../../common/validation.js";
-import type { OrderbookRow } from "./data.js";
+import { parseFiniteNumber } from "../../common/decode/csv.ts";
+import { MAX_TIMESTAMP_MS } from "../../common/validation.ts";
+import type { OrderbookRow } from "./data.ts";
 
 /**
  * Decodes an orderbook levels response body.

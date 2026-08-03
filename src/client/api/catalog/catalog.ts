@@ -1,7 +1,7 @@
-import type { Http } from "../../../transport/http.js";
-import { FuturesCatalogQuery } from "./futures.js";
-import { OptionsCatalogQuery } from "./options.js";
-import { SpotCatalogQuery } from "./spot.js";
+import type { Http } from "../../../transport/http.ts";
+import { FuturesCatalogQuery } from "./futures.ts";
+import { OptionsCatalogQuery } from "./options.ts";
+import { SpotCatalogQuery } from "./spot.ts";
 
 /** The product-catalog namespace exposed by {@link Velo}. */
 export class Catalog {

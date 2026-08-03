@@ -1,7 +1,7 @@
-import type { Http } from "../../../transport/http.js";
-import { OptionsBuilder } from "./builder.js";
-import { OptionsQuery } from "./query.js";
-import { TermsQuery } from "./terms.js";
+import type { Http } from "../../../transport/http.ts";
+import { OptionsBuilder } from "./builder.ts";
+import { OptionsQuery } from "./query.ts";
+import { TermsQuery } from "./terms.ts";
 
 /** The options namespace exposed by {@link Velo}. */
 export class Options {

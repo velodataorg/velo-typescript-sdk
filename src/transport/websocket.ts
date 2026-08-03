@@ -1,6 +1,6 @@
-import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.js";
-import { VeloConnectionError, VeloError } from "../errors.js";
-import { assert } from "../util/assert.js";
+import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.ts";
+import { VeloConnectionError, VeloError } from "../errors.ts";
+import { assert } from "../util/assert.ts";
 
 export interface WebSocketMessageEvent {
   readonly data: unknown;

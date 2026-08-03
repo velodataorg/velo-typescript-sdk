@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError, VeloRateLimitError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import type { FuturesExchange } from "../../common/market/exchanges.js";
+import { VeloError, VeloRateLimitError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import type { FuturesExchange } from "../../common/market/exchanges.ts";
 
 const FUTURES_CSV =
   "exchange,coin,product,begin,depth\n" +

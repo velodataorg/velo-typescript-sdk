@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { assert } from "../../../util/assert.js";
+import { assert } from "../../../util/assert.ts";
 
 export type ResolutionValue =
   | { readonly unit: "minutes"; readonly count: number }

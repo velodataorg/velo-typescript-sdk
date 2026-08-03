@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { TERMS_PATH } from "../../../constants/endpoints.js";
-import { VeloError } from "../../../errors.js";
-import type { Http } from "../../../transport/http.js";
-import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.js";
-import { Query } from "../../common/query.js";
-import { invalidParamsError } from "../../common/validation.js";
+import { TERMS_PATH } from "../../../constants/endpoints.ts";
+import { VeloError } from "../../../errors.ts";
+import type { Http } from "../../../transport/http.ts";
+import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { Query } from "../../common/query.ts";
+import { invalidParamsError } from "../../common/validation.ts";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];

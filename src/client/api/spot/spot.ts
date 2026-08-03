@@ -1,6 +1,6 @@
-import type { Http } from "../../../transport/http.js";
-import { SpotBuilder } from "./builder.js";
-import { SpotQuery } from "./query.js";
+import type { Http } from "../../../transport/http.ts";
+import { SpotBuilder } from "./builder.ts";
+import { SpotQuery } from "./query.ts";
 
 /** The spot `/rows` namespace exposed by {@link Velo}. */
 export class Spot {

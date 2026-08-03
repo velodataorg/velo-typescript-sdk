@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../errors.js";
-import { DEFAULT_RATE_LIMIT, RateLimiter, validateRateLimitOptions } from "./rate-limit.js";
-import { MAX_TIMER_MS } from "./retry.js";
+import { VeloError } from "../errors.ts";
+import { DEFAULT_RATE_LIMIT, RateLimiter, validateRateLimitOptions } from "./rate-limit.ts";
+import { MAX_TIMER_MS } from "./retry.ts";
 
 describe("validateRateLimitOptions", () => {
   it("accepts the default", () => {

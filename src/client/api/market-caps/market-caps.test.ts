@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { Velo } from "../../client.js";
-import { MARKET_CAPS_COLUMNS } from "./validation.js";
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+import { MARKET_CAPS_COLUMNS } from "./validation.ts";
 
 const MARKET_CAPS_CSV =
   "coin,time,circ,circ_dollars,fdv,fdv_dollars\n" +

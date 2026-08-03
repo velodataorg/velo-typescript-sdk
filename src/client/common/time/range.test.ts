@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import { MAX_REQUESTS_PER_QUERY } from "../query.js";
-import { alignRange, chunkByStep, clampEnd } from "./range.js";
+import { VeloError } from "../../../errors.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { alignRange, chunkByStep, clampEnd } from "./range.ts";
 
 describe("alignRange", () => {
   it("floors begin and ceils end to fixed-length buckets", () => {

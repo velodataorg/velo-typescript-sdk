@@ -1,5 +1,5 @@
-import type { Http } from "../../../transport/http.js";
-import { MarketCapsQuery } from "./query.js";
+import type { Http } from "../../../transport/http.ts";
+import { MarketCapsQuery } from "./query.ts";
 
 /** The market-caps namespace exposed by {@link Velo}. */
 export class MarketCaps {

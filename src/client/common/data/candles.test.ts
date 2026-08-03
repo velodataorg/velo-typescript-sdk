@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { Data } from "./data.js";
-import type { Row } from "./row.js";
+import { Data } from "./data.ts";
+import type { Row } from "./row.ts";
 
 type Ohlc = "open_price" | "high_price" | "low_price" | "close_price";
 

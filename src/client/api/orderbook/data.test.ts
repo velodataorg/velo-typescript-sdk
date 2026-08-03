@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.js";
-import type { OrderbookRow } from "./data.js";
-import { OrderbookData } from "./data.js";
+import { VeloError } from "../../../errors.ts";
+import type { OrderbookRow } from "./data.ts";
+import { OrderbookData } from "./data.ts";
 
 function row(
   time: number,

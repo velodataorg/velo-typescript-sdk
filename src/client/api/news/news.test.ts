@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
-import { VeloError, VeloRateLimitError, VeloRequestError } from "../../../errors.js";
-import { Velo } from "../../client.js";
+import { VeloError, VeloRateLimitError, VeloRequestError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
 
 const STORY = {
   id: 1646,

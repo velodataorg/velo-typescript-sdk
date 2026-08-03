@@ -1,7 +1,7 @@
-import type { Http } from "../../../transport/http.js";
-import { FuturesBasisBuilder } from "./basis.js";
-import { FuturesBuilder } from "./builder.js";
-import { FuturesQuery } from "./query.js";
+import type { Http } from "../../../transport/http.ts";
+import { FuturesBasisBuilder } from "./basis.ts";
+import { FuturesBuilder } from "./builder.ts";
+import { FuturesQuery } from "./query.ts";
 
 /** The futures `/rows` namespace exposed by {@link Velo}. */
 export class Futures {

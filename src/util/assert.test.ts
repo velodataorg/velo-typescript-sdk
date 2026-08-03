@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../errors.js";
-import { assert } from "./assert.js";
+import { VeloError } from "../errors.ts";
+import { assert } from "./assert.ts";
 
 class CustomError extends VeloError {}
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.js";
+import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.ts";
 import {
   backoffMs,
   DEFAULT_RETRY,
@@ -9,7 +9,7 @@ import {
   MAX_TIMER_MS,
   retryAfterMs,
   validateRetryOptions,
-} from "./retry.js";
+} from "./retry.ts";
 
 function errorWithStatus(status: number): VeloHttpError {
   return new VeloHttpError(`Velo API ${status}`, {
