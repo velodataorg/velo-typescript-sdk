@@ -1,5 +1,14 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerMarketRowsScope, type MarketRowsScope } from "../../common/builder/scope.js";
+import {
+  type BuilderMarket,
+  type BuilderWindow,
+  lowerBuilderScope,
+  type MarketScope,
+  snapshotBuilderMarket,
+  snapshotBuilderWindow,
+  type WindowScope,
+} from "../../common/builder/scope.js";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import type { Data } from "../../common/data/data.js";
 import type { OptionsColumn } from "../../common/market/columns.js";
@@ -34,13 +43,15 @@ import {
 
 export type { LastDuration } from "../../common/builder/time.js";
 export type {
+  MarketScope,
   MarketRowsScope,
   RowsScope,
   TargetScope,
   TimeScope,
+  WindowScope,
 } from "../../common/builder/scope.js";
-/** Target, time, resolution, and optional exchanges for an options rows query. */
-export type OptionsScope = MarketRowsScope<OptionsExchange>;
+/** Instruments and optional exchanges configured by an options builder's `for()` step. */
+export type OptionsMarketScope = MarketScope<OptionsExchange>;
 export type {
   OptionsDeltaMetric,
   OptionsDeltaPart,
@@ -70,6 +81,8 @@ const {
 
 interface State<C extends OptionsColumn> {
   readonly columns: readonly C[];
+  readonly market?: BuilderMarket<OptionsExchange>;
+  readonly window?: BuilderWindow;
 }
 
 /**
@@ -79,8 +92,9 @@ interface State<C extends OptionsColumn> {
  * safely reused as the base for multiple queries.
  *
  * @typeParam C - Raw options columns selected by the chain.
+ * @typeParam S - Scope-setting methods completed by the chain.
  */
-export class OptionsBuilder<C extends OptionsColumn = never> {
+export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuilderStep = never> {
   readonly #query: OptionsQuery;
   readonly #state: State<C>;
 
@@ -90,37 +104,39 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
   }
 
   /** Adds every implied-volatility tenor column. */
-  iv(): OptionsBuilder<C | OptionsIvColumn>;
+  iv(): OptionsBuilder<C | OptionsIvColumn, S>;
   /**
    * Adds the given implied-volatility tenor columns.
    *
    * @param tenors - Tenors to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  iv<T extends OptionsIvTenor>(tenors: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>>;
-  iv<T extends OptionsIvTenor>(tenors?: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>> {
+  iv<T extends OptionsIvTenor>(tenors: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>, S>;
+  iv<T extends OptionsIvTenor>(tenors?: readonly T[]): OptionsBuilder<C | OptionsIvColumn<T>, S> {
     const columns = partColumns("iv", IV_COLUMNS, tenors);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsIvColumn<T>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsIvColumn<T>, S>;
   }
 
   /** Adds every skew tenor column. */
-  skew(): OptionsBuilder<C | OptionsSkewColumn>;
+  skew(): OptionsBuilder<C | OptionsSkewColumn, S>;
   /**
    * Adds the given skew tenor columns.
    *
    * @param tenors - Tenors to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  skew<T extends OptionsSkewTenor>(tenors: readonly T[]): OptionsBuilder<C | OptionsSkewColumn<T>>;
+  skew<T extends OptionsSkewTenor>(
+    tenors: readonly T[],
+  ): OptionsBuilder<C | OptionsSkewColumn<T>, S>;
   skew<T extends OptionsSkewTenor>(
     tenors?: readonly T[],
-  ): OptionsBuilder<C | OptionsSkewColumn<T>> {
+  ): OptionsBuilder<C | OptionsSkewColumn<T>, S> {
     const columns = partColumns("skew", SKEW_COLUMNS, tenors);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsSkewColumn<T>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsSkewColumn<T>, S>;
   }
 
   /** Adds the dollar vega column. */
-  vega(): OptionsBuilder<C | OptionsVegaColumn<"dollar">>;
+  vega(): OptionsBuilder<C | OptionsVegaColumn<"dollar">, S>;
   /**
    * Adds one vega column.
    *
@@ -128,17 +144,18 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   vega<M extends OptionsVegaMetric>(options: {
     readonly metric: M;
-  }): OptionsBuilder<C | OptionsVegaColumn<M>>;
+  }): OptionsBuilder<C | OptionsVegaColumn<M>, S>;
   vega<M extends OptionsVegaMetric>(options?: {
     readonly metric: M;
-  }): OptionsBuilder<C | OptionsVegaColumn<M>> {
+  }): OptionsBuilder<C | OptionsVegaColumn<M>, S> {
     return this.#withColumns([metricColumns("vega", VEGA_COLUMNS, options)]) as OptionsBuilder<
-      C | OptionsVegaColumn<M>
+      C | OptionsVegaColumn<M>,
+      S
     >;
   }
 
   /** Adds both dollar delta columns. */
-  delta(): OptionsBuilder<C | OptionsDeltaColumn<"dollar">>;
+  delta(): OptionsBuilder<C | OptionsDeltaColumn<"dollar">, S>;
   /**
    * Adds both delta columns for one metric.
    *
@@ -147,7 +164,7 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   delta<M extends OptionsDeltaMetric>(options: {
     readonly metric: M;
-  }): OptionsBuilder<C | OptionsDeltaColumn<M>>;
+  }): OptionsBuilder<C | OptionsDeltaColumn<M>, S>;
   /**
    * Adds the given dollar delta columns.
    *
@@ -156,7 +173,7 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   delta<P extends OptionsDeltaPart>(
     parts: readonly P[],
-  ): OptionsBuilder<C | OptionsDeltaColumn<"dollar", P>>;
+  ): OptionsBuilder<C | OptionsDeltaColumn<"dollar", P>, S>;
   /**
    * Adds the given delta columns for one metric.
    *
@@ -167,20 +184,21 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
   delta<P extends OptionsDeltaPart, M extends OptionsDeltaMetric>(
     parts: readonly P[],
     options: { readonly metric: M },
-  ): OptionsBuilder<C | OptionsDeltaColumn<M, P>>;
+  ): OptionsBuilder<C | OptionsDeltaColumn<M, P>, S>;
   delta<P extends OptionsDeltaPart, M extends OptionsDeltaMetric>(
     partsOrOptions?: readonly P[] | { readonly metric: M },
     metricOptions?: { readonly metric: M },
-  ): OptionsBuilder<C | OptionsDeltaColumn<M, P>> {
+  ): OptionsBuilder<C | OptionsDeltaColumn<M, P>, S> {
     const { parts, options } = splitParts("delta", partsOrOptions, metricOptions);
     const columns = metricColumns("delta", DELTA_COLUMNS, options);
     return this.#withColumns(partColumns("delta", columns, parts)) as OptionsBuilder<
-      C | OptionsDeltaColumn<M, P>
+      C | OptionsDeltaColumn<M, P>,
+      S
     >;
   }
 
   /** Adds the dollar gamma column. */
-  gamma(): OptionsBuilder<C | OptionsGammaColumn<"dollar">>;
+  gamma(): OptionsBuilder<C | OptionsGammaColumn<"dollar">, S>;
   /**
    * Adds one gamma column.
    *
@@ -188,17 +206,18 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   gamma<M extends OptionsGammaMetric>(options: {
     readonly metric: M;
-  }): OptionsBuilder<C | OptionsGammaColumn<M>>;
+  }): OptionsBuilder<C | OptionsGammaColumn<M>, S>;
   gamma<M extends OptionsGammaMetric>(options?: {
     readonly metric: M;
-  }): OptionsBuilder<C | OptionsGammaColumn<M>> {
+  }): OptionsBuilder<C | OptionsGammaColumn<M>, S> {
     return this.#withColumns([metricColumns("gamma", GAMMA_COLUMNS, options)]) as OptionsBuilder<
-      C | OptionsGammaColumn<M>
+      C | OptionsGammaColumn<M>,
+      S
     >;
   }
 
   /** Adds both call/put volume columns. */
-  volume(): OptionsBuilder<C | OptionsVolumeColumn>;
+  volume(): OptionsBuilder<C | OptionsVolumeColumn, S>;
   /**
    * Adds the given call/put volume columns.
    *
@@ -207,21 +226,21 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   volume<P extends OptionsVolumePart>(
     parts: readonly P[],
-  ): OptionsBuilder<C | OptionsVolumeColumn<P>>;
+  ): OptionsBuilder<C | OptionsVolumeColumn<P>, S>;
   volume<P extends OptionsVolumePart>(
     parts?: readonly P[],
-  ): OptionsBuilder<C | OptionsVolumeColumn<P>> {
+  ): OptionsBuilder<C | OptionsVolumeColumn<P>, S> {
     const columns = partColumns("volume", VOLUME_COLUMNS, parts);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsVolumeColumn<P>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsVolumeColumn<P>, S>;
   }
 
   /** Adds total dollar volume. */
-  dollarVolume(): OptionsBuilder<C | OptionsDollarVolumeColumn> {
+  dollarVolume(): OptionsBuilder<C | OptionsDollarVolumeColumn, S> {
     return this.#withColumns([DOLLAR_VOLUME_COLUMN]);
   }
 
   /** Adds both call/put premium columns. */
-  premium(): OptionsBuilder<C | OptionsPremiumColumn>;
+  premium(): OptionsBuilder<C | OptionsPremiumColumn, S>;
   /**
    * Adds the given call/put premium columns.
    *
@@ -230,16 +249,16 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   premium<P extends OptionsPremiumPart>(
     parts: readonly P[],
-  ): OptionsBuilder<C | OptionsPremiumColumn<P>>;
+  ): OptionsBuilder<C | OptionsPremiumColumn<P>, S>;
   premium<P extends OptionsPremiumPart>(
     parts?: readonly P[],
-  ): OptionsBuilder<C | OptionsPremiumColumn<P>> {
+  ): OptionsBuilder<C | OptionsPremiumColumn<P>, S> {
     const columns = partColumns("premium", PREMIUM_COLUMNS, parts);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsPremiumColumn<P>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsPremiumColumn<P>, S>;
   }
 
   /** Adds both call/put notional columns. */
-  notional(): OptionsBuilder<C | OptionsNotionalColumn>;
+  notional(): OptionsBuilder<C | OptionsNotionalColumn, S>;
   /**
    * Adds the given call/put notional columns.
    *
@@ -248,69 +267,90 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
    */
   notional<P extends OptionsNotionalPart>(
     parts: readonly P[],
-  ): OptionsBuilder<C | OptionsNotionalColumn<P>>;
+  ): OptionsBuilder<C | OptionsNotionalColumn<P>, S>;
   notional<P extends OptionsNotionalPart>(
     parts?: readonly P[],
-  ): OptionsBuilder<C | OptionsNotionalColumn<P>> {
+  ): OptionsBuilder<C | OptionsNotionalColumn<P>, S> {
     const columns = partColumns("notional", NOTIONAL_COLUMNS, parts);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsNotionalColumn<P>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsNotionalColumn<P>, S>;
   }
 
   /** Adds all four DVOL OHLC columns. */
-  dvol(): OptionsBuilder<C | OptionsDvolColumn>;
+  dvol(): OptionsBuilder<C | OptionsDvolColumn, S>;
   /**
    * Adds the given DVOL OHLC columns.
    *
    * @param parts - Price components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  dvol<P extends OptionsDvolPart>(parts: readonly P[]): OptionsBuilder<C | OptionsDvolColumn<P>>;
-  dvol<P extends OptionsDvolPart>(parts?: readonly P[]): OptionsBuilder<C | OptionsDvolColumn<P>> {
+  dvol<P extends OptionsDvolPart>(parts: readonly P[]): OptionsBuilder<C | OptionsDvolColumn<P>, S>;
+  dvol<P extends OptionsDvolPart>(
+    parts?: readonly P[],
+  ): OptionsBuilder<C | OptionsDvolColumn<P>, S> {
     const columns = partColumns("dvol", DVOL_COLUMNS, parts);
-    return this.#withColumns(columns) as OptionsBuilder<C | OptionsDvolColumn<P>>;
+    return this.#withColumns(columns) as OptionsBuilder<C | OptionsDvolColumn<P>, S>;
   }
 
   /** Adds the underlying index-price column. */
-  indexPrice(): OptionsBuilder<C | OptionsIndexPriceColumn> {
+  indexPrice(): OptionsBuilder<C | OptionsIndexPriceColumn, S> {
     return this.#withColumns([INDEX_PRICE_COLUMN]);
   }
 
-  /**
-   * Lowers and validates the chain into raw options parameters.
-   *
-   * @param scope - The exchanges, target, time range, and resolution to query.
-   * @returns A fresh validated parameter object.
-   */
-  params(scope: OptionsScope): OptionsParams<C> {
-    const lowered: OptionsParams<C> = {
-      columns: [...this.#state.columns],
-      ...lowerMarketRowsScope(scope, OPTIONS_EXCHANGES),
-    };
-    return OptionsParams.parse(lowered);
+  /** Replaces the instruments and exchanges selected by the chain. */
+  for(scope: OptionsMarketScope): OptionsBuilder<C, S | "for"> {
+    return new OptionsBuilder<C, S | "for">(this.#query, {
+      ...this.#state,
+      market: snapshotBuilderMarket(scope, OPTIONS_EXCHANGES),
+    });
+  }
+
+  /** Replaces the time window and resolution selected by the chain. */
+  over(scope: WindowScope): OptionsBuilder<C, S | "over"> {
+    return new OptionsBuilder<C, S | "over">(this.#query, {
+      ...this.#state,
+      window: snapshotBuilderWindow(scope),
+    });
+  }
+
+  /** Lowers and validates the chain into fresh raw options parameters. */
+  params(this: ScopedBuilder<OptionsBuilder<C, S>, S>): OptionsParams<C> {
+    return this.#params();
   }
 
   /**
    * Lowers the chain into a lazy query without sending a request.
    *
-   * A trailing duration in the scope is fixed when this method is called.
-   *
-   * @param scope - The exchanges, target, time range, and resolution to query.
+   * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(scope: OptionsScope): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
-    return this.#query.build(this.params(scope));
+  build(
+    this: ScopedBuilder<OptionsBuilder<C, S>, S>,
+  ): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+    return this.#build();
   }
 
   /**
    * Builds and immediately fetches the query.
    *
-   * @param scope - The exchanges, target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  fetch(scope: OptionsScope, options?: HttpRequestOptions): Promise<Data<OptionsExchange, C>> {
-    return this.build(scope).execute(options);
+  fetch(
+    this: ScopedBuilder<OptionsBuilder<C, S>, S>,
+    options?: HttpRequestOptions,
+  ): Promise<Data<OptionsExchange, C>> {
+    return this.#build().execute(options);
   }
 
-  #withColumns<Added extends OptionsColumn>(columns: readonly Added[]): OptionsBuilder<C | Added> {
+  /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
+  stream(
+    this: ScopedBuilder<OptionsBuilder<C, S>, S>,
+    options?: HttpRequestOptions,
+  ): AsyncIterable<OptionsRow<C>> {
+    return this.#build().stream(options);
+  }
+
+  #withColumns<Added extends OptionsColumn>(
+    columns: readonly Added[],
+  ): OptionsBuilder<C | Added, S> {
     const accumulated: (C | Added)[] = [...this.#state.columns];
     const seen = new Set<C | Added>(accumulated);
     for (const column of columns) {
@@ -318,6 +358,21 @@ export class OptionsBuilder<C extends OptionsColumn = never> {
       seen.add(column);
       accumulated.push(column);
     }
-    return new OptionsBuilder(this.#query, { ...this.#state, columns: accumulated });
+    return new OptionsBuilder<C | Added, S>(this.#query, {
+      ...this.#state,
+      columns: accumulated,
+    });
+  }
+
+  #params(): OptionsParams<C> {
+    const lowered: OptionsParams<C> = {
+      columns: [...this.#state.columns],
+      ...lowerBuilderScope(this.#state.market, this.#state.window),
+    };
+    return OptionsParams.parse(lowered);
+  }
+
+  #build(): Query<OptionsRow<C>, Data<OptionsExchange, C>> {
+    return this.#query.build(this.#params());
   }
 }

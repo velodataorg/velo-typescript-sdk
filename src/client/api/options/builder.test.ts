@@ -21,7 +21,8 @@ function search(url: string): URLSearchParams {
 describe("options fluent builder", () => {
   const begin = Date.UTC(2026, 6, 13, 8);
   const end = Date.UTC(2026, 6, 13, 10);
-  const scope = { coins: ["BTC"], between: [begin, end], resolution: "1h" } as const;
+  const market = { coins: ["BTC"] } as const;
+  const window = { between: [begin, end], resolution: "1h" } as const;
 
   it("keeps builder terminal methods off the options namespace", () => {
     const { options } = client().velo;
@@ -29,6 +30,7 @@ describe("options fluent builder", () => {
     expect(options).not.toHaveProperty("params");
     expect(options).not.toHaveProperty("build");
     expect(options).not.toHaveProperty("fetch");
+    expect(options).not.toHaveProperty("stream");
     expect(options).not.toHaveProperty("exchanges");
     expect(options.iv(["1m"])).not.toHaveProperty("exchanges");
   });
@@ -62,7 +64,7 @@ describe("options fluent builder", () => {
       .dvol(["close"])
       .indexPrice();
 
-    expect(builder.params(scope).columns).toEqual([
+    expect(builder.for(market).over(window).params().columns).toEqual([
       "iv_1m",
       "iv_1w",
       "iv_3m",
@@ -75,14 +77,19 @@ describe("options fluent builder", () => {
   it("defaults to every options exchange and accepts an explicit replacement", () => {
     const base = client().velo.options.iv(["1m"]);
 
-    expect(base.params(scope).exchanges).toEqual(OPTIONS_EXCHANGES);
-    expect(base.params({ ...scope, exchanges: ["deribit"] }).exchanges).toEqual(["deribit"]);
+    expect(base.for(market).over(window).params().exchanges).toEqual(OPTIONS_EXCHANGES);
+    expect(
+      base
+        .for({ ...market, exchanges: ["deribit"] })
+        .over(window)
+        .params().exchanges,
+    ).toEqual(["deribit"]);
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {
     const builder = client().velo.options.iv().skew().dvol();
 
-    expect(builder.params(scope).columns).toEqual([
+    expect(builder.for(market).over(window).params().columns).toEqual([
       "iv_1w",
       "iv_1m",
       "iv_3m",
@@ -101,7 +108,7 @@ describe("options fluent builder", () => {
   it("uses dollar defaults for metric-based Greek selectors", () => {
     const builder = client().velo.options.vega().delta().gamma();
 
-    expect(builder.params(scope).columns).toEqual([
+    expect(builder.for(market).over(window).params().columns).toEqual([
       "vega_dollars",
       "call_delta_dollars",
       "put_delta_dollars",
@@ -119,7 +126,7 @@ describe("options fluent builder", () => {
       .premium(["put"])
       .notional(["call"]);
 
-    expect(builder.params(scope).columns).toEqual([
+    expect(builder.for(market).over(window).params().columns).toEqual([
       "vega_coins",
       "put_delta_coins",
       "gamma_coins",
@@ -146,20 +153,26 @@ describe("options fluent builder", () => {
       .notional()
       .dvol()
       .indexPrice()
-      .params(scope).columns;
+      .for(market)
+      .over(window)
+      .params().columns;
 
     expect(columns).toHaveLength(OPTIONS_COLUMNS.length);
     expect(new Set(columns)).toEqual(new Set(OPTIONS_COLUMNS));
   });
 
-  it("lowers scope arrays per call and returns fresh copies", () => {
+  it("snapshots scope arrays and returns fresh params", () => {
     const { velo } = client();
     const exchanges: OptionsExchange[] = ["deribit"];
     const coins = ["BTC"];
-    const builder = velo.options.iv(["1m"]);
-    const liveScope = { exchanges, coins, between: [begin, end], resolution: "1h" } as const;
+    const builder = velo.options
+      .iv(["1m"])
+      .for({ exchanges, coins })
+      .over({ between: [begin, end], resolution: "1h" });
 
-    const first = builder.params(liveScope);
+    coins[0] = "ETH";
+
+    const first = builder.params();
     expect(first).toMatchObject({
       exchanges: ["deribit"],
       coins: ["BTC"],
@@ -169,24 +182,20 @@ describe("options fluent builder", () => {
 
     (first.exchanges as OptionsExchange[]).push("deribit");
     (first.coins as string[]).push("ETH");
-    expect(builder.params(liveScope)).toMatchObject({
+    expect(builder.params()).toMatchObject({
       exchanges: ["deribit"],
       coins: ["BTC"],
-    });
-
-    coins[0] = "ETH";
-    expect(builder.params(liveScope)).toMatchObject({
-      exchanges: ["deribit"],
-      coins: ["ETH"],
     });
   });
 
   it("supports immutable branching", () => {
-    const base = client().velo.options.iv(["1m"]);
+    const base = client().velo.options.iv(["1m"]).for(market).over(window);
     const greeks = base.delta(["call"]);
+    const ethereum = base.for({ coins: ["ETH"] });
 
-    expect(base.params(scope).columns).toEqual(["iv_1m"]);
-    expect(greeks.params(scope).columns).toEqual(["iv_1m", "call_delta_dollars"]);
+    expect(base.params().columns).toEqual(["iv_1m"]);
+    expect(greeks.params().columns).toEqual(["iv_1m", "call_delta_dollars"]);
+    expect(ethereum.params().coins).toEqual(["ETH"]);
   });
 
   it("rejects empty and possibly-undefined selections", () => {
@@ -211,65 +220,101 @@ describe("options fluent builder", () => {
     void compileTimeOnly;
   });
 
-  it("rejects incomplete scopes at compile time", () => {
+  it("rejects incomplete builder scopes at compile time", () => {
     const { velo } = client();
+    const base = velo.options.iv(["1m"]);
 
     /* Never called: these statements pin compile-time rejections only. */
     const compileTimeOnly = () => {
-      // @ts-expect-error the scope must select products or coins
-      velo.options.iv(["1m"]).params({ between: [begin, end], resolution: "1h" });
-      // @ts-expect-error the scope must set between or last
-      velo.options.iv(["1m"]).params({ coins: ["BTC"], resolution: "1h" });
-      // @ts-expect-error the scope must set a resolution
-      velo.options.iv(["1m"]).params({ coins: ["BTC"], between: [begin, end] });
-      // @ts-expect-error the scope cannot select both products and coins
-      velo.options.iv(["1m"]).build({ ...scope, products: ["BTC-OPTION"] });
+      // @ts-expect-error for() and over() are both required
+      base.params();
+      // @ts-expect-error over() is required
+      base.for(market).build();
+      // @ts-expect-error for() is required
+      base.over(window).fetch();
+      // @ts-expect-error for() is required
+      base.over(window).stream();
+      // @ts-expect-error for() must select products or coins
+      base.for({ exchanges: ["deribit"] });
+      // @ts-expect-error over() must set between or last
+      base.over({ resolution: "1h" });
+      // @ts-expect-error over() must set a resolution
+      base.over({ between: [begin, end] });
+      // @ts-expect-error for() cannot select both products and coins
+      base.for({ ...market, products: ["BTC-OPTION"] });
+      // @ts-expect-error over() cannot set both between and last
+      base.over({ ...window, last: "10m" });
       // @ts-expect-error spot exchanges are not valid options exchanges
-      velo.options.iv(["1m"]).fetch({ ...scope, exchanges: ["coinbase"] });
-      // @ts-expect-error exchanges belong to the terminal scope
-      velo.options.iv(["1m"]).exchanges(["deribit"]);
-      // @ts-expect-error a terminal method requires a scope
-      velo.options.iv(["1m"]).fetch();
+      base.for({ ...market, exchanges: ["coinbase"] });
     };
     void compileTimeOnly;
   });
 
-  it("rejects malformed scopes loudly at runtime", () => {
+  it("preserves readiness through selectors and accepts either scope order", () => {
+    const { velo } = client();
+    const marketFirst = velo.options.iv(["1m"]).for(market).dvol(["close"]).over(window);
+    const windowFirst = velo.options.iv(["1m"]).over(window).delta(["call"]).for(market);
+
+    expect(marketFirst.params().columns).toEqual(["iv_1m", "dvol_close"]);
+    expect(windowFirst.params().columns).toEqual(["iv_1m", "call_delta_dollars"]);
+  });
+
+  it("rejects incomplete and malformed scopes loudly at runtime", () => {
     const { velo } = client();
     const base = velo.options.iv(["1m"]);
 
-    expect(() => base.params({ ...scope, products: ["BTC-OPTION"] } as never)).toThrow(
+    expect(() => (base as unknown as { params(): unknown }).params()).toThrow(
+      /for\(\) must be called/,
+    );
+    expect(() => (base.for(market) as unknown as { params(): unknown }).params()).toThrow(
+      /over\(\) must be called/,
+    );
+    expect(() => base.for({ ...market, products: ["BTC-OPTION"] } as never)).toThrow(
       /scope cannot select both products and coins/,
     );
-    expect(() => base.params({ between: [begin, end], resolution: "1h" } as never)).toThrow(
-      /scope must select products or coins/,
-    );
-    expect(() => base.params({ coins: ["BTC"], resolution: "1h" } as never)).toThrow(
+    expect(() => base.for({} as never)).toThrow(/scope must select products or coins/);
+    expect(() => base.over({ resolution: "1h" } as never)).toThrow(
       /scope must set between or last/,
     );
-    expect(() => base.params({ coins: ["BTC"], between: [begin, end] } as never)).toThrow(
-      /scope must set a resolution/,
-    );
-    expect(() => base.params({ ...scope, last: "10m" } as never)).toThrow(
+    expect(() => base.over({ last: "10m" } as never)).toThrow(/scope must set a resolution/);
+    expect(() => base.over({ ...window, last: "10m" } as never)).toThrow(
       /scope cannot set both between and last/,
     );
-    expect(() => base.params({ coins: ["BTC"], last: "0m", resolution: "1m" })).toThrow(VeloError);
-    expect(() =>
-      base.params({ coins: ["BTC"], last: "1d" as LastDuration, resolution: "1m" }),
-    ).toThrow(VeloError);
+    expect(() => base.over({ last: "0m", resolution: "1m" })).toThrow(VeloError);
+    expect(() => base.over({ last: "1d" as LastDuration, resolution: "1m" })).toThrow(VeloError);
   });
 
   it("delegates remaining validation to the params schema", () => {
     const { velo } = client();
     const invalid = [
       /* Empty exchanges. */
-      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: [] }),
+      () =>
+        velo.options
+          .iv(["1m"])
+          .for({ ...market, exchanges: [] })
+          .over(window)
+          .params(),
       /* Duplicate exchanges. */
-      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: ["deribit", "deribit"] }),
+      () =>
+        velo.options
+          .iv(["1m"])
+          .for({ ...market, exchanges: ["deribit", "deribit"] })
+          .over(window)
+          .params(),
       /* Unsupported exchanges from untyped input. */
-      () => velo.options.iv(["1m"]).params({ ...scope, exchanges: ["coinbase"] } as never),
+      () =>
+        velo.options
+          .iv(["1m"])
+          .for({ ...market, exchanges: ["coinbase"] } as never)
+          .over(window)
+          .params(),
       /* Inverted time range. */
-      () => velo.options.iv(["1m"]).params({ ...scope, between: [end, begin] }),
+      () =>
+        velo.options
+          .iv(["1m"])
+          .for(market)
+          .over({ between: [end, begin], resolution: "1h" })
+          .params(),
     ];
 
     for (const lower of invalid) {
@@ -283,31 +328,33 @@ describe("options fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,iv_1m\n", urls);
-      const builder = velo.options.iv(["1m"]);
-      const trailing = { coins: ["BTC"], last: "11m", resolution: "1m" } as const;
+      const builder = velo.options
+        .iv(["1m"])
+        .for({ coins: ["BTC"] })
+        .over({ last: "11m", resolution: "1m" });
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
       vi.setSystemTime(firstEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: firstEnd - 11 * 60_000,
         end: firstEnd,
       });
       vi.setSystemTime(secondEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: secondEnd - 11 * 60_000,
         end: secondEnd,
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.fetch(trailing);
+      await builder.fetch();
       vi.setSystemTime(secondEnd);
-      await builder.fetch(trailing);
+      await builder.fetch();
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build(trailing);
+      const query = builder.build();
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);
@@ -329,12 +376,15 @@ describe("options fluent builder", () => {
       .delta(["call"], { metric: "coin" })
       .dvol(["close"])
       .indexPrice()
-      .fetch({
+      .for({
         exchanges: ["deribit"],
         coins: ["BTC"],
+      })
+      .over({
         between: [begin, end],
         resolution: "1h",
-      });
+      })
+      .fetch();
 
     expect(data.rows()).toEqual([
       {

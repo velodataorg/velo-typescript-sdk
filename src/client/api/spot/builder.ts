@@ -1,5 +1,14 @@
 import type { HttpRequestOptions } from "../../../transport/http.js";
-import { lowerMarketRowsScope, type MarketRowsScope } from "../../common/builder/scope.js";
+import {
+  type BuilderMarket,
+  type BuilderWindow,
+  lowerBuilderScope,
+  type MarketScope,
+  snapshotBuilderMarket,
+  snapshotBuilderWindow,
+  type WindowScope,
+} from "../../common/builder/scope.js";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.js";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.js";
 import type { Data } from "../../common/data/data.js";
 import type { SpotColumn } from "../../common/market/columns.js";
@@ -20,13 +29,15 @@ import {
 
 export type { LastDuration } from "../../common/builder/time.js";
 export type {
+  MarketScope,
   MarketRowsScope,
   RowsScope,
   TargetScope,
   TimeScope,
+  WindowScope,
 } from "../../common/builder/scope.js";
-/** Target, time, resolution, and optional exchanges for a spot rows query. */
-export type SpotScope = MarketRowsScope<SpotExchange>;
+/** Instruments and optional exchanges configured by a spot builder's `for()` step. */
+export type SpotMarketScope = MarketScope<SpotExchange>;
 export type {
   SpotPricePart,
   SpotTradePart,
@@ -42,6 +53,8 @@ const {
 
 interface State<C extends SpotColumn> {
   readonly columns: readonly C[];
+  readonly market?: BuilderMarket<SpotExchange>;
+  readonly window?: BuilderWindow;
 }
 
 /**
@@ -51,8 +64,9 @@ interface State<C extends SpotColumn> {
  * safely reused as the base for multiple queries.
  *
  * @typeParam C - Raw spot columns selected by the chain.
+ * @typeParam S - Scope-setting methods completed by the chain.
  */
-export class SpotBuilder<C extends SpotColumn = never> {
+export class SpotBuilder<C extends SpotColumn = never, S extends ScopeBuilderStep = never> {
   readonly #query: SpotQuery;
   readonly #state: State<C>;
 
@@ -62,21 +76,21 @@ export class SpotBuilder<C extends SpotColumn = never> {
   }
 
   /** Adds all four OHLC price columns. */
-  price(): SpotBuilder<C | SpotPriceColumn>;
+  price(): SpotBuilder<C | SpotPriceColumn, S>;
   /**
    * Adds the given OHLC price columns.
    *
    * @param parts - Price components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  price<P extends SpotPricePart>(parts: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>>;
-  price<P extends SpotPricePart>(parts?: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>> {
+  price<P extends SpotPricePart>(parts: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>, S>;
+  price<P extends SpotPricePart>(parts?: readonly P[]): SpotBuilder<C | SpotPriceColumn<P>, S> {
     const columns = partColumns("price", PRICE_COLUMNS, parts);
-    return this.#withColumns(columns) as SpotBuilder<C | SpotPriceColumn<P>>;
+    return this.#withColumns(columns) as SpotBuilder<C | SpotPriceColumn<P>, S>;
   }
 
   /** Adds every dollar-volume column. */
-  volume(): SpotBuilder<C | SpotVolumeColumn<"dollar">>;
+  volume(): SpotBuilder<C | SpotVolumeColumn<"dollar">, S>;
   /**
    * Adds every volume column for one metric.
    *
@@ -85,7 +99,7 @@ export class SpotBuilder<C extends SpotColumn = never> {
    */
   volume<M extends SpotVolumeMetric>(options: {
     readonly metric: M;
-  }): SpotBuilder<C | SpotVolumeColumn<M>>;
+  }): SpotBuilder<C | SpotVolumeColumn<M>, S>;
   /**
    * Adds the given dollar-volume columns.
    *
@@ -94,7 +108,7 @@ export class SpotBuilder<C extends SpotColumn = never> {
    */
   volume<P extends SpotVolumePart>(
     parts: readonly P[],
-  ): SpotBuilder<C | SpotVolumeColumn<"dollar", P>>;
+  ): SpotBuilder<C | SpotVolumeColumn<"dollar", P>, S>;
   /**
    * Adds the given volume columns for one metric.
    *
@@ -105,68 +119,84 @@ export class SpotBuilder<C extends SpotColumn = never> {
   volume<P extends SpotVolumePart, M extends SpotVolumeMetric>(
     parts: readonly P[],
     options: { readonly metric: M },
-  ): SpotBuilder<C | SpotVolumeColumn<M, P>>;
+  ): SpotBuilder<C | SpotVolumeColumn<M, P>, S>;
   volume<P extends SpotVolumePart, M extends SpotVolumeMetric>(
     partsOrOptions?: readonly P[] | { readonly metric: M },
     metricOptions?: { readonly metric: M },
-  ): SpotBuilder<C | SpotVolumeColumn<M, P>> {
+  ): SpotBuilder<C | SpotVolumeColumn<M, P>, S> {
     const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
     const columns = metricColumns("volume", VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("volume", columns, parts)) as SpotBuilder<
-      C | SpotVolumeColumn<M, P>
+      C | SpotVolumeColumn<M, P>,
+      S
     >;
   }
 
   /** Adds every trade-count column. */
-  trades(): SpotBuilder<C | SpotTradeColumn>;
+  trades(): SpotBuilder<C | SpotTradeColumn, S>;
   /**
    * Adds the given trade-count columns.
    *
    * @param parts - Trade-count components to add; must not be empty.
    * @returns A new builder typed with the accumulated columns.
    */
-  trades<P extends SpotTradePart>(parts: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>>;
-  trades<P extends SpotTradePart>(parts?: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>> {
+  trades<P extends SpotTradePart>(parts: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>, S>;
+  trades<P extends SpotTradePart>(parts?: readonly P[]): SpotBuilder<C | SpotTradeColumn<P>, S> {
     const columns = partColumns("trades", TRADE_COLUMNS, parts);
-    return this.#withColumns(columns) as SpotBuilder<C | SpotTradeColumn<P>>;
+    return this.#withColumns(columns) as SpotBuilder<C | SpotTradeColumn<P>, S>;
   }
 
-  /**
-   * Lowers and validates the chain into raw spot parameters.
-   *
-   * @param scope - The exchanges, target, time range, and resolution to query.
-   * @returns A fresh validated parameter object.
-   */
-  params(scope: SpotScope): SpotParams<C> {
-    const lowered: SpotParams<C> = {
-      columns: [...this.#state.columns],
-      ...lowerMarketRowsScope(scope, SPOT_EXCHANGES),
-    };
-    return SpotParams.parse(lowered);
+  /** Replaces the instruments and exchanges selected by the chain. */
+  for(scope: SpotMarketScope): SpotBuilder<C, S | "for"> {
+    return new SpotBuilder<C, S | "for">(this.#query, {
+      ...this.#state,
+      market: snapshotBuilderMarket(scope, SPOT_EXCHANGES),
+    });
+  }
+
+  /** Replaces the time window and resolution selected by the chain. */
+  over(scope: WindowScope): SpotBuilder<C, S | "over"> {
+    return new SpotBuilder<C, S | "over">(this.#query, {
+      ...this.#state,
+      window: snapshotBuilderWindow(scope),
+    });
+  }
+
+  /** Lowers and validates the chain into fresh raw spot parameters. */
+  params(this: ScopedBuilder<SpotBuilder<C, S>, S>): SpotParams<C> {
+    return this.#params();
   }
 
   /**
    * Lowers the chain into a lazy query without sending a request.
    *
-   * A trailing duration in the scope is fixed when this method is called.
-   *
-   * @param scope - The exchanges, target, time range, and resolution to query.
+   * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(scope: SpotScope): Query<SpotRow<C>, Data<SpotExchange, C>> {
-    return this.#query.build(this.params(scope));
+  build(this: ScopedBuilder<SpotBuilder<C, S>, S>): Query<SpotRow<C>, Data<SpotExchange, C>> {
+    return this.#build();
   }
 
   /**
    * Builds and immediately fetches the query.
    *
-   * @param scope - The exchanges, target, time range, and resolution to query.
    * @param options - Per-request transport options.
    */
-  fetch(scope: SpotScope, options?: HttpRequestOptions): Promise<Data<SpotExchange, C>> {
-    return this.build(scope).execute(options);
+  fetch(
+    this: ScopedBuilder<SpotBuilder<C, S>, S>,
+    options?: HttpRequestOptions,
+  ): Promise<Data<SpotExchange, C>> {
+    return this.#build().execute(options);
   }
 
-  #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added> {
+  /** Builds and streams decoded rows without collecting them into a {@link Data} object. */
+  stream(
+    this: ScopedBuilder<SpotBuilder<C, S>, S>,
+    options?: HttpRequestOptions,
+  ): AsyncIterable<SpotRow<C>> {
+    return this.#build().stream(options);
+  }
+
+  #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added, S> {
     const accumulated: (C | Added)[] = [...this.#state.columns];
     const seen = new Set<C | Added>(accumulated);
     for (const column of columns) {
@@ -174,6 +204,21 @@ export class SpotBuilder<C extends SpotColumn = never> {
       seen.add(column);
       accumulated.push(column);
     }
-    return new SpotBuilder(this.#query, { ...this.#state, columns: accumulated });
+    return new SpotBuilder<C | Added, S>(this.#query, {
+      ...this.#state,
+      columns: accumulated,
+    });
+  }
+
+  #params(): SpotParams<C> {
+    const lowered: SpotParams<C> = {
+      columns: [...this.#state.columns],
+      ...lowerBuilderScope(this.#state.market, this.#state.window),
+    };
+    return SpotParams.parse(lowered);
+  }
+
+  #build(): Query<SpotRow<C>, Data<SpotExchange, C>> {
+    return this.#query.build(this.#params());
   }
 }

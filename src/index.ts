@@ -18,16 +18,18 @@ export type {
   FuturesLiquidationVolumePart,
   FuturesOpenInterestMetric,
   FuturesOpenInterestPart,
+  FuturesMarketScope,
   FuturesPricePart,
-  FuturesScope,
   FuturesTradePart,
   FuturesVolumeMetric,
   FuturesVolumePart,
   LastDuration,
+  MarketScope,
   MarketRowsScope,
   RowsScope,
   TargetScope,
   TimeScope,
+  WindowScope,
 } from "./client/api/futures/builder.js";
 export type { Futures } from "./client/api/futures/futures.js";
 export type {
@@ -62,9 +64,9 @@ export type {
   OptionsDvolPart,
   OptionsGammaMetric,
   OptionsIvTenor,
+  OptionsMarketScope,
   OptionsNotionalPart,
   OptionsPremiumPart,
-  OptionsScope,
   OptionsSkewTenor,
   OptionsVegaMetric,
   OptionsVolumePart,
@@ -90,8 +92,8 @@ export type { SpotParams } from "./client/api/spot/params.js";
 export type { SpotRow } from "./client/api/spot/query.js";
 export type {
   SpotBuilder,
+  SpotMarketScope,
   SpotPricePart,
-  SpotScope,
   SpotTradePart,
   SpotVolumeMetric,
   SpotVolumePart,

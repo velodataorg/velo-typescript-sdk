@@ -13,10 +13,11 @@ This repository contains the TypeScript SDK for the Velo API. It exposes a fluen
 ### Builder pattern
 
 The builder pattern is syntactic sugar on top of the core SDK. Column
-selections chain; the query scope — optional `exchanges`, a target (`products`
-or `coins`), a time range (`between` or `last`), and a `resolution` — is passed
-to the terminal method. Required scope fields are checked at compile time, and
-omitting `exchanges` selects every exchange supported by the market.
+selections chain with two required scope steps: `.for()` selects optional
+`exchanges` and a target (`products` or `coins`), while `.over()` selects a time
+range (`between` or `last`) and `resolution`. TypeScript prevents terminal calls
+until both steps are present. Omitting `exchanges` selects every exchange
+supported by the market.
 
 ```ts
 import { Velo } from "./index.js";
@@ -32,12 +33,15 @@ async function main() {
     .volume(["total"])
     .premium()
     .trades(["total"])
-    .fetch({
+    .for({
       exchanges: ["binance-futures", "bybit"],
       coins: ["BTC"], // `coins` accepts the Velo-aggregated symbols
+    })
+    .over({
       last: "11m",
       resolution: "1m",
-    });
+    })
+    .fetch();
 
   for (const row of data.rows()) {
     console.log(row);

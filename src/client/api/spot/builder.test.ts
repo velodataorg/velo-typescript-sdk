@@ -21,7 +21,8 @@ function search(url: string): URLSearchParams {
 describe("spot fluent builder", () => {
   const begin = Date.UTC(2026, 6, 13, 8);
   const end = Date.UTC(2026, 6, 13, 10);
-  const scope = { products: ["BTC-USD"], between: [begin, end], resolution: "1h" } as const;
+  const market = { products: ["BTC-USD"] } as const;
+  const window = { between: [begin, end], resolution: "1h" } as const;
 
   it("keeps builder terminal methods off the spot namespace", () => {
     const { spot } = client().velo;
@@ -29,6 +30,7 @@ describe("spot fluent builder", () => {
     expect(spot).not.toHaveProperty("params");
     expect(spot).not.toHaveProperty("build");
     expect(spot).not.toHaveProperty("fetch");
+    expect(spot).not.toHaveProperty("stream");
     expect(spot).not.toHaveProperty("exchanges");
     expect(spot.price(["close"])).not.toHaveProperty("exchanges");
   });
@@ -48,7 +50,7 @@ describe("spot fluent builder", () => {
       .volume(["buy"], { metric: "coin" })
       .trades(["sell"]);
 
-    expect(builder.params(scope).columns).toEqual([
+    expect(builder.for(market).over(window).params().columns).toEqual([
       "close_price",
       "open_price",
       "high_price",
@@ -60,8 +62,13 @@ describe("spot fluent builder", () => {
   it("defaults to every spot exchange and accepts an explicit replacement", () => {
     const base = client().velo.spot.price(["close"]);
 
-    expect(base.params(scope).exchanges).toEqual(SPOT_EXCHANGES);
-    expect(base.params({ ...scope, exchanges: ["coinbase"] }).exchanges).toEqual(["coinbase"]);
+    expect(base.for(market).over(window).params().exchanges).toEqual(SPOT_EXCHANGES);
+    expect(
+      base
+        .for({ ...market, exchanges: ["coinbase"] })
+        .over(window)
+        .params().exchanges,
+    ).toEqual(["coinbase"]);
   });
 
   it("defaults selectors to every applicable column", () => {
@@ -69,18 +76,18 @@ describe("spot fluent builder", () => {
     const dollarVolume = client().velo.spot.volume();
     const coinVolume = client().velo.spot.volume({ metric: "coin" });
 
-    expect(prices.params(scope).columns).toEqual([
+    expect(prices.for(market).over(window).params().columns).toEqual([
       "open_price",
       "high_price",
       "low_price",
       "close_price",
     ]);
-    expect(dollarVolume.params(scope).columns).toEqual([
+    expect(dollarVolume.for(market).over(window).params().columns).toEqual([
       "dollar_volume",
       "buy_dollar_volume",
       "sell_dollar_volume",
     ]);
-    expect(coinVolume.params(scope).columns).toEqual([
+    expect(coinVolume.for(market).over(window).params().columns).toEqual([
       "coin_volume",
       "buy_coin_volume",
       "sell_coin_volume",
@@ -93,20 +100,27 @@ describe("spot fluent builder", () => {
       .volume()
       .volume({ metric: "coin" })
       .trades()
-      .params(scope).columns;
+      .for(market)
+      .over(window)
+      .params().columns;
 
     expect(columns).toHaveLength(SPOT_COLUMNS.length);
     expect(new Set(columns)).toEqual(new Set(SPOT_COLUMNS));
   });
 
-  it("lowers scope arrays per call and returns fresh copies", () => {
+  it("snapshots scope arrays and returns fresh params", () => {
     const { velo } = client();
     const exchanges: SpotExchange[] = ["coinbase"];
     const products = ["BTC-USD"];
-    const builder = velo.spot.price(["close"]);
-    const liveScope = { exchanges, products, between: [begin, end], resolution: "1h" } as const;
+    const builder = velo.spot
+      .price(["close"])
+      .for({ exchanges, products })
+      .over({ between: [begin, end], resolution: "1h" });
 
-    const first = builder.params(liveScope);
+    exchanges.push("binance");
+    products[0] = "ETH-USD";
+
+    const first = builder.params();
     expect(first).toMatchObject({
       exchanges: ["coinbase"],
       products: ["BTC-USD"],
@@ -116,88 +130,117 @@ describe("spot fluent builder", () => {
 
     (first.exchanges as SpotExchange[]).push("binance");
     (first.products as string[]).push("ETH-USD");
-    expect(builder.params(liveScope)).toMatchObject({
+    expect(builder.params()).toMatchObject({
       exchanges: ["coinbase"],
       products: ["BTC-USD"],
-    });
-
-    exchanges.push("binance");
-    products[0] = "ETH-USD";
-    expect(builder.params(liveScope)).toMatchObject({
-      exchanges: ["coinbase", "binance"],
-      products: ["ETH-USD"],
     });
   });
 
   it("supports immutable branching", () => {
-    const base = client().velo.spot.price(["open"]);
+    const base = client().velo.spot.price(["open"]).for(market).over(window);
     const volume = base.volume(["total"]);
+    const ethereum = base.for({ products: ["ETH-USD"] });
 
-    expect(base.params(scope).columns).toEqual(["open_price"]);
-    expect(volume.params(scope).columns).toEqual(["open_price", "dollar_volume"]);
+    expect(base.params().columns).toEqual(["open_price"]);
+    expect(volume.params().columns).toEqual(["open_price", "dollar_volume"]);
+    expect(ethereum.params().products).toEqual(["ETH-USD"]);
   });
 
-  it("rejects incomplete scopes at compile time", () => {
+  it("rejects incomplete builder scopes at compile time", () => {
     const { velo } = client();
+    const base = velo.spot.price(["close"]);
 
     /* Never called: these statements pin compile-time rejections only. */
     const compileTimeOnly = () => {
-      // @ts-expect-error the scope must select products or coins
-      velo.spot.price(["close"]).params({ between: [begin, end], resolution: "1h" });
-      // @ts-expect-error the scope must set between or last
-      velo.spot.price(["close"]).params({ products: ["BTC-USD"], resolution: "1h" });
-      // @ts-expect-error the scope must set a resolution
-      velo.spot.price(["close"]).params({ products: ["BTC-USD"], between: [begin, end] });
-      // @ts-expect-error the scope cannot select both products and coins
-      velo.spot.price(["close"]).build({ ...scope, coins: ["BTC"] });
+      // @ts-expect-error for() and over() are both required
+      base.params();
+      // @ts-expect-error over() is required
+      base.for(market).build();
+      // @ts-expect-error for() is required
+      base.over(window).fetch();
+      // @ts-expect-error for() is required
+      base.over(window).stream();
+      // @ts-expect-error for() must select products or coins
+      base.for({ exchanges: ["coinbase"] });
+      // @ts-expect-error over() must set between or last
+      base.over({ resolution: "1h" });
+      // @ts-expect-error over() must set a resolution
+      base.over({ between: [begin, end] });
+      // @ts-expect-error for() cannot select both products and coins
+      base.for({ ...market, coins: ["BTC"] });
+      // @ts-expect-error over() cannot set both between and last
+      base.over({ ...window, last: "10m" });
       // @ts-expect-error futures exchanges are not valid spot exchanges
-      velo.spot.price(["close"]).fetch({ ...scope, exchanges: ["bybit"] });
-      // @ts-expect-error exchanges belong to the terminal scope
-      velo.spot.price(["close"]).exchanges(["coinbase"]);
-      // @ts-expect-error a terminal method requires a scope
-      velo.spot.price(["close"]).fetch();
+      base.for({ ...market, exchanges: ["bybit"] });
     };
     void compileTimeOnly;
   });
 
-  it("rejects malformed scopes loudly at runtime", () => {
+  it("preserves readiness through selectors and accepts either scope order", () => {
+    const { velo } = client();
+    const marketFirst = velo.spot.price(["close"]).for(market).trades(["buy"]).over(window);
+    const windowFirst = velo.spot.price(["close"]).over(window).volume(["total"]).for(market);
+
+    expect(marketFirst.params().columns).toEqual(["close_price", "buy_trades"]);
+    expect(windowFirst.params().columns).toEqual(["close_price", "dollar_volume"]);
+  });
+
+  it("rejects incomplete and malformed scopes loudly at runtime", () => {
     const { velo } = client();
     const base = velo.spot.price(["close"]);
 
-    expect(() => base.params({ ...scope, coins: ["BTC"] } as never)).toThrow(
+    expect(() => (base as unknown as { params(): unknown }).params()).toThrow(
+      /for\(\) must be called/,
+    );
+    expect(() => (base.for(market) as unknown as { params(): unknown }).params()).toThrow(
+      /over\(\) must be called/,
+    );
+    expect(() => base.for({ ...market, coins: ["BTC"] } as never)).toThrow(
       /scope cannot select both products and coins/,
     );
-    expect(() => base.params({ between: [begin, end], resolution: "1h" } as never)).toThrow(
-      /scope must select products or coins/,
-    );
-    expect(() => base.params({ products: ["BTC-USD"], resolution: "1h" } as never)).toThrow(
+    expect(() => base.for({} as never)).toThrow(/scope must select products or coins/);
+    expect(() => base.over({ resolution: "1h" } as never)).toThrow(
       /scope must set between or last/,
     );
-    expect(() => base.params({ products: ["BTC-USD"], between: [begin, end] } as never)).toThrow(
-      /scope must set a resolution/,
-    );
-    expect(() => base.params({ ...scope, last: "10m" } as never)).toThrow(
+    expect(() => base.over({ last: "10m" } as never)).toThrow(/scope must set a resolution/);
+    expect(() => base.over({ ...window, last: "10m" } as never)).toThrow(
       /scope cannot set both between and last/,
     );
-    expect(() => base.params({ products: ["BTC-USD"], last: "0m", resolution: "1m" })).toThrow(
-      VeloError,
-    );
-    expect(() =>
-      base.params({ products: ["BTC-USD"], last: "1d" as LastDuration, resolution: "1m" }),
-    ).toThrow(VeloError);
+    expect(() => base.over({ last: "0m", resolution: "1m" })).toThrow(VeloError);
+    expect(() => base.over({ last: "1d" as LastDuration, resolution: "1m" })).toThrow(VeloError);
   });
 
   it("delegates remaining validation to the params schema", () => {
     const { velo } = client();
     const invalid = [
       /* Empty exchanges. */
-      () => velo.spot.price(["close"]).params({ ...scope, exchanges: [] }),
+      () =>
+        velo.spot
+          .price(["close"])
+          .for({ ...market, exchanges: [] })
+          .over(window)
+          .params(),
       /* Duplicate exchanges. */
-      () => velo.spot.price(["close"]).params({ ...scope, exchanges: ["coinbase", "coinbase"] }),
+      () =>
+        velo.spot
+          .price(["close"])
+          .for({ ...market, exchanges: ["coinbase", "coinbase"] })
+          .over(window)
+          .params(),
       /* Unsupported exchanges from untyped input. */
-      () => velo.spot.price(["close"]).params({ ...scope, exchanges: ["bybit"] } as never),
+      () =>
+        velo.spot
+          .price(["close"])
+          .for({ ...market, exchanges: ["bybit"] } as never)
+          .over(window)
+          .params(),
       /* Inverted time range. */
-      () => velo.spot.price(["close"]).params({ ...scope, between: [end, begin] }),
+      () =>
+        velo.spot
+          .price(["close"])
+          .for(market)
+          .over({ between: [end, begin], resolution: "1h" })
+          .params(),
     ];
 
     for (const lower of invalid) {
@@ -211,31 +254,33 @@ describe("spot fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,open_price\n", urls);
-      const builder = velo.spot.price(["open"]);
-      const trailing = { products: ["BTC-USD"], last: "11m", resolution: "1m" } as const;
+      const builder = velo.spot
+        .price(["open"])
+        .for({ products: ["BTC-USD"] })
+        .over({ last: "11m", resolution: "1m" });
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 5 * 60_000;
 
       vi.setSystemTime(firstEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: firstEnd - 11 * 60_000,
         end: firstEnd,
       });
       vi.setSystemTime(secondEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: secondEnd - 11 * 60_000,
         end: secondEnd,
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.fetch(trailing);
+      await builder.fetch();
       vi.setSystemTime(secondEnd);
-      await builder.fetch(trailing);
+      await builder.fetch();
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build(trailing);
+      const query = builder.build();
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);
@@ -255,12 +300,15 @@ describe("spot fluent builder", () => {
     const data = await velo.spot
       .price(["open", "high"])
       .volume(["buy"], { metric: "coin" })
-      .fetch({
+      .for({
         exchanges: ["coinbase"],
         products: ["BTC-USD"],
+      })
+      .over({
         between: [begin, end],
         resolution: "1h",
-      });
+      })
+      .fetch();
 
     expect(data.rows()).toEqual([
       {
