@@ -12,6 +12,7 @@ import {
   OPTIONS_EXCHANGES,
   ORDERBOOK_PATH,
   OrderbookData,
+  Query,
   RESOLUTIONS,
   SPOT_COLUMNS,
   SPOT_EXCHANGES,
@@ -45,6 +46,12 @@ describe("rows public exports", () => {
     expect(OPTIONS_COLUMNS).toContain("iv_1m");
     expect(SPOT_COLUMNS).toContain("close_price");
     expect(RESOLUTIONS["1M"]).toEqual({ unit: "months", count: 1 });
+  });
+});
+
+describe("query public exports", () => {
+  it("exports the awaitable query class", () => {
+    expect(Query).toBeTypeOf("function");
   });
 });
 

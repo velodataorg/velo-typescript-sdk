@@ -24,14 +24,14 @@ export interface HttpRequest {
  * Everything a query needs to execute and decode its responses.
  *
  * @typeParam T - One decoded response item.
- * @typeParam D - The value {@link Query#execute | execute()} resolves to.
+ * @typeParam D - The value awaiting the query resolves to.
  */
 export interface QueryOptions<T, D = T[]> {
   readonly requests: readonly HttpRequest[];
   readonly decode: (body: string) => readonly T[];
 
   /**
-   * Shapes the collected items into the executed result.
+   * Shapes the collected items into the awaited result.
    *
    * When omitted, `D` must be `T[]` and the items are returned as-is.
    */
@@ -44,21 +44,24 @@ export type QueryPlan<T, D = T[]> = QueryOptions<T, D>;
 /**
  * A lazy, self-contained query bound to an HTTP transport.
  *
- * No request is sent until {@link Query#execute | execute()} is called or the
- * iterator returned by {@link Query#stream | stream()} is advanced.
+ * No request is sent until the query is awaited or the iterator returned by
+ * {@link Query#stream | stream()} is advanced.
  *
  * @typeParam T - One decoded response item.
- * @typeParam D - The value {@link Query#execute | execute()} resolves to.
+ * @typeParam D - The value awaiting this query resolves to.
  */
 export class Query<T, D = T[]> {
   readonly #http: Http;
   readonly #options: QueryOptions<T, D>;
+  readonly #requestOptions: HttpRequestOptions;
+  #result: Promise<D> | undefined;
 
   /**
    * @param http - The transport used to send the query's requests.
    * @param options - The requests and endpoint-specific response decoder.
+   * @param requestOptions - Default transport options for awaiting or streaming the query.
    */
-  constructor(http: Http, options: QueryOptions<T, D>) {
+  constructor(http: Http, options: QueryOptions<T, D>, requestOptions: HttpRequestOptions = {}) {
     assert(
       options.requests.length <= MAX_REQUESTS_PER_QUERY,
       () =>
@@ -67,6 +70,7 @@ export class Query<T, D = T[]> {
     );
     this.#http = http;
     this.#options = Query.#snapshot(options);
+    this.#requestOptions = Query.#snapshotRequestOptions(requestOptions);
   }
 
   /**
@@ -77,15 +81,24 @@ export class Query<T, D = T[]> {
   }
 
   /**
-   * Executes every request and collects its decoded rows.
+   * Makes this query awaitable, collecting every decoded row on first use.
    *
-   * @param options - Per-request transport options.
-   * @returns All decoded rows in request order, shaped by the query's
-   * `collect` option when present.
+   * The collected promise is memoized, so awaiting one query more than once
+   * returns the same result without repeating its requests.
    */
-  async execute(options?: HttpRequestOptions): Promise<D> {
+  // oxlint-disable-next-line unicorn/no-thenable -- Query intentionally exposes await syntax
+  then<TResult1 = D, TResult2 = never>(
+    onfulfilled?: ((value: D) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    this.#result ??= this.#collect();
+    return this.#result.then(onfulfilled, onrejected);
+  }
+
+  /** Executes every request and collects its decoded rows. */
+  async #collect(): Promise<D> {
     const rows: T[] = [];
-    for await (const row of this.stream(options)) {
+    for await (const row of this.stream()) {
       rows.push(row);
     }
     const { collect } = this.#options;
@@ -103,15 +116,16 @@ export class Query<T, D = T[]> {
    * @param options - Per-request transport options.
    * @returns An async generator of decoded rows.
    */
-  async *stream(options: HttpRequestOptions = {}): AsyncGenerator<T, void, undefined> {
+  async *stream(options?: HttpRequestOptions): AsyncGenerator<T, void, undefined> {
     const { requests } = this.#options;
     if (requests.length === 0) return;
 
+    const configuredOptions = this.#mergeRequestOptions(options);
     const controller = new AbortController();
-    const signal = options.signal
-      ? AbortSignal.any([options.signal, controller.signal])
+    const signal = configuredOptions.signal
+      ? AbortSignal.any([configuredOptions.signal, controller.signal])
       : controller.signal;
-    const requestOptions: HttpRequestOptions = { ...options, signal };
+    const requestOptions: HttpRequestOptions = { ...configuredOptions, signal };
 
     /* A rejection is handled when its promise is dequeued below; the no-op
      * catch keeps a failure from becoming an unhandled rejection while
@@ -145,6 +159,18 @@ export class Query<T, D = T[]> {
     return this.#options.decode(body);
   }
 
+  /** Merges one streaming execution's overrides with the query defaults. */
+  #mergeRequestOptions(options?: HttpRequestOptions): HttpRequestOptions {
+    if (!options) return this.#requestOptions;
+    return {
+      ...this.#requestOptions,
+      ...options,
+      ...(this.#requestOptions.retry || options.retry
+        ? { retry: { ...this.#requestOptions.retry, ...options.retry } }
+        : {}),
+    };
+  }
+
   /**
    * Copies and freezes the query-owned request data.
    *
@@ -171,5 +197,14 @@ export class Query<T, D = T[]> {
       decode: options.decode,
       ...(options.collect ? { collect: options.collect } : {}),
     });
+  }
+
+  /** Snapshots query-level transport defaults without cloning the signal. */
+  static #snapshotRequestOptions(options: HttpRequestOptions): HttpRequestOptions {
+    const snapshot: HttpRequestOptions = {
+      ...options,
+      ...(options.retry ? { retry: Object.freeze({ ...options.retry }) } : {}),
+    };
+    return Object.freeze(snapshot);
   }
 }

@@ -1,4 +1,3 @@
-import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -10,15 +9,10 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { DataResult } from "../../common/data/data.ts";
 import type { OptionsColumn } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
-import type { QueryFactory, QueryRequest } from "../../plan.ts";
-import {
-  OptionsParams,
-  type OptionsParams as OptionsParamsType,
-  type OptionsRow,
-} from "./params.ts";
+import type { QueryRequest } from "../../plan.ts";
+import { OptionsParams, type OptionsParams as OptionsParamsType } from "./params.ts";
 import {
   OPTIONS_SELECTOR_COLUMNS,
   type OptionsDeltaColumn,
@@ -98,11 +92,9 @@ interface State<C extends OptionsColumn> {
  * @typeParam S - Scope-setting methods completed by the chain.
  */
 export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuilderStep = never> {
-  readonly #query: QueryFactory<"options.rows">;
   readonly #state: State<C>;
 
-  constructor(query: QueryFactory<"options.rows">, state: State<C> = { columns: [] }) {
-    this.#query = query;
+  constructor(state: State<C> = { columns: [] }) {
     this.#state = state;
   }
 
@@ -301,7 +293,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
 
   /** Replaces the instruments and exchanges selected by the chain. */
   for(scope: OptionsMarketScope): OptionsBuilder<C, S | "for"> {
-    return new OptionsBuilder<C, S | "for">(this.#query, {
+    return new OptionsBuilder<C, S | "for">({
       ...this.#state,
       market: snapshotBuilderMarket(scope, OPTIONS_EXCHANGES),
     });
@@ -309,7 +301,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
 
   /** Replaces the time window and resolution selected by the chain. */
   over(scope: WindowScope): OptionsBuilder<C, S | "over"> {
-    return new OptionsBuilder<C, S | "over">(this.#query, {
+    return new OptionsBuilder<C, S | "over">({
       ...this.#state,
       window: snapshotBuilderWindow(scope),
     });
@@ -333,26 +325,6 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     return this.#build();
   }
 
-  /**
-   * Builds the request and immediately fetches its query.
-   *
-   * @param options - Per-request transport options.
-   */
-  fetch(
-    this: ScopedBuilder<OptionsBuilder<C, S>, S>,
-    options?: HttpRequestOptions,
-  ): Promise<DataResult<OptionsExchange, C>> {
-    return this.#query(this.#build()).execute(options);
-  }
-
-  /** Builds and streams decoded rows without collecting them into a data object. */
-  stream(
-    this: ScopedBuilder<OptionsBuilder<C, S>, S>,
-    options?: HttpRequestOptions,
-  ): AsyncIterable<OptionsRow<C>> {
-    return this.#query(this.#build()).stream(options);
-  }
-
   #withColumns<Added extends OptionsColumn>(
     columns: readonly Added[],
   ): OptionsBuilder<C | Added, S> {
@@ -363,7 +335,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
       seen.add(column);
       accumulated.push(column);
     }
-    return new OptionsBuilder<C | Added, S>(this.#query, {
+    return new OptionsBuilder<C | Added, S>({
       ...this.#state,
       columns: accumulated,
     });

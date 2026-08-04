@@ -1,4 +1,3 @@
-import type { QueryFactory } from "../../plan.ts";
 import { FuturesBasisBuilder } from "./basis.ts";
 import { FuturesBuilder } from "./builder.ts";
 
@@ -14,9 +13,9 @@ export class Futures {
   readonly liquidations: FuturesBuilder<never>["liquidations"];
   readonly liquidationVolume: FuturesBuilder<never>["liquidationVolume"];
 
-  constructor(rowsQuery: QueryFactory<"futures.rows">, basisQuery: QueryFactory<"futures.basis">) {
-    const builder = new FuturesBuilder(rowsQuery);
-    this.basis = () => new FuturesBasisBuilder(basisQuery);
+  constructor() {
+    const builder = new FuturesBuilder();
+    this.basis = () => new FuturesBasisBuilder();
     this.price = builder.price.bind(builder);
     this.volume = builder.volume.bind(builder);
     this.trades = builder.trades.bind(builder);

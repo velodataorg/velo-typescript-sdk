@@ -1,4 +1,3 @@
-import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -11,11 +10,10 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { DataResult } from "../../common/data/data.ts";
 import type { SpotColumn } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import type { QueryFactory, QueryRequest } from "../../plan.ts";
-import { SpotParams, type SpotParams as SpotParamsType, type SpotRow } from "./params.ts";
+import type { QueryRequest } from "../../plan.ts";
+import { SpotParams, type SpotParams as SpotParamsType } from "./params.ts";
 import {
   SPOT_SELECTOR_COLUMNS,
   type SpotPriceColumn,
@@ -72,11 +70,9 @@ export class SpotBuilder<
   E extends SpotExchange = SpotExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: QueryFactory<"spot.rows">;
   readonly #state: State<C, E>;
 
-  constructor(query: QueryFactory<"spot.rows">, state: State<C, E> = { columns: [] }) {
-    this.#query = query;
+  constructor(state: State<C, E> = { columns: [] }) {
     this.#state = state;
   }
 
@@ -158,7 +154,7 @@ export class SpotBuilder<
   ): SpotBuilder<C, SE, S | "for">;
   for(scope: SpotMarketScope): SpotBuilder<C, SpotExchange, S | "for">;
   for(scope: SpotMarketScope): SpotBuilder<C, SpotExchange, S | "for"> {
-    return new SpotBuilder<C, SpotExchange, S | "for">(this.#query, {
+    return new SpotBuilder<C, SpotExchange, S | "for">({
       ...this.#state,
       market: snapshotBuilderMarket(scope, SPOT_EXCHANGES),
     });
@@ -166,7 +162,7 @@ export class SpotBuilder<
 
   /** Replaces the time window and resolution selected by the chain. */
   over(scope: WindowScope): SpotBuilder<C, E, S | "over"> {
-    return new SpotBuilder<C, E, S | "over">(this.#query, {
+    return new SpotBuilder<C, E, S | "over">({
       ...this.#state,
       window: snapshotBuilderWindow(scope),
     });
@@ -190,26 +186,6 @@ export class SpotBuilder<
     return this.#build();
   }
 
-  /**
-   * Builds the request and immediately fetches its query.
-   *
-   * @param options - Per-request transport options.
-   */
-  fetch(
-    this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
-    options?: HttpRequestOptions,
-  ): Promise<DataResult<E, C>> {
-    return this.#query(this.#build()).execute(options);
-  }
-
-  /** Builds and streams decoded rows without collecting them into a data object. */
-  stream(
-    this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
-    options?: HttpRequestOptions,
-  ): AsyncIterable<SpotRow<C, E>> {
-    return this.#query(this.#build()).stream(options);
-  }
-
   #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added, E, S> {
     const accumulated: (C | Added)[] = [...this.#state.columns];
     const seen = new Set<C | Added>(accumulated);
@@ -218,7 +194,7 @@ export class SpotBuilder<
       seen.add(column);
       accumulated.push(column);
     }
-    return new SpotBuilder<C | Added, E, S>(this.#query, {
+    return new SpotBuilder<C | Added, E, S>({
       ...this.#state,
       columns: accumulated,
     });

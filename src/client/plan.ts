@@ -28,7 +28,7 @@ import type { Row } from "./common/data/row.ts";
 import type { FuturesStandardColumn, OptionsColumn, SpotColumn } from "./common/market/columns.ts";
 import { BASIS_COLUMN } from "./common/market/columns.ts";
 import type { FuturesExchange, OptionsExchange, SpotExchange } from "./common/market/exchanges.ts";
-import type { Query, QueryPlan } from "./common/query.ts";
+import type { QueryPlan } from "./common/query.ts";
 
 /** Endpoint contracts understood by the central query planner. */
 export interface QueryDefinitions {
@@ -131,11 +131,6 @@ export type QueryRequest<
       readonly params: P;
     }
   : never;
-
-/** Creates a client-bound lazy query for one endpoint request. */
-export type QueryFactory<K extends QueryKind> = <P extends QueryParams<K>>(
-  request: QueryRequest<K, P>,
-) => Query<QueryItem<K, P>, QueryResult<K, P>>;
 
 /** An immutable builder that produces one endpoint request. */
 export interface QueryBuilder<

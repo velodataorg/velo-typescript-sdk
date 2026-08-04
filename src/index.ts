@@ -15,7 +15,14 @@ export type { CatalogParams } from "./client/api/catalog/params.ts";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
 export type { VeloConfig } from "./client/client.ts";
 export { Velo } from "./client/client.ts";
-export type { QueryBuilder, QueryInput, QueryKind, QueryRequest } from "./client/plan.ts";
+export type {
+  QueryBuilder,
+  QueryInput,
+  QueryItem,
+  QueryKind,
+  QueryRequest,
+  QueryResult,
+} from "./client/plan.ts";
 export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
 export type { FuturesBuilder } from "./client/api/futures/builder.ts";
 export type {
@@ -158,7 +165,7 @@ export { formatProductKey, parseProductKey } from "./client/common/data/product-
 export type { Resolution, ResolutionValue } from "./client/common/time/resolution.ts";
 export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.ts";
 export type { Row, RowBase, RowColumns } from "./client/common/data/row.ts";
-export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.ts";
+export { MAX_REQUESTS_PER_QUERY, Query } from "./client/common/query.ts";
 export {
   VeloAuthError,
   VeloBadRequestError,

@@ -37,7 +37,10 @@ describe("options fluent builder", () => {
     expect(options).not.toHaveProperty("fetch");
     expect(options).not.toHaveProperty("stream");
     expect(options).not.toHaveProperty("exchanges");
-    expect(options.iv(["1m"])).not.toHaveProperty("exchanges");
+    const builder = options.iv(["1m"]);
+    expect(builder).not.toHaveProperty("fetch");
+    expect(builder).not.toHaveProperty("stream");
+    expect(builder).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as an options namespace entry point", () => {
@@ -96,11 +99,8 @@ describe("options fluent builder", () => {
     const iv = velo.options.iv().for(market).over(window);
     const query = velo.query(iv);
 
-    expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().toEqualTypeOf<
-      Data<OptionsExchange, OptionsIvColumn>
-    >();
-    expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().not.toHaveProperty("candles");
-    expectTypeOf<Awaited<ReturnType<typeof query.execute>>>().not.toHaveProperty("candles");
+    expectTypeOf<Awaited<typeof query>>().toEqualTypeOf<Data<OptionsExchange, OptionsIvColumn>>();
+    expectTypeOf<Awaited<typeof query>>().not.toHaveProperty("candles");
   });
 
   it("preserves exact request, row, and result types through velo.query", () => {
@@ -229,7 +229,7 @@ describe("options fluent builder", () => {
     expect(Object.isFrozen(request.params.exchanges)).toBe(true);
     expect(Object.isFrozen(request.params.columns)).toBe(true);
     expect(Object.isFrozen(request.params.coins)).toBe(true);
-    await velo.query(request).execute();
+    await velo.query(request);
 
     const sent = search(urls[0]!);
     expect(sent.get("exchanges")).toBe("deribit");
@@ -280,10 +280,6 @@ describe("options fluent builder", () => {
       base.for(market).build();
       // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
       velo.query(base);
-      // @ts-expect-error for() is required
-      base.over(window).fetch();
-      // @ts-expect-error for() is required
-      base.over(window).stream();
       // @ts-expect-error for() must select products or coins
       base.for({ exchanges: ["deribit"] });
       // @ts-expect-error over() must set between or last
@@ -397,20 +393,21 @@ describe("options fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.fetch();
+      await velo.query(builder);
       vi.setSystemTime(secondEnd);
-      await builder.fetch();
+      await velo.query(builder);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
       const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
-      await query.execute();
+      const first = await query;
       vi.setSystemTime(secondEnd + 5 * 60_000);
-      await query.execute();
+      const second = await query;
       expect(search(urls[2]!).get("end")).toBe(String(firstEnd));
-      expect(search(urls[3]!).get("end")).toBe(String(firstEnd));
+      expect(urls).toHaveLength(3);
+      expect(second).toBe(first);
     } finally {
       vi.useRealTimers();
     }
@@ -421,20 +418,21 @@ describe("options fluent builder", () => {
       "exchange,coin,product,time,iv_1m,call_delta_coins,dvol_close,index_price\n" +
       "deribit,BTC,BTC,1783929600000,0.55,120,52.4,63100\n";
     const { velo, urls } = client(body);
-    const data = await velo.options
-      .iv(["1m"])
-      .delta(["call"], { metric: "coin" })
-      .dvol(["close"])
-      .indexPrice()
-      .for({
-        exchanges: ["deribit"],
-        coins: ["BTC"],
-      })
-      .over({
-        between: [begin, end],
-        resolution: "1h",
-      })
-      .fetch();
+    const data = await velo.query(
+      velo.options
+        .iv(["1m"])
+        .delta(["call"], { metric: "coin" })
+        .dvol(["close"])
+        .indexPrice()
+        .for({
+          exchanges: ["deribit"],
+          coins: ["BTC"],
+        })
+        .over({
+          between: [begin, end],
+          resolution: "1h",
+        }),
+    );
 
     expect(data.rows()).toEqual([
       {
@@ -465,11 +463,13 @@ describe("options fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: OptionsRow<"iv_1m">[] = [];
 
-    for await (const row of velo.options
-      .iv(["1m"])
-      .for({ exchanges: ["deribit"], coins: ["BTC"] })
-      .over(window)
-      .stream()) {
+    const query = velo.query(
+      velo.options
+        .iv(["1m"])
+        .for({ exchanges: ["deribit"], coins: ["BTC"] })
+        .over(window),
+    );
+    for await (const row of query.stream()) {
       rows.push(row);
     }
 

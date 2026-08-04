@@ -1,4 +1,3 @@
-import type { QueryFactory } from "../../plan.ts";
 import { FuturesCatalogBuilder, OptionsCatalogBuilder, SpotCatalogBuilder } from "./builder.ts";
 import type { FuturesCatalogParams } from "./futures.ts";
 import type { OptionsCatalogParams } from "./options.ts";
@@ -6,32 +5,18 @@ import type { SpotCatalogParams } from "./spot.ts";
 
 /** The product-catalog namespace exposed by {@link Velo}. */
 export class Catalog {
-  readonly #futuresQuery: QueryFactory<"catalog.futures">;
-  readonly #optionsQuery: QueryFactory<"catalog.options">;
-  readonly #spotQuery: QueryFactory<"catalog.spot">;
-
-  constructor(
-    futuresQuery: QueryFactory<"catalog.futures">,
-    optionsQuery: QueryFactory<"catalog.options">,
-    spotQuery: QueryFactory<"catalog.spot">,
-  ) {
-    this.#futuresQuery = futuresQuery;
-    this.#optionsQuery = optionsQuery;
-    this.#spotQuery = spotQuery;
-  }
-
-  /** Creates an immutable futures catalog builder bound to this client. */
+  /** Creates an immutable futures catalog request builder. */
   futures(params: FuturesCatalogParams = {}): FuturesCatalogBuilder {
-    return new FuturesCatalogBuilder(params, this.#futuresQuery);
+    return new FuturesCatalogBuilder(params);
   }
 
-  /** Creates an immutable options catalog builder bound to this client. */
+  /** Creates an immutable options catalog request builder. */
   options(params: OptionsCatalogParams = {}): OptionsCatalogBuilder {
-    return new OptionsCatalogBuilder(params, this.#optionsQuery);
+    return new OptionsCatalogBuilder(params);
   }
 
-  /** Creates an immutable spot catalog builder bound to this client. */
+  /** Creates an immutable spot catalog request builder. */
   spot(params: SpotCatalogParams = {}): SpotCatalogBuilder {
-    return new SpotCatalogBuilder(params, this.#spotQuery);
+    return new SpotCatalogBuilder(params);
   }
 }

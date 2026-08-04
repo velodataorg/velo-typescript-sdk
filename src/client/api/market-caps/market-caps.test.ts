@@ -4,6 +4,7 @@ import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
 import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
+import type { MarketCapsParams } from "./params.ts";
 import { MARKET_CAPS_COLUMNS, type MarketCap } from "./validation.ts";
 
 const MARKET_CAPS_CSV =
@@ -21,6 +22,10 @@ function client(body: string, urls: string[] = []) {
     velo: new Velo({ apiKey: "test_key", fetch }),
     urls,
   };
+}
+
+function history(velo: Velo, params: MarketCapsParams) {
+  return velo.query(velo.marketCaps.history(params));
 }
 
 describe("Velo.marketCaps", () => {
@@ -50,7 +55,7 @@ describe("Velo.marketCaps", () => {
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"marketCaps.history">>();
     expectTypeOf(query).toEqualTypeOf<Query<MarketCap, MarketCap[]>>();
 
-    const rows = await query.execute();
+    const rows = await query;
     expect(urls).toHaveLength(1);
 
     const url = new URL(urls[0] as string);
@@ -91,15 +96,9 @@ describe("Velo.marketCaps", () => {
   });
 
   it("accepts empty responses", async () => {
+    await expect(history(client("").velo, { coins: ["BTC"] })).resolves.toEqual([]);
     await expect(
-      client("")
-        .velo.marketCaps.history({ coins: ["BTC"] })
-        .fetch(),
-    ).resolves.toEqual([]);
-    await expect(
-      client("coin,time,circ,circ_dollars,fdv,fdv_dollars\n")
-        .velo.marketCaps.history({ coins: ["BTC"] })
-        .fetch(),
+      history(client("coin,time,circ,circ_dollars,fdv,fdv_dollars\n").velo, { coins: ["BTC"] }),
     ).resolves.toEqual([]);
   });
 
@@ -132,9 +131,7 @@ describe("Velo.marketCaps", () => {
     ];
 
     for (const body of invalid) {
-      const execution = client(body)
-        .velo.marketCaps.history({ coins: ["BTC"] })
-        .fetch();
+      const execution = history(client(body).velo, { coins: ["BTC"] });
       await expect(execution).rejects.toBeInstanceOf(VeloError);
       await expect(execution).rejects.toThrow(/Unexpected \/api\/v1\/caps response/);
     }
@@ -151,11 +148,9 @@ describe("Velo.marketCaps", () => {
     ];
 
     for (const body of invalid) {
-      await expect(
-        client(body)
-          .velo.marketCaps.history({ coins: ["BTC"] })
-          .fetch(),
-      ).rejects.toBeInstanceOf(VeloError);
+      await expect(history(client(body).velo, { coins: ["BTC"] })).rejects.toBeInstanceOf(
+        VeloError,
+      );
     }
   });
 
@@ -163,7 +158,7 @@ describe("Velo.marketCaps", () => {
     const { velo, urls } = client(MARKET_CAPS_CSV);
     const rows: MarketCap[] = [];
 
-    for await (const row of velo.marketCaps.history({ coins: ["BTC", "ETH"] }).stream()) {
+    for await (const row of history(velo, { coins: ["BTC", "ETH"] }).stream()) {
       rows.push(row);
     }
 

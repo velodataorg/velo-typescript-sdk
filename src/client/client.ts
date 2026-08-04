@@ -1,5 +1,5 @@
 import { Http } from "../transport/http.ts";
-import type { HttpConfig } from "../transport/http.ts";
+import type { HttpConfig, HttpRequestOptions } from "../transport/http.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
 import type { WebSocketFactory } from "../transport/websocket.ts";
 import { Catalog } from "./api/catalog/catalog.ts";
@@ -40,23 +40,13 @@ export class Velo {
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
     const webSocket = new WebSocketTransport(config, config.webSocketFactory);
-    this.#marketCaps = new MarketCaps((request) => this.query(request));
-    this.#catalog = new Catalog(
-      (request) => this.query(request),
-      (request) => this.query(request),
-      (request) => this.query(request),
-    );
-    this.#news = new News((request) => this.query(request), webSocket);
-    this.#futures = new Futures(
-      (request) => this.query(request),
-      (request) => this.query(request),
-    );
-    this.#options = new Options(
-      (request) => this.query(request),
-      (request) => this.query(request),
-    );
-    this.#orderbook = new Orderbook((request) => this.query(request));
-    this.#spot = new Spot((request) => this.query(request));
+    this.#marketCaps = new MarketCaps();
+    this.#catalog = new Catalog();
+    this.#news = new News(webSocket);
+    this.#futures = new Futures();
+    this.#options = new Options();
+    this.#orderbook = new Orderbook();
+    this.#spot = new Spot();
     this.#status = new Status(this.#http);
   }
 
@@ -92,11 +82,17 @@ export class Velo {
     return this.#status;
   }
 
-  /** Binds an endpoint request or builder to this client as an immutable lazy query. */
+  /**
+   * Binds an endpoint request or builder to this client as an immutable lazy query.
+   *
+   * @param input - A direct endpoint request or completed request builder.
+   * @param options - Default transport options used when the query is awaited or streamed.
+   */
   query<K extends QueryKind, P extends QueryParams<K>>(
     input: QueryInput<K, P>,
+    options?: HttpRequestOptions,
   ): Query<QueryItem<K, P>, QueryResult<K, P>> {
     const request = toQueryRequest(input);
-    return new Query(this.#http, plan(request));
+    return new Query(this.#http, plan(request), options);
   }
 }

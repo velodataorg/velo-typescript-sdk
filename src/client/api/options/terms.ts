@@ -2,10 +2,9 @@ import { z } from "zod";
 
 import { TERMS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import type { HttpRequestOptions } from "../../../transport/http.ts";
 import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.ts";
 import { invalidParamsError } from "../../common/validation.ts";
-import type { QueryBuilder, QueryFactory, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryRequest } from "../../plan.ts";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];
@@ -42,32 +41,20 @@ export const TermsParams = Object.freeze({
   },
 });
 
-/** An immutable options term-structure request builder bound to one client. */
+/** An immutable options term-structure request builder. */
 export class OptionsTermsBuilder implements QueryBuilder<"options.terms"> {
   readonly #request: QueryRequest<"options.terms">;
-  readonly #query: QueryFactory<"options.terms">;
 
-  constructor(params: TermsParams, query: QueryFactory<"options.terms">) {
+  constructor(params: TermsParams) {
     const snapshot = TermsParams.parse(params);
     Object.freeze(snapshot.coins);
     Object.freeze(snapshot);
     this.#request = Object.freeze({ kind: "options.terms", params: snapshot });
-    this.#query = query;
   }
 
   /** Returns the immutable transport-independent endpoint request. */
   build(): QueryRequest<"options.terms"> {
     return this.#request;
-  }
-
-  /** Creates and immediately executes a lazy query through the bound client. */
-  fetch(options?: HttpRequestOptions): Promise<TermPoint[]> {
-    return this.#query(this.#request).execute(options);
-  }
-
-  /** Creates a lazy query and streams term points through the bound client. */
-  stream(options?: HttpRequestOptions): AsyncIterable<TermPoint> {
-    return this.#query(this.#request).stream(options);
   }
 }
 

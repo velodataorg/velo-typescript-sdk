@@ -1,12 +1,4 @@
-import type { HttpRequestOptions } from "../../../transport/http.ts";
-import type {
-  QueryBuilder,
-  QueryFactory,
-  QueryItem,
-  QueryParams,
-  QueryRequest,
-  QueryResult,
-} from "../../plan.ts";
+import type { QueryBuilder, QueryParams, QueryRequest } from "../../plan.ts";
 import { type FuturesCatalogParams, prepareFuturesCatalogParams } from "./futures.ts";
 import { type OptionsCatalogParams, prepareOptionsCatalogParams } from "./options.ts";
 import { prepareSpotCatalogParams, type SpotCatalogParams } from "./spot.ts";
@@ -18,48 +10,36 @@ class CatalogBuilder<K extends CatalogKind, P extends QueryParams<K>> implements
   P
 > {
   readonly #request: QueryRequest<K, P>;
-  readonly #query: QueryFactory<K>;
 
-  constructor(kind: K, params: P, validate: (params: P) => unknown, query: QueryFactory<K>) {
+  constructor(kind: K, params: P, validate: (params: P) => unknown) {
     validate(params);
     const snapshot = Object.freeze(structuredClone(params)) as P;
     this.#request = Object.freeze({ kind, params: snapshot }) as QueryRequest<K, P>;
-    this.#query = query;
   }
 
   /** Returns the immutable transport-independent endpoint request. */
   build(): QueryRequest<K, P> {
     return this.#request;
   }
-
-  /** Creates and immediately executes a lazy query through the bound client. */
-  fetch(options?: HttpRequestOptions): Promise<QueryResult<K, P>> {
-    return this.#query(this.#request).execute(options);
-  }
-
-  /** Creates a lazy query and streams products through the bound client. */
-  stream(options?: HttpRequestOptions): AsyncIterable<QueryItem<K, P>> {
-    return this.#query(this.#request).stream(options);
-  }
 }
 
-/** An immutable futures catalog request builder bound to one client. */
+/** An immutable futures catalog request builder. */
 export class FuturesCatalogBuilder extends CatalogBuilder<"catalog.futures", FuturesCatalogParams> {
-  constructor(params: FuturesCatalogParams, query: QueryFactory<"catalog.futures">) {
-    super("catalog.futures", params, prepareFuturesCatalogParams, query);
+  constructor(params: FuturesCatalogParams) {
+    super("catalog.futures", params, prepareFuturesCatalogParams);
   }
 }
 
-/** An immutable options catalog request builder bound to one client. */
+/** An immutable options catalog request builder. */
 export class OptionsCatalogBuilder extends CatalogBuilder<"catalog.options", OptionsCatalogParams> {
-  constructor(params: OptionsCatalogParams, query: QueryFactory<"catalog.options">) {
-    super("catalog.options", params, prepareOptionsCatalogParams, query);
+  constructor(params: OptionsCatalogParams) {
+    super("catalog.options", params, prepareOptionsCatalogParams);
   }
 }
 
-/** An immutable spot catalog request builder bound to one client. */
+/** An immutable spot catalog request builder. */
 export class SpotCatalogBuilder extends CatalogBuilder<"catalog.spot", SpotCatalogParams> {
-  constructor(params: SpotCatalogParams, query: QueryFactory<"catalog.spot">) {
-    super("catalog.spot", params, prepareSpotCatalogParams, query);
+  constructor(params: SpotCatalogParams) {
+    super("catalog.spot", params, prepareSpotCatalogParams);
   }
 }

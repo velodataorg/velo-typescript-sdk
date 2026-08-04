@@ -52,7 +52,7 @@ describe("Velo.futures", () => {
     const query = velo.query({ kind: "futures.rows", params });
     expect(urls).toHaveLength(0);
 
-    const rows = (await query.execute()).rows();
+    const rows = (await query).rows();
     expect(urls).toHaveLength(1);
     expect(rows).toEqual([
       {
@@ -116,7 +116,7 @@ describe("Velo.futures", () => {
       (query.options.requests[0]!.params.columns as string[]).push("open_price"),
     ).toThrow(TypeError);
 
-    await query.execute();
+    await query;
     expect(search(urls[0] as string).get("products")).toBe("BTCUSDT");
     expect(search(urls[0] as string).get("columns")).toBe("close_price,funding_rate");
   });
@@ -126,18 +126,16 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,3m_basis_ann\n" +
       "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
     const { velo, urls } = client(body);
-    const data = await velo
-      .query({
-        kind: "futures.basis",
-        params: {
-          columns: ["3m_basis_ann"],
-          coins: ["BTC", "ETH"],
-          begin: params.begin,
-          end: params.end,
-          resolution: "1h",
-        },
-      })
-      .execute();
+    const data = await velo.query({
+      kind: "futures.basis",
+      params: {
+        columns: ["3m_basis_ann"],
+        coins: ["BTC", "ETH"],
+        begin: params.begin,
+        end: params.end,
+        resolution: "1h",
+      },
+    });
 
     expect(data.rows()[0]?.["3m_basis_ann"]).toBe(0.0395);
     const sent = search(urls[0] as string);
@@ -156,7 +154,7 @@ describe("Velo.futures", () => {
       begin: Date.UTC(2026, 0, 15),
       end: Date.UTC(2026, 2, 15),
       resolution: "1M",
-    }).execute();
+    });
 
     expect(urls).toHaveLength(3);
     expect(search(urls[0] as string).get("months")).toBe("true");
@@ -182,7 +180,7 @@ describe("Velo.futures", () => {
         begin: Date.UTC(2026, 6, 1),
         end: now,
         resolution: "1W",
-      }).execute();
+      });
       expect(weekly).toHaveLength(1);
       expect(search(weekly[0] as string).get("begin")).toBe(String(Date.UTC(2026, 5, 29)));
       expect(search(weekly[0] as string).get("end")).toBe(String(now));
@@ -193,7 +191,7 @@ describe("Velo.futures", () => {
         begin: Date.UTC(2026, 5, 15),
         end: now,
         resolution: "1M",
-      }).execute();
+      });
       expect(monthly).toHaveLength(2);
       expect(search(monthly[1] as string).get("begin")).toBe(String(Date.UTC(2026, 6, 1)));
       expect(search(monthly[1] as string).get("end")).toBe(String(now));
@@ -246,7 +244,7 @@ describe("Velo.futures", () => {
       begin,
       end: begin + 30_000 * 60_000,
       resolution: "1m",
-    }).execute();
+    });
 
     expect(urls).toHaveLength(2);
     expect(search(urls[1] as string).get("begin")).toBe(search(urls[0] as string).get("end"));
@@ -294,7 +292,7 @@ describe("Velo.futures", () => {
   });
 
   it("accepts empty responses and rejects malformed responses", async () => {
-    const empty = await queryRows(client("").velo, params).execute();
+    const empty = await queryRows(client("").velo, params);
     expect(empty.rows()).toEqual([]);
 
     for (const body of [
@@ -305,7 +303,7 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,1.5,2,3\n",
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,NaN,2,3\n",
     ]) {
-      await expect(queryRows(client(body).velo, params).execute()).rejects.toThrow(
+      await expect(queryRows(client(body).velo, params)).rejects.toThrow(
         /Unexpected \/api\/v1\/rows response/,
       );
     }

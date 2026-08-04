@@ -92,8 +92,6 @@ describe("futures basis fluent builder", () => {
       velo.futures.basis().over({ between: [begin, end] });
       // @ts-expect-error the scope cannot set both between and last
       velo.futures.basis().over({ ...scope, last: "2h" });
-      // @ts-expect-error a terminal method requires a scope
-      velo.futures.basis().fetch();
       // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
       velo.query(velo.futures.basis());
     };
@@ -160,12 +158,13 @@ describe("futures basis fluent builder", () => {
       vi.setSystemTime(firstEnd);
       const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
-      await query.execute();
+      const first = await query;
       vi.setSystemTime(secondEnd + 60 * 60_000);
-      await query.execute();
+      const second = await query;
 
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
-      expect(search(urls[1]!).get("end")).toBe(String(firstEnd));
+      expect(urls).toHaveLength(1);
+      expect(second).toBe(first);
     } finally {
       vi.useRealTimers();
     }
@@ -176,11 +175,12 @@ describe("futures basis fluent builder", () => {
       "exchange,coin,product,time,3m_basis_ann\n" +
       "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
     const { velo, urls } = client(body);
-    const data = await velo.futures
-      .basis()
-      .coins(["BTC"])
-      .over({ between: [begin, end], resolution: "1h" })
-      .fetch();
+    const data = await velo.query(
+      velo.futures
+        .basis()
+        .coins(["BTC"])
+        .over({ between: [begin, end], resolution: "1h" }),
+    );
 
     expect(data.rows()[0]?.[BASIS_COLUMN]).toBe(0.0395);
 
@@ -202,7 +202,8 @@ describe("futures basis fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: FuturesRow<typeof BASIS_COLUMN>[] = [];
 
-    for await (const row of velo.futures.basis().coins(["BTC"]).over(scope).stream()) {
+    const query = velo.query(velo.futures.basis().coins(["BTC"]).over(scope));
+    for await (const row of query.stream()) {
       rows.push(row);
     }
 

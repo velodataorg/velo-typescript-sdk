@@ -29,7 +29,7 @@ describe("Velo.spot", () => {
     expect(velo.spot).toBe(velo.spot);
     expect(velo.spot).not.toHaveProperty("query");
 
-    const rows = (await velo.query({ kind: "spot.rows", params }).execute()).rows();
+    const rows = (await velo.query({ kind: "spot.rows", params })).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("spot");
 
     const exchange: "binance" | "coinbase" = rows[0]!.exchange;
@@ -60,6 +60,6 @@ describe("Velo.spot", () => {
       "okex,BTC,BTC-USDT,1767225600000,100000,12.5\n";
     const { velo } = client(body);
 
-    await expect(velo.query({ kind: "spot.rows", params }).execute()).rejects.toThrow(VeloError);
+    await expect(velo.query({ kind: "spot.rows", params })).rejects.toThrow(VeloError);
   });
 });

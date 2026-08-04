@@ -47,7 +47,7 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   return items;
 }
 
-describe("Query.execute", () => {
+describe("await Query", () => {
   it("executes every request and collects decoded items in request order", async () => {
     const urls: string[] = [];
     const fetch: typeof globalThis.fetch = async (input) => {
@@ -55,7 +55,7 @@ describe("Query.execute", () => {
       return response(stepFrom(input));
     };
 
-    const points = await new Query(http(fetch), OPTIONS).execute();
+    const points = await new Query(http(fetch), OPTIONS);
 
     expect(points).toEqual([
       { step: 1, value: 10 },
@@ -78,20 +78,18 @@ describe("Query.execute", () => {
       decode: decodePoints,
     };
 
-    await expect(new Query(http(fetch), options).execute()).resolves.toEqual([]);
+    await expect(new Query(http(fetch), options)).resolves.toEqual([]);
     expect(calls).toBe(0);
   });
 
-  it("forwards per-execution transport options", async () => {
+  it("forwards query-level transport options", async () => {
     let calls = 0;
     const fetch: typeof globalThis.fetch = async () => {
       calls++;
       return response(1);
     };
 
-    await expect(new Query(http(fetch), OPTIONS).execute({ timeout: 0 })).rejects.toBeInstanceOf(
-      VeloError,
-    );
+    await expect(new Query(http(fetch), OPTIONS, { timeout: 0 })).rejects.toBeInstanceOf(VeloError);
     expect(calls).toBe(0);
   });
 
@@ -104,7 +102,41 @@ describe("Query.execute", () => {
     const query = new Query(http(fetch), options);
 
     expect(query.options.collect).toBe(options.collect);
-    await expect(query.execute()).resolves.toBe(30);
+    await expect(query).resolves.toBe(30);
+  });
+
+  it("is lazy and memoizes its collected promise", async () => {
+    let calls = 0;
+    const fetch: typeof globalThis.fetch = async (input) => {
+      calls++;
+      return response(stepFrom(input));
+    };
+    const query = new Query(http(fetch), OPTIONS);
+
+    expect(calls).toBe(0);
+    const first = Promise.resolve(query);
+    const second = Promise.resolve(query);
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      [
+        { step: 1, value: 10 },
+        { step: 2, value: 20 },
+      ],
+      [
+        { step: 1, value: 10 },
+        { step: 2, value: 20 },
+      ],
+    ]);
+    expect(calls).toBe(2);
+  });
+
+  it("assimilates when returned by an async function", async () => {
+    const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
+    const create = async () => new Query(http(fetch), OPTIONS);
+
+    await expect(create()).resolves.toEqual([
+      { step: 1, value: 10 },
+      { step: 2, value: 20 },
+    ]);
   });
 });
 
@@ -227,6 +259,13 @@ describe("Query.stream", () => {
     expect(signals[1]?.aborted).toBe(true);
   });
 
+  it("merges streaming overrides with query-level transport options", async () => {
+    const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
+    const query = new Query(http(fetch), OPTIONS, { timeout: 0 });
+
+    await expect(collect(query.stream({ timeout: 1_000 }))).resolves.toHaveLength(2);
+  });
+
   it("surfaces a prefetched failure after yielding earlier items", async () => {
     const fetch: typeof globalThis.fetch = async (input) => {
       if (stepFrom(input) === 1) return response(1);
@@ -306,6 +345,6 @@ describe("Query.stream", () => {
       options,
     );
 
-    await expect(query.execute()).rejects.toBeInstanceOf(SyntaxError);
+    await expect(query).rejects.toBeInstanceOf(SyntaxError);
   });
 });

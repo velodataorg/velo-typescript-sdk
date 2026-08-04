@@ -79,7 +79,7 @@ describe("Velo.orderbook", () => {
     expectTypeOf(query).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
     expectTypeOf(requestQuery).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
 
-    await query.execute();
+    await query;
     expect(urls).toHaveLength(1);
 
     const url = new URL(urls[0] as string);
@@ -95,13 +95,13 @@ describe("Velo.orderbook", () => {
 
   it("sends a coin target without product parameters", async () => {
     const { velo, urls } = client([BODY]);
-    await velo.orderbook
-      .levels({
+    await velo.query(
+      velo.orderbook.levels({
         coin: "BTC",
         between: [HOUR, 3 * HOUR],
         resolution: "1h",
-      })
-      .fetch();
+      }),
+    );
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("coin")).toBe("BTC");
@@ -111,7 +111,7 @@ describe("Velo.orderbook", () => {
 
   it("decodes the response into OrderbookData", async () => {
     const { velo } = client([BODY]);
-    const data = await velo.orderbook.levels(SCOPE).fetch();
+    const data = await orderbookQuery(velo, SCOPE);
 
     expect(data.rows()).toEqual([
       {
@@ -142,7 +142,7 @@ describe("Velo.orderbook", () => {
     await orderbookQuery(velo, {
       ...SCOPE,
       between: [HOUR + MINUTE, 3 * HOUR - MINUTE],
-    }).execute();
+    });
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -154,7 +154,7 @@ describe("Velo.orderbook", () => {
     vi.setSystemTime(2 * HOUR + 30 * MINUTE);
 
     const { velo, urls } = client([BODY]);
-    await orderbookQuery(velo, { ...SCOPE, between: [HOUR, 10 * HOUR] }).execute();
+    await orderbookQuery(velo, { ...SCOPE, between: [HOUR, 10 * HOUR] });
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("end")).toBe(String(2 * HOUR + 30 * MINUTE));
@@ -170,7 +170,7 @@ describe("Velo.orderbook", () => {
       product: "BTCUSDT",
       last: "2h",
       resolution: "1h",
-    }).execute();
+    });
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -186,7 +186,7 @@ describe("Velo.orderbook", () => {
       ...SCOPE,
       between: [0, capMs + MINUTE],
       resolution: "1m",
-    }).execute();
+    });
 
     expect(urls).toHaveLength(2);
     const first = new URL(urls[0] as string);
@@ -204,17 +204,17 @@ describe("Velo.orderbook", () => {
     const { velo } = client([BODY]);
 
     const times: number[] = [];
-    for await (const row of velo.orderbook.levels(SCOPE).stream()) {
+    for await (const row of orderbookQuery(velo, SCOPE).stream()) {
       times.push(row.time);
     }
 
     expect(times).toEqual([HOUR, 2 * HOUR]);
   });
 
-  it("forwards per-execution transport options", async () => {
+  it("forwards query-level transport options", async () => {
     const { velo, urls } = client([BODY]);
 
-    await expect(velo.orderbook.levels(SCOPE).fetch({ timeout: 0 })).rejects.toBeInstanceOf(
+    await expect(velo.query(velo.orderbook.levels(SCOPE), { timeout: 0 })).rejects.toBeInstanceOf(
       VeloError,
     );
     expect(urls).toHaveLength(0);
@@ -226,7 +226,7 @@ describe("Velo.orderbook", () => {
       ...SCOPE,
       between: [Date.UTC(2026, 0, 7), Date.UTC(2026, 0, 13)],
       resolution: "1W",
-    }).execute();
+    });
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("reso")).toBe("10080");
@@ -239,7 +239,7 @@ describe("Velo.orderbook", () => {
     await orderbookQuery(velo, {
       ...SCOPE,
       between: [new Date(HOUR), new Date(3 * HOUR)],
-    }).execute();
+    });
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -251,8 +251,8 @@ describe("Velo.orderbook", () => {
       new Response("product binance-futures NOPEUSDT undefined not found", { status: 404 });
     const velo = new Velo({ apiKey: "test_key", fetch });
 
-    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toBeInstanceOf(VeloHttpError);
-    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toThrow(/not found/);
+    await expect(orderbookQuery(velo, SCOPE)).rejects.toBeInstanceOf(VeloHttpError);
+    await expect(orderbookQuery(velo, SCOPE)).rejects.toThrow(/not found/);
   });
 
   it("rejects empty target strings", () => {
@@ -269,7 +269,7 @@ describe("Velo.orderbook", () => {
   it("wraps a malformed response with endpoint context", async () => {
     const { velo } = client(["not a levels response\n"]);
 
-    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toThrow(
+    await expect(orderbookQuery(velo, SCOPE)).rejects.toThrow(
       /Unexpected \/api\/l\/levels response/,
     );
   });

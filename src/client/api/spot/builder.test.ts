@@ -39,7 +39,10 @@ describe("spot fluent builder", () => {
     expect(spot).not.toHaveProperty("fetch");
     expect(spot).not.toHaveProperty("stream");
     expect(spot).not.toHaveProperty("exchanges");
-    expect(spot.price(["close"])).not.toHaveProperty("exchanges");
+    const builder = spot.price(["close"]);
+    expect(builder).not.toHaveProperty("fetch");
+    expect(builder).not.toHaveProperty("stream");
+    expect(builder).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as a spot namespace entry point", () => {
@@ -118,15 +121,17 @@ describe("spot fluent builder", () => {
   });
 
   it("exposes candles only for candle-compatible result columns", () => {
-    const exact = client().velo.spot.price().for(market).over(window);
-    const withVolume = exact.volume(["total"]);
-    const incomplete = client().velo.spot.price(["close"]).for(market).over(window);
-    const extra = exact.trades(["buy"]);
+    const { velo } = client();
+    const exact = velo.spot.price().for(market).over(window);
+    const exactQuery = velo.query(exact);
+    const withVolumeQuery = velo.query(exact.volume(["total"]));
+    const incompleteQuery = velo.query(velo.spot.price(["close"]).for(market).over(window));
+    const extraQuery = velo.query(exact.trades(["buy"]));
 
-    expectTypeOf<Awaited<ReturnType<typeof exact.fetch>>>().toHaveProperty("candles");
-    expectTypeOf<Awaited<ReturnType<typeof withVolume.fetch>>>().toHaveProperty("candles");
-    expectTypeOf<Awaited<ReturnType<typeof incomplete.fetch>>>().not.toHaveProperty("candles");
-    expectTypeOf<Awaited<ReturnType<typeof extra.fetch>>>().not.toHaveProperty("candles");
+    expectTypeOf<Awaited<typeof exactQuery>>().toHaveProperty("candles");
+    expectTypeOf<Awaited<typeof withVolumeQuery>>().toHaveProperty("candles");
+    expectTypeOf<Awaited<typeof incompleteQuery>>().not.toHaveProperty("candles");
+    expectTypeOf<Awaited<typeof extraQuery>>().not.toHaveProperty("candles");
   });
 
   it("defaults selectors to every applicable column", () => {
@@ -209,7 +214,7 @@ describe("spot fluent builder", () => {
     expect(Object.isFrozen(request.params.exchanges)).toBe(true);
     expect(Object.isFrozen(request.params.columns)).toBe(true);
     expect(Object.isFrozen(request.params.products)).toBe(true);
-    await velo.query(request).execute();
+    await velo.query(request);
 
     const sent = search(urls[0]!);
     expect(sent.get("exchanges")).toBe("coinbase");
@@ -238,10 +243,6 @@ describe("spot fluent builder", () => {
       base.for(market).build();
       // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
       velo.query(base);
-      // @ts-expect-error for() is required
-      base.over(window).fetch();
-      // @ts-expect-error for() is required
-      base.over(window).stream();
       // @ts-expect-error for() must select products or coins
       base.for({ exchanges: ["coinbase"] });
       // @ts-expect-error over() must set between or last
@@ -355,20 +356,21 @@ describe("spot fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.fetch();
+      await velo.query(builder);
       vi.setSystemTime(secondEnd);
-      await builder.fetch();
+      await velo.query(builder);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
       const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
-      await query.execute();
+      const first = await query;
       vi.setSystemTime(secondEnd + 5 * 60_000);
-      await query.execute();
+      const second = await query;
       expect(search(urls[2]!).get("end")).toBe(String(firstEnd));
-      expect(search(urls[3]!).get("end")).toBe(String(firstEnd));
+      expect(urls).toHaveLength(3);
+      expect(second).toBe(first);
     } finally {
       vi.useRealTimers();
     }
@@ -379,18 +381,19 @@ describe("spot fluent builder", () => {
       "exchange,coin,product,time,open_price,high_price,buy_coin_volume\n" +
       "coinbase,BTC,BTC-USD,1783929600000,63100,63200,12.5\n";
     const { velo, urls } = client(body);
-    const data = await velo.spot
-      .price(["open", "high"])
-      .volume(["buy"], { metric: "coin" })
-      .for({
-        exchanges: ["coinbase"],
-        products: ["BTC-USD"],
-      })
-      .over({
-        between: [begin, end],
-        resolution: "1h",
-      })
-      .fetch();
+    const data = await velo.query(
+      velo.spot
+        .price(["open", "high"])
+        .volume(["buy"], { metric: "coin" })
+        .for({
+          exchanges: ["coinbase"],
+          products: ["BTC-USD"],
+        })
+        .over({
+          between: [begin, end],
+          resolution: "1h",
+        }),
+    );
 
     expect(data.rows()).toEqual([
       {
@@ -421,11 +424,13 @@ describe("spot fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: SpotRow<"close_price", "coinbase">[] = [];
 
-    for await (const row of velo.spot
-      .price(["close"])
-      .for({ exchanges: ["coinbase"], products: ["BTC-USD"] })
-      .over(window)
-      .stream()) {
+    const query = velo.query(
+      velo.spot
+        .price(["close"])
+        .for({ exchanges: ["coinbase"], products: ["BTC-USD"] })
+        .over(window),
+    );
+    for await (const row of query.stream()) {
       rows.push(row);
     }
 
@@ -447,11 +452,12 @@ describe("spot fluent builder", () => {
     const { velo } = client(body);
 
     await expect(
-      velo.spot
-        .price(["close"])
-        .for({ exchanges: ["coinbase"], coins: ["BTC"] })
-        .over(window)
-        .fetch(),
+      velo.query(
+        velo.spot
+          .price(["close"])
+          .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+          .over(window),
+      ),
     ).rejects.toThrow(VeloError);
   });
 });

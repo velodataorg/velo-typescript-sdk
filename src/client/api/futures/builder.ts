@@ -1,4 +1,3 @@
-import type { HttpRequestOptions } from "../../../transport/http.ts";
 import {
   type BuilderMarket,
   type BuilderWindow,
@@ -11,12 +10,10 @@ import {
 } from "../../common/builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
 import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { DataResult } from "../../common/data/data.ts";
 import type { FuturesStandardColumn } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
-import type { QueryFactory, QueryRequest } from "../../plan.ts";
+import type { QueryRequest } from "../../plan.ts";
 import {
-  type FuturesRow,
   FuturesStandardParams,
   type FuturesStandardParams as FuturesStandardParamsType,
 } from "./params.ts";
@@ -99,11 +96,9 @@ export class FuturesBuilder<
   E extends FuturesExchange = FuturesExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: QueryFactory<"futures.rows">;
   readonly #state: State<C, E>;
 
-  constructor(query: QueryFactory<"futures.rows">, state: State<C, E> = { columns: [] }) {
-    this.#query = query;
+  constructor(state: State<C, E> = { columns: [] }) {
     this.#state = state;
   }
 
@@ -328,7 +323,7 @@ export class FuturesBuilder<
   ): FuturesBuilder<C, SE, S | "for">;
   for(scope: FuturesMarketScope): FuturesBuilder<C, FuturesExchange, S | "for">;
   for(scope: FuturesMarketScope): FuturesBuilder<C, FuturesExchange, S | "for"> {
-    return new FuturesBuilder<C, FuturesExchange, S | "for">(this.#query, {
+    return new FuturesBuilder<C, FuturesExchange, S | "for">({
       ...this.#state,
       market: snapshotBuilderMarket(scope, FUTURES_EXCHANGES),
     });
@@ -336,7 +331,7 @@ export class FuturesBuilder<
 
   /** Replaces the time window and resolution selected by the chain. */
   over(scope: WindowScope): FuturesBuilder<C, E, S | "over"> {
-    return new FuturesBuilder<C, E, S | "over">(this.#query, {
+    return new FuturesBuilder<C, E, S | "over">({
       ...this.#state,
       window: snapshotBuilderWindow(scope),
     });
@@ -360,26 +355,6 @@ export class FuturesBuilder<
     return this.#build();
   }
 
-  /**
-   * Builds the request and immediately fetches its query.
-   *
-   * @param options - Per-request transport options.
-   */
-  fetch(
-    this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
-    options?: HttpRequestOptions,
-  ): Promise<DataResult<E, C>> {
-    return this.#query(this.#build()).execute(options);
-  }
-
-  /** Builds and streams decoded rows without collecting them into a data object. */
-  stream(
-    this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
-    options?: HttpRequestOptions,
-  ): AsyncIterable<FuturesRow<C, E>> {
-    return this.#query(this.#build()).stream(options);
-  }
-
   #withColumns<Added extends FuturesStandardColumn>(
     columns: readonly Added[],
   ): FuturesBuilder<C | Added, E, S> {
@@ -390,7 +365,7 @@ export class FuturesBuilder<
       seen.add(column);
       accumulated.push(column);
     }
-    return new FuturesBuilder<C | Added, E, S>(this.#query, {
+    return new FuturesBuilder<C | Added, E, S>({
       ...this.#state,
       columns: accumulated,
     });

@@ -39,7 +39,10 @@ describe("futures fluent builder", () => {
     expect(futures).not.toHaveProperty("fetch");
     expect(futures).not.toHaveProperty("stream");
     expect(futures).not.toHaveProperty("exchanges");
-    expect(futures.price(["close"])).not.toHaveProperty("exchanges");
+    const builder = futures.price(["close"]);
+    expect(builder).not.toHaveProperty("fetch");
+    expect(builder).not.toHaveProperty("stream");
+    expect(builder).not.toHaveProperty("exchanges");
   });
 
   it("exposes every selector as a futures namespace entry point", () => {
@@ -270,10 +273,6 @@ describe("futures fluent builder", () => {
       base.for(market).build();
       // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
       velo.query(base);
-      // @ts-expect-error for() is required
-      base.over(window).fetch();
-      // @ts-expect-error for() is required
-      base.over(window).stream();
       // @ts-expect-error for() must select products or coins
       base.for({ exchanges: ["bybit"] });
       // @ts-expect-error over() must set between or last
@@ -403,7 +402,7 @@ describe("futures fluent builder", () => {
     expect(Object.isFrozen(request.params)).toBe(true);
     expect(Object.isFrozen(request.params.exchanges)).toBe(true);
     expect(Object.isFrozen(request.params.products)).toBe(true);
-    await velo.query(request).execute();
+    await velo.query(request);
 
     const sent = search(urls[0]!);
     expect(sent.get("exchanges")).toBe("bybit");
@@ -498,20 +497,21 @@ describe("futures fluent builder", () => {
       });
 
       vi.setSystemTime(firstEnd);
-      await builder.fetch();
+      await velo.query(builder);
       vi.setSystemTime(secondEnd);
-      await builder.fetch();
+      await velo.query(builder);
       expect(search(urls[0]!).get("end")).toBe(String(firstEnd));
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
       const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
-      await query.execute();
+      const first = await query;
       vi.setSystemTime(secondEnd + 5 * 60_000);
-      await query.execute();
+      const second = await query;
       expect(search(urls[2]!).get("end")).toBe(String(firstEnd));
-      expect(search(urls[3]!).get("end")).toBe(String(firstEnd));
+      expect(urls).toHaveLength(3);
+      expect(second).toBe(first);
     } finally {
       vi.useRealTimers();
     }
@@ -546,18 +546,19 @@ describe("futures fluent builder", () => {
       "exchange,coin,product,time,open_price,high_price,dollar_open_interest_close\n" +
       "bybit,BTC,BTCUSDT,1783929600000,63100,63200,1000000\n";
     const { velo, urls } = client(body);
-    const data = await velo.futures
-      .price(["open", "high"])
-      .openInterest(["close"])
-      .for({
-        exchanges: ["bybit"],
-        products: ["BTCUSDT"],
-      })
-      .over({
-        between: [begin, end],
-        resolution: "1h",
-      })
-      .fetch();
+    const data = await velo.query(
+      velo.futures
+        .price(["open", "high"])
+        .openInterest(["close"])
+        .for({
+          exchanges: ["bybit"],
+          products: ["BTCUSDT"],
+        })
+        .over({
+          between: [begin, end],
+          resolution: "1h",
+        }),
+    );
 
     expect(data.rows()).toEqual([
       {
@@ -589,11 +590,12 @@ describe("futures fluent builder", () => {
     const { velo } = client(body);
 
     await expect(
-      velo.futures
-        .price(["close"])
-        .for({ exchanges: ["bybit"], coins: ["BTC"] })
-        .over(window)
-        .fetch(),
+      velo.query(
+        velo.futures
+          .price(["close"])
+          .for({ exchanges: ["bybit"], coins: ["BTC"] })
+          .over(window),
+      ),
     ).rejects.toThrow(VeloError);
   });
 
@@ -603,11 +605,13 @@ describe("futures fluent builder", () => {
     const { velo, urls } = client(body);
     const rows = [];
 
-    for await (const row of velo.futures
-      .price(["close"])
-      .for({ exchanges: ["bybit"], products: ["BTCUSDT"] })
-      .over(window)
-      .stream()) {
+    const query = velo.query(
+      velo.futures
+        .price(["close"])
+        .for({ exchanges: ["bybit"], products: ["BTCUSDT"] })
+        .over(window),
+    );
+    for await (const row of query.stream()) {
       rows.push(row);
     }
 

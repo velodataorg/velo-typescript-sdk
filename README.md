@@ -27,21 +27,22 @@ async function main() {
   if (!apiKey) throw new Error("VELO_API_KEY not set");
 
   const velo = new Velo({ apiKey });
-  const data = await velo.futures
-    .price(["close", "high"]) // Using `price()` with no arguments selects all OHLC
-    .openInterest(["close"], { metric: "dollar" }) // Choose the metric, e.g. `dollar` or `coin`
-    .volume(["total"])
-    .premium()
-    .trades(["total"])
-    .for({
-      exchanges: ["binance-futures", "bybit"],
-      coins: ["BTC"], // `coins` accepts the Velo-aggregated symbols
-    })
-    .over({
-      last: "11m",
-      resolution: "1m",
-    })
-    .fetch();
+  const data = await velo.query(
+    velo.futures
+      .price(["close", "high"]) // Using `price()` with no arguments selects all OHLC
+      .openInterest(["close"], { metric: "dollar" }) // Choose `dollar` or `coin`
+      .volume(["total"])
+      .premium()
+      .trades(["total"])
+      .for({
+        exchanges: ["binance-futures", "bybit"],
+        coins: ["BTC"], // `coins` accepts the Velo-aggregated symbols
+      })
+      .over({
+        last: "11m",
+        resolution: "1m",
+      }),
+  );
 
   for (const row of data.rows()) {
     console.log(row);
@@ -64,19 +65,17 @@ async function main() {
   if (!apiKey) throw new Error("VELO_API_KEY not set");
 
   const velo = new Velo({ apiKey });
-  const data = await velo
-    .query({
-      kind: "futures.rows",
-      params: {
-        exchanges: ["binance-futures", "bybit"],
-        products: ["BTCUSDT"],
-        columns: ["close_price", "funding_rate"],
-        begin: Date.now() - 10 * 60 * 1000,
-        end: Date.now(),
-        resolution: "1m",
-      },
-    })
-    .execute();
+  const data = await velo.query({
+    kind: "futures.rows",
+    params: {
+      exchanges: ["binance-futures", "bybit"],
+      products: ["BTCUSDT"],
+      columns: ["close_price", "funding_rate"],
+      begin: Date.now() - 10 * 60 * 1000,
+      end: Date.now(),
+      resolution: "1m",
+    },
+  });
 
   for (const row of data.rows()) {
     console.log(row);
@@ -84,6 +83,20 @@ async function main() {
 }
 
 main();
+```
+
+Queries are lazy and awaitable. Awaiting collects the endpoint result and
+memoizes it, so awaiting the same query again does not repeat its requests.
+Use `stream()` to process decoded items incrementally; each call creates a new
+streaming execution.
+
+```ts
+const query = velo.query(velo.catalog.futures({ coin: "BTC" }), { timeout: 10_000 });
+const products = await query;
+
+for await (const product of query.stream()) {
+  console.log(product);
+}
 ```
 
 `exchanges` cross-joins with `products` (or `coins`): the result contains one
@@ -103,30 +116,29 @@ exchanges: ["binance-futures", "bybit"]     products: ["BTCUSDT", "ETHUSDT"]
 Fetch and locally search the products catalog.
 
 ```ts
-const futures = await velo.catalog.futures({ product: "BTCUSDT" }).fetch();
-const spot = await velo.catalog.spot({ coin: "BTC" }).fetch();
-const options = await velo.catalog.options({ coin: "BTC" }).fetch();
+const futures = await velo.query(velo.catalog.futures({ product: "BTCUSDT" }));
+const spot = await velo.query(velo.catalog.spot({ coin: "BTC" }));
+const options = await velo.query(velo.catalog.options({ coin: "BTC" }));
 ```
 
 ### Result views
 
-`fetch()` and a query's `execute()` resolve to a `Data` object: lazily computed
-views over the fetched rows.
+Awaiting a market-data query resolves to a `Data` object with lazily computed
+views over the fetched rows. A query sends nothing until it is awaited or its
+`stream()` iterator is advanced.
 
 ```ts
-const data = await velo
-  .query({
-    kind: "futures.rows",
-    params: {
-      exchanges: ["binance-futures"],
-      coins: ["BTC"],
-      columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
-      begin: Date.now() - 60 * 60 * 1000,
-      end: Date.now(),
-      resolution: "1m",
-    },
-  })
-  .execute();
+const data = await velo.query({
+  kind: "futures.rows",
+  params: {
+    exchanges: ["binance-futures"],
+    coins: ["BTC"],
+    columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
+    begin: Date.now() - 60 * 60 * 1000,
+    end: Date.now(),
+    resolution: "1m",
+  },
+});
 
 // Different ways to view the returned data
 const rows = data.rows();
@@ -147,11 +159,11 @@ Fetch historical stories published after a millisecond timestamp.
 Omit `begin` to use the API default and request the full history from timestamp `0`.
 
 ```ts
-const stories = await velo.news
-  .stories({
+const stories = await velo.query(
+  velo.news.stories({
     begin: Date.now() - 24 * 60 * 60 * 1000,
-  })
-  .fetch();
+  }),
+);
 
 for (const story of stories) {
   console.log(story);
