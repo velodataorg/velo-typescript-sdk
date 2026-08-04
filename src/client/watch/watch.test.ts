@@ -184,6 +184,22 @@ describe("News feed reconnection", () => {
     watcher.close();
   });
 
+  it("stops reconnecting once the attempt budget is spent", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    /* Short deadlines so each failed attempt resolves inside the window. */
+    const { socket } = await openFeed(client, sockets, {
+      connectTimeout: 100,
+      reconnect: { retries: 2, baseDelayMs: 100, maxDelayMs: 100 },
+    });
+
+    socket.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    /* The original socket plus exactly two retries, then it gives up. */
+    expect(sockets).toHaveLength(3);
+  });
+
   it("does not reconnect after an intentional close or disconnect", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();

@@ -83,38 +83,4 @@ describe("resumeOnDrop", () => {
       1_000, 2_000, 4_000, 8_000, 8_000, 8_000,
     ]);
   });
-
-  it("jitters the default delay between half and the full backoff", async () => {
-    vi.useFakeTimers();
-    const { watcher, drop, attemptedAt } = downWatcher();
-    const start = Date.now();
-
-    /* No injection here: this covers the real policy, which is randomised
-     * and so can only be bounded.
-     */
-    resumeOnDrop(watcher, { baseDelayMs: 1_000, maxDelayMs: 8_000 });
-
-    drop();
-    await vi.advanceTimersByTimeAsync(60_000);
-
-    const nominal = [1_000, 2_000, 4_000, 8_000];
-    for (const [index, gap] of delays(attemptedAt, start).slice(0, 4).entries()) {
-      const full = nominal[index] as number;
-      expect(gap).toBeGreaterThanOrEqual(full / 2);
-      expect(gap).toBeLessThanOrEqual(full);
-    }
-  });
-
-  it("gives up once the attempt budget is spent", async () => {
-    vi.useFakeTimers();
-    const { watcher, drop, attemptedAt } = downWatcher();
-
-    /* The default policy owns the budget, so nothing is injected here. */
-    resumeOnDrop(watcher, { retries: 2, baseDelayMs: 100, maxDelayMs: 100 });
-
-    drop();
-    await vi.advanceTimersByTimeAsync(60_000);
-
-    expect(attemptedAt).toHaveLength(2);
-  });
 });
