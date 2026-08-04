@@ -24,6 +24,7 @@ import {
   toQueryRequest,
 } from "./plan.ts";
 import {
+  attachWatchListeners,
   prepareReconnect,
   resumeOnDrop,
   WATCHERS,
@@ -148,32 +149,16 @@ export class Velo {
       "watch options must be an object",
     );
 
-    const { on, reconnect, ...watchOptions } = options;
-    const retry = prepareReconnect(reconnect);
+    const retry = prepareReconnect(options.reconnect);
     const request = toRequest(input);
-    /* Indexing the registry with a generic kind loses the tie between a
-     * definition and its own options type; removing `on` leaves exactly the
-     * options that kind's factory accepts.
+    const definition = WATCHERS[request.kind];
+
+    /* Options are a superset of what the factory takes, so they pass through
+     * without narrowing: the extra keys belong to the watch layer.
      */
-    const definition = WATCHERS[request.kind] as {
-      create(transport: WebSocketTransport, options: WatchOptions<K>): Watcher<K>;
-      readonly events: Readonly<Record<string, true>>;
-    };
-    const watcher = definition.create(this.#webSocket, watchOptions as WatchOptions<K>);
+    const watcher = definition.create(this.#webSocket, options);
 
-    if (typeof on === "function") {
-      /* One listener for everything: re-tag each event so the callback can
-       * discriminate on `type`.
-       */
-      for (const type of Object.keys(definition.events)) {
-        watcher.on(type as never, ((event: unknown) => on({ type, event } as never)) as never);
-      }
-    } else if (on) {
-      for (const [type, listener] of Object.entries(on)) {
-        watcher.on(type as never, listener as never);
-      }
-    }
-
+    if (options.on) attachWatchListeners(watcher, definition.events, options.on);
     if (retry) resumeOnDrop(watcher, retry);
 
     /* Not an async method: options are validated synchronously, so a bad

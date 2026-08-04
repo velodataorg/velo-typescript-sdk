@@ -35,23 +35,48 @@ export type Watcher<K extends WatchableKind> = WatchDefinitions[K]["watcher"];
 
 type WatchEvents<K extends WatchableKind> = WatchDefinitions[K]["events"];
 
+/** The lifecycle states a subscription moves through. */
+export type WatchState = "idle" | "connecting" | "open" | "disconnected" | "closed";
+
+/**
+ * The surface every watcher exposes, over its own event map.
+ *
+ * Stated structurally so the generic machinery — attaching listeners,
+ * resuming a drop — can work on any watcher without knowing its kind, and
+ * without casting its way past the type system.
+ */
+export interface WatcherOf<E> {
+  readonly state: WatchState;
+  on<T extends keyof E>(type: T, listener: (event: E[T]) => void): this;
+  off<T extends keyof E>(type: T, listener: (event: E[T]) => void): this;
+  connect(): Promise<void>;
+  disconnect(): void;
+  close(): void;
+}
+
 /**
  * One event delivered by a subscription, tagged with its type.
  *
  * A discriminated union, so a single listener can switch over `type` and get
  * the matching payload narrowed on each branch.
  */
-export type WatchEvent<K extends WatchableKind> = {
-  [E in keyof WatchEvents<K>]: {
-    readonly type: E;
-    readonly event: WatchEvents<K>[E];
+export type TaggedEvent<E> = {
+  [T in keyof E]: {
+    readonly type: T;
+    readonly event: E[T];
   };
-}[keyof WatchEvents<K>];
+}[keyof E];
+
+/** Listeners for individual event types of one event map. */
+export type EventListeners<E> = {
+  readonly [T in keyof E]?: (event: E[T]) => void;
+};
+
+/** One event delivered by a watchable kind, tagged with its type. */
+export type WatchEvent<K extends WatchableKind> = TaggedEvent<WatchEvents<K>>;
 
 /** Listeners for individual event types, keyed by type. */
-export type WatchEventListeners<K extends WatchableKind> = {
-  readonly [E in keyof WatchEvents<K>]?: (event: WatchEvents<K>[E]) => void;
-};
+export type WatchEventListeners<K extends WatchableKind> = EventListeners<WatchEvents<K>>;
 
 /** A single listener receiving every event the subscription delivers. */
 export type WatchEventListener<K extends WatchableKind> = (event: WatchEvent<K>) => void;
@@ -114,15 +139,36 @@ export function prepareReconnect(
 }
 
 /**
- * The lifecycle surface every watcher exposes.
+ * Attaches the listeners supplied to {@link Velo.watch} before it connects.
  *
- * Resuming needs nothing kind-specific: `state` distinguishes an unexpected
- * drop from an intentional one, and `close` reports every ending.
+ * Generic over the event map rather than the kind, so a watcher's own `on`
+ * signature checks each listener against the payload it will receive.
  */
-interface Resumable {
-  readonly state: string;
-  connect(): Promise<void>;
-  on(type: "close", listener: () => void): unknown;
+export function attachWatchListeners<E>(
+  watcher: WatcherOf<E>,
+  events: { readonly [T in keyof E]: true },
+  on: EventListeners<E> | ((event: TaggedEvent<E>) => void),
+): void {
+  if (typeof on === "function") {
+    /* Object.keys widens to string[]; the record's keys are exactly keyof E. */
+    for (const type of Object.keys(events) as (keyof E)[]) {
+      watcher.on(type, (event) => {
+        /* Rebuilding the tagged pair loses the correlation between `type` and
+         * `event` that the union preserves; they come from the same emit.
+         */
+        on({ type, event } as TaggedEvent<E>);
+      });
+    }
+    return;
+  }
+
+  for (const type of Object.keys(on) as (keyof E)[]) {
+    const listener = on[type];
+    /* Each listener takes its own event; the loop only knows the union, and
+     * a listener is only ever invoked with the type it was registered under.
+     */
+    if (listener) watcher.on(type, listener as (event: E[keyof E]) => void);
+  }
 }
 
 /**
@@ -133,7 +179,10 @@ interface Resumable {
  * `closed`, so neither resumes. Each failed attempt emits `close` again,
  * which drives the next backoff step.
  */
-export function resumeOnDrop(watcher: Resumable, retry: RetryOptions): void {
+export function resumeOnDrop<E extends { close: unknown }>(
+  watcher: WatcherOf<E>,
+  retry: RetryOptions,
+): void {
   let attempt = 0;
 
   const schedule = (): void => {
@@ -153,8 +202,11 @@ export function resumeOnDrop(watcher: Resumable, retry: RetryOptions): void {
       backoffMs(attempt++, retry),
     );
 
-    /* A pending reconnect must not hold a Node process open on its own. */
-    (timer as unknown as { unref?: () => void }).unref?.();
+    /* A pending reconnect must not hold a Node process open on its own.
+     * Called optionally because browsers return a plain number from
+     * setTimeout, where the method does not exist.
+     */
+    timer.unref?.();
   };
 
   watcher.on("close", () => {
@@ -162,16 +214,20 @@ export function resumeOnDrop(watcher: Resumable, retry: RetryOptions): void {
   });
 }
 
-/** A transport-independent request for one Velo subscription endpoint. */
+/**
+ * A transport-independent request for one Velo subscription endpoint.
+ *
+ * Deliberately not a distributive conditional: distributing would resolve
+ * `kind` through its constraint and lose the type parameter, so the registry
+ * lookup in {@link Velo.watch} would no longer know which watcher it built.
+ */
 export type WatchRequest<
   K extends WatchableKind = WatchableKind,
   P extends WatchParams<K> = WatchParams<K>,
-> = K extends WatchableKind
-  ? {
-      readonly kind: K;
-      readonly params: P;
-    }
-  : never;
+> = {
+  readonly kind: K;
+  readonly params: P;
+};
 
 /** An immutable builder that produces one subscription request. */
 export interface WatchBuilder<
@@ -188,7 +244,17 @@ export type WatchInput<
 > = WatchRequest<K, P> | WatchBuilder<K, P>;
 
 interface WatcherDefinition<K extends WatchableKind> {
-  create(transport: WebSocketTransport, options: WatchDefinitions[K]["options"]): Watcher<K>;
+  /**
+   * Builds this kind's watcher.
+   *
+   * The `WatcherOf` half of the return type is what lets the client attach
+   * listeners and resume drops generically: without it, `Watcher<K>` is an
+   * opaque indexed access and every call would need a cast.
+   */
+  create(
+    transport: WebSocketTransport,
+    options: WatchDefinitions[K]["options"],
+  ): Watcher<K> & WatcherOf<WatchEvents<K>>;
 
   /**
    * Every event type this kind delivers.
