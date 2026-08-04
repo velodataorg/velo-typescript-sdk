@@ -102,8 +102,14 @@ interface PreparedNewsWatchOptions {
 /**
  * A disconnected controller for the live News WebSocket.
  *
- * Reconnection is always explicit: without a server cursor, automatically
- * reconnecting could conceal stories, edits, or deletions missed while offline.
+ * The controller itself never reconnects on its own — it reports an
+ * unexpected loss by entering `disconnected` and emitting `close`, and
+ * `connect()` reopens it. Resuming automatically is the watch layer's job,
+ * so every subscription kind gets it from one place.
+ *
+ * Nothing published while disconnected is replayed: `begin` filters news on
+ * publication time, so a reconnect recovers new stories only, never edits or
+ * deletions applied to older ones.
  */
 export class NewsWatcherController implements NewsWatcher {
   readonly #connectTimeout: number;

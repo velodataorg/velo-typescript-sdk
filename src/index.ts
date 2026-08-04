@@ -24,6 +24,7 @@ export type {
   QueryResult,
   StreamableKind,
 } from "./client/plan.ts";
+export { DEFAULT_WATCH_RECONNECT } from "./client/watch.ts";
 export type {
   WatchableKind,
   WatchBuilder,

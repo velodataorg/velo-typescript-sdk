@@ -356,7 +356,7 @@ describe("News feed subscription", () => {
 
   it("reports a post-open decode failure as error then close", async () => {
     const { client, sockets } = harness();
-    const { watcher, socket } = await openFeed(client, sockets);
+    const { watcher, socket } = await openFeed(client, sockets, { reconnect: false });
     const order: string[] = [];
     let surfaced: VeloError | undefined;
     watcher
@@ -476,9 +476,9 @@ describe("News feed subscription", () => {
     expect(surfaced).not.toContain(target.headers.authorization);
   });
 
-  it("settles an error/close race once and does not reconnect automatically", async () => {
+  it("settles an error/close race once and stays down when reconnection is off", async () => {
     const { client, sockets } = harness();
-    const { watcher, socket } = await openFeed(client, sockets);
+    const { watcher, socket } = await openFeed(client, sockets, { reconnect: false });
     const order: string[] = [];
     watcher.on("error", () => order.push("error")).on("close", () => order.push("close"));
 
@@ -799,7 +799,7 @@ describe("News watcher lifecycle", () => {
   it("uses a five-minute default and fails after the heartbeat deadline", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
-    const { watcher, socket } = await openFeed(client, sockets);
+    const { watcher, socket } = await openFeed(client, sockets, { reconnect: false });
     const events: string[] = [];
     watcher
       .on("error", (error) => events.push(error.message))
@@ -1019,5 +1019,90 @@ describe("Velo.watch", () => {
     socket.message(JSON.stringify({ id: STORY.id, deleted: true }));
 
     expect(seen).toEqual([`story:${STORY.headline}`, "edit", `delete:${STORY.id}`]);
+  });
+});
+
+describe("News feed reconnection", () => {
+  it("reconnects on its own after an unexpected drop", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const stories = vi.fn();
+    const { watcher, socket } = await openFeed(client, sockets, { on: { story: stories } });
+
+    /* An unexpected drop is infrastructure's problem, not the consumer's:
+     * nothing in the app has to call connect() for the feed to resume.
+     */
+    socket.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(sockets).toHaveLength(2);
+    const resumed = sockets[1] as FakeSocket;
+    resumed.open();
+    await flushConnection();
+
+    expect(watcher.state).toBe("open");
+    expect(resumed.sent).toEqual(["subscribe news_priority"]);
+
+    resumed.message(story(2));
+    expect(stories).toHaveBeenCalledWith({ ...STORY, id: 2 });
+    watcher.close();
+  });
+
+  it("stays down after a drop when reconnection is disabled", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, { reconnect: false });
+
+    socket.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(sockets).toHaveLength(1);
+    expect(watcher.state).toBe("disconnected");
+  });
+
+  it("backs off between attempts and resumes when the socket comes back", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, {
+      reconnect: { baseDelayMs: 1_000, maxDelayMs: 8_000 },
+    });
+
+    socket.remoteClose(1006, "gone");
+
+    /* Backoff is jittered to half the nominal delay at minimum, so nothing
+     * reconnects before that floor.
+     */
+    await vi.advanceTimersByTimeAsync(400);
+    expect(sockets).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(sockets).toHaveLength(2);
+
+    /* A failed attempt schedules the next one rather than giving up. */
+    (sockets[1] as FakeSocket).remoteClose(1006, "still gone");
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(sockets.length).toBeGreaterThanOrEqual(3);
+
+    const live = sockets[sockets.length - 1] as FakeSocket;
+    live.open();
+    await flushConnection();
+
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("does not reconnect after an intentional close or disconnect", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const first = await openFeed(client, sockets);
+
+    first.watcher.disconnect();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(1);
+
+    const second = await openFeed(client, sockets);
+    second.watcher.close();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(2);
   });
 });

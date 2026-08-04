@@ -1,4 +1,7 @@
+import { backoffMs, DEFAULT_RETRY, validateRetryOptions } from "../transport/retry.ts";
+import type { RetryOptions } from "../transport/retry.ts";
 import type { WebSocketTransport } from "../transport/websocket.ts";
+import { assert } from "../util/assert.ts";
 import type { NewsFeedParams } from "./api/news/params.ts";
 import { NewsWatcherController } from "./api/news/watcher.ts";
 import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "./api/news/watcher.ts";
@@ -67,7 +70,97 @@ export type WatchListeners<K extends WatchableKind> =
 /** Subscription options, plus the listeners to attach before connecting. */
 export type WatchOptions<K extends WatchableKind> = WatchDefinitions[K]["options"] & {
   readonly on?: WatchListeners<K>;
+
+  /**
+   * Reconnects automatically after an unexpected drop.
+   *
+   * On by default: losing a socket is an infrastructure failure, not an
+   * application event, so the subscription resumes itself with jittered
+   * backoff and listeners keep firing. Pass `false` to opt out, or partial
+   * {@link RetryOptions} to tune the backoff.
+   *
+   * Intentional endings — `disconnect()`, `close()`, an aborted signal —
+   * never reconnect. Events published while disconnected are not replayed.
+   */
+  readonly reconnect?: boolean | Partial<RetryOptions>;
 };
+
+/**
+ * Reconnection defaults for a live subscription.
+ *
+ * A dropped feed keeps retrying rather than giving up after a handful of
+ * attempts the way a single HTTP request does — there is no caller waiting on
+ * it to fail, and a feed that stops silently is worse than a slow one.
+ */
+export const DEFAULT_WATCH_RECONNECT: RetryOptions = {
+  retries: Number.MAX_SAFE_INTEGER,
+  baseDelayMs: DEFAULT_RETRY.baseDelayMs,
+  maxDelayMs: 30_000,
+};
+
+/** Resolves the reconnect option to backoff parameters, or off. */
+export function prepareReconnect(
+  reconnect: boolean | Partial<RetryOptions> | undefined,
+): RetryOptions | undefined {
+  if (reconnect === false) return undefined;
+  if (reconnect === undefined || reconnect === true) return DEFAULT_WATCH_RECONNECT;
+  assert(
+    reconnect !== null && typeof reconnect === "object" && !Array.isArray(reconnect),
+    "reconnect must be a boolean or an object",
+  );
+  const merged = { ...DEFAULT_WATCH_RECONNECT, ...reconnect };
+  validateRetryOptions(merged);
+  return merged;
+}
+
+/**
+ * The lifecycle surface every watcher exposes.
+ *
+ * Resuming needs nothing kind-specific: `state` distinguishes an unexpected
+ * drop from an intentional one, and `close` reports every ending.
+ */
+interface Resumable {
+  readonly state: string;
+  connect(): Promise<void>;
+  on(type: "close", listener: () => void): unknown;
+}
+
+/**
+ * Reopens a subscription after an unexpected drop, with jittered backoff.
+ *
+ * A watcher lands in `disconnected` only when it lost a connection it did not
+ * mean to lose; `disconnect()` leaves it `idle` and `close()` leaves it
+ * `closed`, so neither resumes. Each failed attempt emits `close` again,
+ * which drives the next backoff step.
+ */
+export function resumeOnDrop(watcher: Resumable, retry: RetryOptions): void {
+  let attempt = 0;
+
+  const schedule = (): void => {
+    if (attempt >= retry.retries) return;
+    const timer = setTimeout(
+      () => {
+        if (watcher.state !== "disconnected") return;
+        void watcher.connect().then(
+          () => {
+            attempt = 0;
+          },
+          () => {
+            /* The close event this failure emits schedules the next attempt. */
+          },
+        );
+      },
+      backoffMs(attempt++, retry),
+    );
+
+    /* A pending reconnect must not hold a Node process open on its own. */
+    (timer as unknown as { unref?: () => void }).unref?.();
+  };
+
+  watcher.on("close", () => {
+    if (watcher.state === "disconnected") schedule();
+  });
+}
 
 /** A transport-independent request for one Velo subscription endpoint. */
 export type WatchRequest<

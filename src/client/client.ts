@@ -24,6 +24,8 @@ import {
   toQueryRequest,
 } from "./plan.ts";
 import {
+  prepareReconnect,
+  resumeOnDrop,
   WATCHERS,
   type WatchableKind,
   type Watcher,
@@ -146,7 +148,8 @@ export class Velo {
       "watch options must be an object",
     );
 
-    const { on, ...watchOptions } = options;
+    const { on, reconnect, ...watchOptions } = options;
+    const retry = prepareReconnect(reconnect);
     const request = toRequest(input);
     /* Indexing the registry with a generic kind loses the tie between a
      * definition and its own options type; removing `on` leaves exactly the
@@ -170,6 +173,8 @@ export class Velo {
         watcher.on(type as never, listener as never);
       }
     }
+
+    if (retry) resumeOnDrop(watcher, retry);
 
     /* Not an async method: options are validated synchronously, so a bad
      * call throws where it is written rather than on await.
