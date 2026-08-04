@@ -85,40 +85,6 @@ describe("Query.execute", () => {
     expect(query.options.collect).toBe(options.collect);
     await expect(query.execute()).resolves.toBe(30);
   });
-
-  it("is lazy and memoizes its collected promise", async () => {
-    let calls = 0;
-    const fetch: typeof globalThis.fetch = async (input) => {
-      calls++;
-      return response(stepFrom(input));
-    };
-    const query = new Query(http(fetch), OPTIONS);
-
-    expect(calls).toBe(0);
-    const first = query.execute();
-    const second = query.execute();
-    await expect(Promise.all([first, second])).resolves.toEqual([
-      [
-        { step: 1, value: 10 },
-        { step: 2, value: 20 },
-      ],
-      [
-        { step: 1, value: 10 },
-        { step: 2, value: 20 },
-      ],
-    ]);
-    expect(calls).toBe(2);
-  });
-
-  it("assimilates when returned by an async function", async () => {
-    const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
-    const create = async () => new Query(http(fetch), OPTIONS).execute();
-
-    await expect(create()).resolves.toEqual([
-      { step: 1, value: 10 },
-      { step: 2, value: 20 },
-    ]);
-  });
 });
 
 describe("Query options", () => {

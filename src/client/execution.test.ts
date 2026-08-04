@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { VeloError } from "../errors.ts";
 import { futures, Velo } from "../index.ts";
 import { MAX_IN_FLIGHT_REQUESTS } from "./query/query.ts";
+import { MAX_CELLS_PER_REQUEST } from "./rows/chunk.ts";
 
 /**
  * How the client executes a request, observed where a caller observes it.
@@ -14,10 +15,13 @@ import { MAX_IN_FLIGHT_REQUESTS } from "./query/query.ts";
 
 const MINUTE = 60_000;
 
-/* Wide enough that the planner splits the window into two requests. */
-const TWO_REQUESTS = 22_501;
-/* Wide enough to exceed the in-flight cap. */
-const FIVE_REQUESTS = 90_000;
+/* One column of one product fills a request at the cell cap, so a window of
+ * n caps plus a minute spans n + 1 requests. Derived rather than written out,
+ * so a change to the cap cannot quietly collapse these into one request.
+ */
+const requestsFor = (count: number): number => MAX_CELLS_PER_REQUEST * (count - 1) + 1;
+const TWO_REQUESTS = requestsFor(2);
+const FIVE_REQUESTS = requestsFor(5);
 
 function rangeOf(minutes: number) {
   const end = Date.now();
@@ -131,11 +135,14 @@ describe("velo.stream", () => {
     const pending = rows.next();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
+    /* The premise: more chunks than the cap allows in flight at once. */
     expect(peak).toBe(MAX_IN_FLIGHT_REQUESTS);
 
     for (const resolve of release) resolve();
     await pending;
     await rows.return(undefined);
+
+    expect(release.length).toBeGreaterThan(MAX_IN_FLIGHT_REQUESTS);
   });
 
   it("aborts the in-flight prefetch when iteration ends early", async () => {

@@ -63,7 +63,6 @@ export class Query<T, D = T[]> {
   readonly #http: Http;
   readonly #options: QueryOptions<T, D>;
   readonly #requestOptions: HttpRequestOptions;
-  #result: Promise<D> | undefined;
 
   /**
    * @param http - The transport used to send the query's requests.
@@ -92,12 +91,9 @@ export class Query<T, D = T[]> {
   /**
    * Executes the query, collecting every decoded row.
    *
-   * The collected promise is memoized, so executing one query more than once
-   * returns the same result without repeating its requests.
    */
   execute(): Promise<D> {
-    this.#result ??= this.#collect();
-    return this.#result;
+    return this.#collect();
   }
 
   /** Executes every request and collects its decoded rows. */
