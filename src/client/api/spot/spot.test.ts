@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+
+import { VeloError } from "../../../errors.ts";
+import { Velo } from "../../client.ts";
+
+function client(body: string, urls: string[] = []) {
+  const fetch: typeof globalThis.fetch = async (input) => {
+    urls.push(String(input));
+    return new Response(body);
+  };
+  return { velo: new Velo({ apiKey: "test_key", fetch }), urls };
+}
+
+describe("Velo.spot", () => {
+  const params = {
+    exchanges: ["coinbase", "binance"],
+    coins: ["BTC"],
+    columns: ["close_price", "coin_volume"],
+    begin: Date.UTC(2026, 0, 1),
+    end: Date.UTC(2026, 0, 1, 1),
+    resolution: "1m",
+  } as const;
+
+  it("uses the spot market and returns spot-typed rows", async () => {
+    const body =
+      "exchange,coin,product,time,close_price,coin_volume\n" +
+      "coinbase,BTC,BTC-USD,1767225600000,100000,12.5\n";
+    const { velo, urls } = client(body);
+    expect(velo.spot).toBe(velo.spot);
+    expect(velo.spot).not.toHaveProperty("query");
+
+    const rows = (await velo.query({ kind: "spot.rows", params })).rows();
+    expect(new URL(urls[0] as string).searchParams.get("type")).toBe("spot");
+
+    const exchange: "binance" | "coinbase" = rows[0]!.exchange;
+    const volume: number | null = rows[0]!.coin_volume;
+    expect(exchange).toBe("coinbase");
+    expect(volume).toBe(12.5);
+  });
+
+  it("rejects futures columns and exchanges at runtime", () => {
+    const { velo } = client("");
+    expect(() =>
+      velo.query({
+        kind: "spot.rows",
+        params: { ...params, columns: ["funding_rate"] },
+      } as never),
+    ).toThrow(VeloError);
+    expect(() =>
+      velo.query({
+        kind: "spot.rows",
+        params: { ...params, exchanges: ["binance-futures"] },
+      } as never),
+    ).toThrow(VeloError);
+  });
+
+  it("rejects response rows from an unrequested supported exchange", async () => {
+    const body =
+      "exchange,coin,product,time,close_price,coin_volume\n" +
+      "okex,BTC,BTC-USDT,1767225600000,100000,12.5\n";
+    const { velo } = client(body);
+
+    await expect(velo.query({ kind: "spot.rows", params })).rejects.toThrow(VeloError);
+  });
+});
