@@ -110,7 +110,11 @@ export function retryAfterMs(response: Response): number | undefined {
  * when it asks for a longer wait than the backoff, capped at MAX_TIMER_MS
  * because a longer setTimeout would fire almost immediately.
  */
-export function backoffMs(attempt: number, retry: RetryOptions, retryAfter?: number): number {
+export function backoffMs(
+  attempt: number,
+  retry: Pick<RetryOptions, "baseDelayMs" | "maxDelayMs">,
+  retryAfter?: number,
+): number {
   const exponential = Math.min(retry.maxDelayMs, retry.baseDelayMs * 2 ** attempt);
   const jittered = exponential * (0.5 + Math.random() * 0.5);
   const delay = retryAfter !== undefined ? Math.max(retryAfter, jittered) : jittered;

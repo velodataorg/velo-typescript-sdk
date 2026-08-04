@@ -6,20 +6,6 @@ export interface NewsStoriesParams {
   readonly begin?: number;
 }
 
-/** Parameters for subscribing to the live news feed. */
-export interface NewsFeedParams {}
-
-export const NewsFeedParams = Object.freeze({
-  /** Validates and snapshots live-news parameters. */
-  parse(params: NewsFeedParams): NewsFeedParams {
-    assert(
-      params !== null && typeof params === "object" && !Array.isArray(params),
-      "news feed params must be an object",
-    );
-    return {};
-  },
-});
-
 export const NewsStoriesParams = Object.freeze({
   /** Validates and snapshots historical-news parameters. */
   parse(params: NewsStoriesParams): NewsStoriesParams {

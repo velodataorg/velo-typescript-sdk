@@ -1,7 +1,7 @@
 import { NewsWatcherController } from "../client/api/news/watcher.ts";
 import type { NewsWatcher, NewsWatchOptions } from "../client/api/news/watcher.ts";
 import { Velo } from "../client/client.ts";
-import type { WatchOptions } from "../client/watch.ts";
+import type { WatchOptions } from "../client/watch/registry.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
 import type {
   WebSocketConnection,

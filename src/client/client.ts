@@ -24,16 +24,15 @@ import {
   toQueryRequest,
 } from "./plan.ts";
 import {
-  attachWatchListeners,
-  prepareReconnect,
-  resumeOnDrop,
   WATCHERS,
   type WatchableKind,
   type Watcher,
   type WatchInput,
   type WatchOptions,
   type WatchParams,
-} from "./watch.ts";
+} from "./watch/registry.ts";
+import { prepareReconnect, resumeOnDrop } from "./watch/resume.ts";
+import { attachWatchListeners } from "./watch/watcher.ts";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */

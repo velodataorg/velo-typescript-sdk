@@ -24,7 +24,9 @@ export type {
   QueryResult,
   StreamableKind,
 } from "./client/plan.ts";
-export { DEFAULT_WATCH_RECONNECT } from "./client/watch.ts";
+export { DEFAULT_WATCH_RECONNECT } from "./client/watch/resume.ts";
+export type { ResumeOptions } from "./client/watch/resume.ts";
+export type { EventListeners, TaggedEvent, WatcherOf, WatchState } from "./client/watch/watcher.ts";
 export type {
   WatchableKind,
   WatchBuilder,
@@ -37,7 +39,7 @@ export type {
   WatchOptions,
   WatchParams,
   WatchRequest,
-} from "./client/watch.ts";
+} from "./client/watch/registry.ts";
 export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
 export type { FuturesBuilder } from "./client/api/futures/builder.ts";
 export type {
@@ -71,7 +73,7 @@ export type {
 export { BASIS_COINS } from "./client/api/futures/params.ts";
 export type { News } from "./client/api/news/news.ts";
 export type { NewsFeedBuilder, NewsStoriesBuilder } from "./client/api/news/builder.ts";
-export type { NewsFeedParams, NewsStoriesParams } from "./client/api/news/params.ts";
+export type { NewsStoriesParams } from "./client/api/news/params.ts";
 export type { NewsStory } from "./client/api/news/validation.ts";
 export type {
   NewsClose,

@@ -7,8 +7,8 @@ import {
   openFeed,
   story,
   STORY,
-} from "../test-support/news-socket.ts";
-import type { NewsStory } from "./api/news/validation.ts";
+} from "../../test-support/news-socket.ts";
+import type { NewsStory } from "../api/news/validation.ts";
 
 afterEach(() => {
   vi.useRealTimers();

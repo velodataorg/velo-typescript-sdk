@@ -6,6 +6,7 @@ import type { WebSocketSessionHandlers } from "../../../transport/session.ts";
 import type { WebSocketTransport } from "../../../transport/websocket.ts";
 import { assert } from "../../../util/assert.ts";
 import { SafeEmitter } from "../../../util/emitter.ts";
+import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
 import { decodeNewsMessage, frameText } from "./decode.ts";
 import type { DecodedNewsMessage } from "./decode.ts";
 import type { NewsStory } from "./validation.ts";
@@ -35,7 +36,7 @@ export interface NewsWatchOptions {
   readonly onListenerError?: (error: unknown) => unknown;
 }
 
-export type NewsWatcherState = "idle" | "connecting" | "open" | "disconnected" | "closed";
+export type NewsWatcherState = WatchState;
 
 export interface NewsDelete {
   readonly id: number;
@@ -59,38 +60,13 @@ export type NewsWatcherListener<K extends keyof NewsWatcherEvents> = (
   event: NewsWatcherEvents[K],
 ) => void;
 
-export interface NewsWatcher {
-  readonly state: NewsWatcherState;
-
-  /**
-   * Adds a listener for one decoded News or watcher-lifecycle event.
-   *
-   * Adding the same listener more than once has no additional effect.
-   */
-  on<K extends keyof NewsWatcherEvents>(type: K, listener: NewsWatcherListener<K>): this;
-
-  /* Removes a previously registered listener. */
-  off<K extends keyof NewsWatcherEvents>(type: K, listener: NewsWatcherListener<K>): this;
-
-  /**
-   * Opens a socket and subscribes to live News.
-   *
-   * Concurrent calls share one connection attempt. An attempt that has not
-   * subscribed within `connectTimeout` milliseconds fails. After an
-   * unexpected connection loss, call `connect()` again to reconnect this
-   * watcher.
-   */
-  connect(): Promise<void>;
-
-  /**
-   * Intentionally closes the current connection while keeping this watcher
-   * and its listeners reusable.
-   */
-  disconnect(): void;
-
-  /* Permanently closes this watcher. Safe to call more than once. */
-  close(): void;
-}
+/**
+ * A live News subscription.
+ *
+ * The shared watcher contract over the News event map — the lifecycle is
+ * identical for every kind, so it is declared once rather than restated here.
+ */
+export type NewsWatcher = WatcherOf<NewsWatcherEvents>;
 
 interface PreparedNewsWatchOptions {
   readonly signal: AbortSignal | undefined;
