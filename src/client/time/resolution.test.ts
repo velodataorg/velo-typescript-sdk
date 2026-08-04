@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.ts";
-import type { Equals, Expect } from "../../../util/types.ts";
+import { VeloError } from "../../errors.ts";
+import type { Equals, Expect } from "../../util/types.ts";
 import type { MinuteResolution, Resolution } from "./resolution.ts";
 import {
   MinuteResolutionSchema,

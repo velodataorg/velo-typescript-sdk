@@ -2,10 +2,10 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { Data } from "../../common/data/data.ts";
-import { OPTIONS_COLUMNS } from "../../common/market/columns.ts";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { Data } from "../../data/data.ts";
+import { OPTIONS_COLUMNS } from "../../market/columns.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { LastDuration } from "./builder.ts";
 import type { OptionsParams, OptionsRow } from "./params.ts";
 import type { OptionsIvColumn } from "./selectors.ts";

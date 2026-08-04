@@ -1,10 +1,10 @@
-import { ROWS_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
-import type { HttpParams } from "../../../transport/http.ts";
+import { ROWS_PATH } from "../../constants/endpoints.ts";
+import { VeloError } from "../../errors.ts";
+import type { HttpParams } from "../../transport/http.ts";
 import { Data, type DataResult } from "../data/data.ts";
 import { Row } from "../data/row.ts";
 import { decode, decodeLines } from "../decode/csv.ts";
-import type { QueryPlan } from "../query.ts";
+import type { QueryPlan } from "../query/query.ts";
 import { alignRange, clampEnd, type TimeRange } from "../time/range.ts";
 import type { Resolution } from "../time/resolution.ts";
 import { toResolutionValue } from "../time/resolution.ts";

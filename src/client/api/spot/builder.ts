@@ -7,12 +7,12 @@ import {
   snapshotBuilderWindow,
   type TargetScope,
   type WindowScope,
-} from "../../common/builder/scope.ts";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { SpotColumn } from "../../common/market/columns.ts";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+} from "../../builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import type { SpotColumn } from "../../market/columns.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import { SpotParams, type SpotParams as SpotParamsType } from "./params.ts";
 import {
   SPOT_SELECTOR_COLUMNS,
@@ -25,7 +25,7 @@ import {
   type SpotVolumePart,
 } from "./selectors.ts";
 
-export type { LastDuration } from "../../common/builder/time.ts";
+export type { LastDuration } from "../../builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -33,7 +33,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.ts";
+} from "../../builder/scope.ts";
 /** Instruments and optional exchanges configured by a spot builder's `for()` step. */
 export type SpotMarketScope = MarketScope<SpotExchange>;
 export type {

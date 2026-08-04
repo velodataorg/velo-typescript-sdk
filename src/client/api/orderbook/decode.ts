@@ -1,5 +1,5 @@
-import { parseFiniteNumber } from "../../common/decode/csv.ts";
-import { MAX_TIMESTAMP_MS } from "../../common/validation.ts";
+import { parseFiniteNumber } from "../../decode/csv.ts";
+import { MAX_TIMESTAMP_MS } from "../../validation.ts";
 import type { OrderbookRow } from "./data.ts";
 
 /**

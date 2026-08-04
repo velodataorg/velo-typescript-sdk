@@ -1,6 +1,6 @@
 import { assert } from "../../../util/assert.ts";
-import { lowerTimedScope, type TimedScope } from "../../common/builder/scope.ts";
-import type { FuturesExchange } from "../../common/market/exchanges.ts";
+import { lowerTimedScope, type TimedScope } from "../../builder/scope.ts";
+import type { FuturesExchange } from "../../market/exchanges.ts";
 import type { OrderbookParams, OrderbookResolution } from "./params.ts";
 
 /** Selects the book a query targets: one exchange product or one Velo coin. */

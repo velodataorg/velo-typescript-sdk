@@ -12,8 +12,6 @@ import type { Orderbook } from "./api/orderbook/orderbook.ts";
 import type { Spot } from "./api/spot/spot.ts";
 import { Status } from "./api/status/status.ts";
 import { catalog, futures, marketCaps, news, options, orderbook, spot } from "./builders.ts";
-import { Query } from "./common/query.ts";
-import { toRequest } from "./common/request.ts";
 import {
   plan,
   type QueryInput,
@@ -23,7 +21,9 @@ import {
   type QueryResult,
   type StreamableKind,
   toQueryRequest,
-} from "./plan.ts";
+} from "./query/plan.ts";
+import { Query } from "./query/query.ts";
+import { toRequest } from "./query/request.ts";
 import {
   WATCHERS,
   type WatchableKind,

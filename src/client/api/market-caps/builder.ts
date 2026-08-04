@@ -1,4 +1,4 @@
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryRequest } from "../../query/plan.ts";
 import { MarketCapsParams } from "./params.ts";
 
 /** An immutable market-cap history request builder. */

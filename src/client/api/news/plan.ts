@@ -3,7 +3,7 @@ import { z } from "zod";
 import { NEWS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import type { HttpParams } from "../../../transport/http.ts";
-import type { QueryPlan } from "../../common/query.ts";
+import type { QueryPlan } from "../../query/query.ts";
 import { NewsStoriesParams } from "./params.ts";
 import { newsResponseSchema, type NewsStory } from "./validation.ts";
 

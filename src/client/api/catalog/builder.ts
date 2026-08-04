@@ -1,4 +1,4 @@
-import type { QueryBuilder, QueryParams, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryParams, QueryRequest } from "../../query/plan.ts";
 import { type FuturesCatalogParams, prepareFuturesCatalogParams } from "./futures.ts";
 import { type OptionsCatalogParams, prepareOptionsCatalogParams } from "./options.ts";
 import { prepareSpotCatalogParams, type SpotCatalogParams } from "./spot.ts";

@@ -3,10 +3,10 @@ import {
   lowerBuilderWindow,
   snapshotBuilderWindow,
   type WindowScope,
-} from "../../common/builder/scope.ts";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
-import { BASIS_COLUMN } from "../../common/market/columns.ts";
-import type { QueryRequest } from "../../plan.ts";
+} from "../../builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
+import { BASIS_COLUMN } from "../../market/columns.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import {
   BASIS_COINS,
   type BasisCoin,

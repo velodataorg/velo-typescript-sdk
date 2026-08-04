@@ -6,12 +6,12 @@ import {
   snapshotBuilderMarket,
   snapshotBuilderWindow,
   type WindowScope,
-} from "../../common/builder/scope.ts";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { OptionsColumn } from "../../common/market/columns.ts";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+} from "../../builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import type { OptionsColumn } from "../../market/columns.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import { OptionsParams, type OptionsParams as OptionsParamsType } from "./params.ts";
 import {
   OPTIONS_SELECTOR_COLUMNS,
@@ -38,7 +38,7 @@ import {
   type OptionsVolumePart,
 } from "./selectors.ts";
 
-export type { LastDuration } from "../../common/builder/time.ts";
+export type { LastDuration } from "../../builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -46,7 +46,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.ts";
+} from "../../builder/scope.ts";
 /** Instruments and optional exchanges configured by an options builder's `for()` step. */
 export type OptionsMarketScope = MarketScope<OptionsExchange>;
 export type {

@@ -24,7 +24,7 @@ export type {
   QueryRequest,
   QueryResult,
   StreamableKind,
-} from "./client/plan.ts";
+} from "./client/query/plan.ts";
 export { DEFAULT_WATCH_RECONNECT } from "./client/watch/resume.ts";
 export type { ResumeOptions } from "./client/watch/resume.ts";
 export type { EventListeners, TaggedEvent, WatcherOf, WatchState } from "./client/watch/watcher.ts";
@@ -156,34 +156,30 @@ export type {
   FuturesStandardColumn,
   OptionsColumn,
   SpotColumn,
-} from "./client/common/market/columns.ts";
+} from "./client/market/columns.ts";
 export {
   BASIS_COLUMN,
   FUTURES_COLUMNS,
   OPTIONS_COLUMNS,
   SPOT_COLUMNS,
-} from "./client/common/market/columns.ts";
-export { Data } from "./client/common/data/data.ts";
-export type { CandleData, DataResult, SeriesColumns } from "./client/common/data/data.ts";
+} from "./client/market/columns.ts";
+export { Data } from "./client/data/data.ts";
+export type { CandleData, DataResult, SeriesColumns } from "./client/data/data.ts";
 export type {
   Exchange,
   FuturesExchange,
   OptionsExchange,
   SpotExchange,
-} from "./client/common/market/exchanges.ts";
-export {
-  FUTURES_EXCHANGES,
-  OPTIONS_EXCHANGES,
-  SPOT_EXCHANGES,
-} from "./client/common/market/exchanges.ts";
-export type { MarketType } from "./client/common/rows/params.ts";
-export type { CanCandle, Candle, OhlcColumn } from "./client/common/data/candles.ts";
-export type { ProductKey } from "./client/common/data/product-key.ts";
-export { formatProductKey, parseProductKey } from "./client/common/data/product-key.ts";
-export type { Resolution, ResolutionValue } from "./client/common/time/resolution.ts";
-export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.ts";
-export type { Row, RowBase, RowColumns } from "./client/common/data/row.ts";
-export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.ts";
+} from "./client/market/exchanges.ts";
+export { FUTURES_EXCHANGES, OPTIONS_EXCHANGES, SPOT_EXCHANGES } from "./client/market/exchanges.ts";
+export type { MarketType } from "./client/rows/params.ts";
+export type { CanCandle, Candle, OhlcColumn } from "./client/data/candles.ts";
+export type { ProductKey } from "./client/data/product-key.ts";
+export { formatProductKey, parseProductKey } from "./client/data/product-key.ts";
+export type { Resolution, ResolutionValue } from "./client/time/resolution.ts";
+export { RESOLUTIONS, toResolutionValue } from "./client/time/resolution.ts";
+export type { Row, RowBase, RowColumns } from "./client/data/row.ts";
+export { MAX_REQUESTS_PER_QUERY } from "./client/query/query.ts";
 export {
   VeloAuthError,
   VeloBadRequestError,

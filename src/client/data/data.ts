@@ -1,4 +1,4 @@
-import { assert } from "../../../util/assert.ts";
+import { assert } from "../../util/assert.ts";
 import type { Candle, CanCandle } from "./candles.ts";
 import { toCandles } from "./candles.ts";
 import type { ProductKey } from "./product-key.ts";

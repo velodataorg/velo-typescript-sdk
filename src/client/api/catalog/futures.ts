@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvBoolean, csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import { csvBoolean, csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
 const futureProductSchema = z.strictObject({

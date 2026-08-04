@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
+import { csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
 const spotProductSchema = z.strictObject({

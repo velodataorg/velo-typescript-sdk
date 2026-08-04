@@ -1,4 +1,4 @@
-import { assert } from "../../../util/assert.ts";
+import { assert } from "../../util/assert.ts";
 
 /**
  * Identifies one product within a rows result: `"exchange:product"`.

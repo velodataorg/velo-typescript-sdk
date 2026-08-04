@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { OPTIONS_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
-import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import { csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
 const optionProductSchema = z.strictObject({

@@ -2,9 +2,9 @@ import { z } from "zod";
 
 import { TERMS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvNumberOrNull, csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
-import { invalidParamsError } from "../../common/validation.ts";
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import { csvNumberOrNull, csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import type { QueryBuilder, QueryRequest } from "../../query/plan.ts";
+import { invalidParamsError } from "../../validation.ts";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];

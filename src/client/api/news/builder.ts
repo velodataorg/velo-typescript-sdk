@@ -1,4 +1,4 @@
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryRequest } from "../../query/plan.ts";
 import type { WatchBuilder, WatchRequest } from "../../watch/registry.ts";
 import { NewsStoriesParams } from "./params.ts";
 

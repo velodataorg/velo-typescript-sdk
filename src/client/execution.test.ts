@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { VeloError } from "../errors.ts";
 import { futures, Velo } from "../index.ts";
-import { MAX_IN_FLIGHT_REQUESTS } from "./common/query.ts";
+import { MAX_IN_FLIGHT_REQUESTS } from "./query/query.ts";
 
 /**
  * How the client executes a request, observed where a caller observes it.

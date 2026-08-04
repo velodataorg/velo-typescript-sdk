@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import { FUTURES_COLUMNS } from "../../common/market/columns.ts";
-import type { FuturesStandardColumn } from "../../common/market/columns.ts";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import { FUTURES_COLUMNS } from "../../market/columns.ts";
+import type { FuturesStandardColumn } from "../../market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../market/exchanges.ts";
 import type { FuturesStandardParams } from "./params.ts";
 
 const ROWS_CSV =

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.ts";
+import { VeloError } from "../../errors.ts";
 import type { ProductKey } from "./product-key.ts";
 import { formatProductKey, parseProductKey } from "./product-key.ts";
 

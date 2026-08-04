@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { invalidParamsError } from "../../common/validation.ts";
+import { invalidParamsError } from "../../validation.ts";
 
 export interface MarketCapsParams {
   readonly coins: readonly string[];

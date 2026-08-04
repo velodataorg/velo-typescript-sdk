@@ -1,9 +1,9 @@
 import { ORDERBOOK_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import type { HttpParams } from "../../../transport/http.ts";
-import type { QueryPlan } from "../../common/query.ts";
-import { alignRange, clampEnd, type TimeRange } from "../../common/time/range.ts";
-import { toResolutionValue } from "../../common/time/resolution.ts";
+import type { QueryPlan } from "../../query/query.ts";
+import { alignRange, clampEnd, type TimeRange } from "../../time/range.ts";
+import { toResolutionValue } from "../../time/resolution.ts";
 import { chunkBuckets } from "./chunk.ts";
 import { OrderbookData, type OrderbookRow } from "./data.ts";
 import { decodeOrderbook, decodeOrderbookLines } from "./decode.ts";

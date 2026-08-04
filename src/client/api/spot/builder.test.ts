@@ -2,11 +2,11 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { OhlcColumn } from "../../common/data/candles.ts";
-import type { CandleData } from "../../common/data/data.ts";
-import { SPOT_COLUMNS } from "../../common/market/columns.ts";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { OhlcColumn } from "../../data/candles.ts";
+import type { CandleData } from "../../data/data.ts";
+import { SPOT_COLUMNS } from "../../market/columns.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { LastDuration } from "./builder.ts";
 import type { SpotParams, SpotRow } from "./params.ts";
 

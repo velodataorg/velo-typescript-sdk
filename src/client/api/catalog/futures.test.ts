@@ -2,8 +2,8 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { FuturesExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { FuturesExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { FutureProduct, FuturesCatalogParams } from "./futures.ts";
 
 const FUTURES_CSV =

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.ts";
-import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { VeloError } from "../../errors.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query/query.ts";
 import { alignRange, chunkByStep, clampEnd } from "./range.ts";
 
 describe("alignRange", () => {
