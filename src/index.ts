@@ -24,6 +24,19 @@ export type {
   QueryResult,
   StreamableKind,
 } from "./client/plan.ts";
+export type {
+  WatchableKind,
+  WatchBuilder,
+  Watcher,
+  WatchEvent,
+  WatchEventListener,
+  WatchEventListeners,
+  WatchInput,
+  WatchListeners,
+  WatchOptions,
+  WatchParams,
+  WatchRequest,
+} from "./client/watch.ts";
 export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
 export type { FuturesBuilder } from "./client/api/futures/builder.ts";
 export type {
@@ -56,8 +69,8 @@ export type {
 } from "./client/api/futures/params.ts";
 export { BASIS_COINS } from "./client/api/futures/params.ts";
 export type { News } from "./client/api/news/news.ts";
-export type { NewsStoriesBuilder } from "./client/api/news/builder.ts";
-export type { NewsStoriesParams } from "./client/api/news/params.ts";
+export type { NewsFeedBuilder, NewsStoriesBuilder } from "./client/api/news/builder.ts";
+export type { NewsFeedParams, NewsStoriesParams } from "./client/api/news/params.ts";
 export type { NewsStory } from "./client/api/news/validation.ts";
 export type {
   NewsClose,

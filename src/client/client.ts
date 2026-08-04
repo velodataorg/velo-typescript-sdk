@@ -2,6 +2,7 @@ import { Http } from "../transport/http.ts";
 import type { HttpConfig, HttpRequestOptions } from "../transport/http.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
 import type { WebSocketFactory } from "../transport/websocket.ts";
+import { assert } from "../util/assert.ts";
 import { Catalog } from "./api/catalog/catalog.ts";
 import { Futures } from "./api/futures/futures.ts";
 import { MarketCaps } from "./api/market-caps/market-caps.ts";
@@ -11,6 +12,7 @@ import { Orderbook } from "./api/orderbook/orderbook.ts";
 import { Spot } from "./api/spot/spot.ts";
 import { Status } from "./api/status/status.ts";
 import { Query } from "./common/query.ts";
+import { toRequest } from "./common/request.ts";
 import {
   plan,
   type QueryInput,
@@ -21,6 +23,14 @@ import {
   type StreamableKind,
   toQueryRequest,
 } from "./plan.ts";
+import {
+  WATCHERS,
+  type WatchableKind,
+  type Watcher,
+  type WatchInput,
+  type WatchOptions,
+  type WatchParams,
+} from "./watch.ts";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
@@ -37,13 +47,14 @@ export class Velo {
   readonly #orderbook: Orderbook;
   readonly #spot: Spot;
   readonly #status: Status;
+  readonly #webSocket: WebSocketTransport;
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
-    const webSocket = new WebSocketTransport(config, config.webSocketFactory);
+    this.#webSocket = new WebSocketTransport(config, config.webSocketFactory);
     this.#marketCaps = new MarketCaps();
     this.#catalog = new Catalog();
-    this.#news = new News(webSocket);
+    this.#news = new News();
     this.#futures = new Futures();
     this.#options = new Options();
     this.#orderbook = new Orderbook();
@@ -111,6 +122,52 @@ export class Velo {
     options?: HttpRequestOptions,
   ): AsyncGenerator<QueryItem<K, P>, void, undefined> {
     return this.#build(input, options).stream();
+  }
+
+  /**
+   * Opens a live subscription for a subscription request or builder.
+   *
+   * The returned watcher is idle: no socket is created until `connect()` is
+   * called. Listeners supplied through `options.on` are attached before that
+   * happens, so events cannot be missed between construction and connection.
+   *
+   * @param input - A subscription request or builder.
+   * @param options - Subscription options and the listeners to attach.
+   */
+  watch<K extends WatchableKind, P extends WatchParams<K>>(
+    input: WatchInput<K, P>,
+    options: WatchOptions<K> = {},
+  ): Watcher<K> {
+    assert(
+      options !== null && typeof options === "object" && !Array.isArray(options),
+      "watch options must be an object",
+    );
+
+    const { on, ...watchOptions } = options;
+    const request = toRequest(input);
+    /* Indexing the registry with a generic kind loses the tie between a
+     * definition and its own options type; removing `on` leaves exactly the
+     * options that kind's factory accepts.
+     */
+    const definition = WATCHERS[request.kind] as {
+      create(transport: WebSocketTransport, options: WatchOptions<K>): Watcher<K>;
+      readonly events: Readonly<Record<string, true>>;
+    };
+    const watcher = definition.create(this.#webSocket, watchOptions as WatchOptions<K>);
+
+    if (typeof on === "function") {
+      /* One listener for everything: re-tag each event so the callback can
+       * discriminate on `type`.
+       */
+      for (const type of Object.keys(definition.events)) {
+        watcher.on(type as never, ((event: unknown) => on({ type, event } as never)) as never);
+      }
+    } else if (on) {
+      for (const [type, listener] of Object.entries(on)) {
+        watcher.on(type as never, listener as never);
+      }
+    }
+    return watcher;
   }
 
   /** Lowers a request or builder into a transport-bound query. */
