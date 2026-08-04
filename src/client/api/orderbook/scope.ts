@@ -9,7 +9,7 @@ export type OrderbookTarget =
   | { readonly coin: string; readonly exchange?: never; readonly product?: never };
 
 /**
- * The required query scope accepted by the orderbook terminal methods.
+ * The required query scope accepted by `orderbook.levels()`.
  *
  * Everything a levels query cannot run without lives here, so an incomplete
  * query is a compile-time error rather than a runtime one.
@@ -17,15 +17,15 @@ export type OrderbookTarget =
 export type OrderbookScope = OrderbookTarget & TimedScope<OrderbookResolution>;
 
 /**
- * Lowers a full orderbook scope into raw params.
+ * Converts a full orderbook scope into raw params.
  *
  * A trailing duration is anchored to the current time when this function
- * runs, which is why the namespace defers lowering until a terminal method.
+ * runs, which is why the namespace defers conversion until `levels()` is called.
  *
  * @throws {@link VeloError} when the scope is malformed at runtime; the
  * {@link OrderbookScope} type rules this out for TypeScript callers.
  */
-export function lowerOrderbookScope(scope: OrderbookScope): OrderbookParams {
+export function toOrderbookParams(scope: OrderbookScope): OrderbookParams {
   return {
     ...lowerOrderbookTarget(scope),
     ...lowerTimedScope(scope),

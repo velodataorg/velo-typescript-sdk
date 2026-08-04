@@ -9,6 +9,7 @@ export type { CatalogParams } from "./client/api/catalog/params.ts";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
 export type { VeloConfig } from "./client/client.ts";
 export { Velo } from "./client/client.ts";
+export type { QueryBuilder, QueryInput, QueryKind, QueryRequest } from "./client/plan.ts";
 export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
 export type { FuturesBuilder } from "./client/api/futures/builder.ts";
 export type {
@@ -75,6 +76,7 @@ export type { OptionsParams, OptionsRow } from "./client/api/options/params.ts";
 export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.ts";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.ts";
 export type { Orderbook } from "./client/api/orderbook/orderbook.ts";
+export type { OrderbookLevelsBuilder } from "./client/api/orderbook/builder.ts";
 export { OrderbookData } from "./client/api/orderbook/data.ts";
 export type {
   OrderbookLevel,

@@ -1,7 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError, VeloHttpError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import type { OrderbookLevelsBuilder } from "./builder.ts";
+import type { OrderbookData, OrderbookRow } from "./data.ts";
 import type { OrderbookScope } from "./scope.ts";
 
 const HOUR = 3_600_000;
@@ -32,6 +36,10 @@ function client(bodies: readonly string[]) {
   };
 }
 
+function orderbookQuery(velo: Velo, scope: OrderbookScope) {
+  return velo.query(velo.orderbook.levels(scope));
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -44,9 +52,32 @@ describe("Velo.orderbook", () => {
 
   it("is lazy and sends the product target on the wire", async () => {
     const { velo, urls } = client([BODY]);
-    const query = velo.orderbook.query(SCOPE);
+    const builder = velo.orderbook.levels(SCOPE);
+    const request = builder.build();
+
+    expect(request).toEqual({
+      kind: "orderbook.levels",
+      params: {
+        exchange: "binance-futures",
+        product: "BTCUSDT",
+        begin: HOUR,
+        end: 3 * HOUR,
+        resolution: "1h",
+      },
+    });
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(urls).toHaveLength(0);
+    expect(builder.build()).toBe(request);
+    expectTypeOf(builder).toEqualTypeOf<OrderbookLevelsBuilder>();
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"orderbook.levels">>();
+
+    const query = velo.query(builder);
+    const requestQuery = velo.query(request);
 
     expect(urls).toHaveLength(0);
+    expectTypeOf(query).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
+    expectTypeOf(requestQuery).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
 
     await query.execute();
     expect(urls).toHaveLength(1);
@@ -64,7 +95,13 @@ describe("Velo.orderbook", () => {
 
   it("sends a coin target without product parameters", async () => {
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({ coin: "BTC", between: [HOUR, 3 * HOUR], resolution: "1h" });
+    await velo.orderbook
+      .levels({
+        coin: "BTC",
+        between: [HOUR, 3 * HOUR],
+        resolution: "1h",
+      })
+      .fetch();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("coin")).toBe("BTC");
@@ -74,7 +111,7 @@ describe("Velo.orderbook", () => {
 
   it("decodes the response into OrderbookData", async () => {
     const { velo } = client([BODY]);
-    const data = await velo.orderbook.execute(SCOPE);
+    const data = await velo.orderbook.levels(SCOPE).fetch();
 
     expect(data.rows()).toEqual([
       {
@@ -102,7 +139,10 @@ describe("Velo.orderbook", () => {
 
   it("widens an unaligned range to complete buckets", async () => {
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({ ...SCOPE, between: [HOUR + MINUTE, 3 * HOUR - MINUTE] });
+    await orderbookQuery(velo, {
+      ...SCOPE,
+      between: [HOUR + MINUTE, 3 * HOUR - MINUTE],
+    }).execute();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -114,7 +154,7 @@ describe("Velo.orderbook", () => {
     vi.setSystemTime(2 * HOUR + 30 * MINUTE);
 
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({ ...SCOPE, between: [HOUR, 10 * HOUR] });
+    await orderbookQuery(velo, { ...SCOPE, between: [HOUR, 10 * HOUR] }).execute();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("end")).toBe(String(2 * HOUR + 30 * MINUTE));
@@ -125,12 +165,12 @@ describe("Velo.orderbook", () => {
     vi.setSystemTime(3 * HOUR);
 
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({
+    await orderbookQuery(velo, {
       exchange: "binance-futures",
       product: "BTCUSDT",
       last: "2h",
       resolution: "1h",
-    });
+    }).execute();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -142,11 +182,11 @@ describe("Velo.orderbook", () => {
     const bodies = [`15\n0,100,95,1\n`, `20\n${capMs},101,96,2\n`];
     const { velo, urls } = client(bodies);
 
-    const data = await velo.orderbook.execute({
+    const data = await orderbookQuery(velo, {
       ...SCOPE,
       between: [0, capMs + MINUTE],
       resolution: "1m",
-    });
+    }).execute();
 
     expect(urls).toHaveLength(2);
     const first = new URL(urls[0] as string);
@@ -164,7 +204,7 @@ describe("Velo.orderbook", () => {
     const { velo } = client([BODY]);
 
     const times: number[] = [];
-    for await (const row of velo.orderbook.query(SCOPE).stream()) {
+    for await (const row of velo.orderbook.levels(SCOPE).stream()) {
       times.push(row.time);
     }
 
@@ -174,17 +214,19 @@ describe("Velo.orderbook", () => {
   it("forwards per-execution transport options", async () => {
     const { velo, urls } = client([BODY]);
 
-    await expect(velo.orderbook.execute(SCOPE, { timeout: 0 })).rejects.toBeInstanceOf(VeloError);
+    await expect(velo.orderbook.levels(SCOPE).fetch({ timeout: 0 })).rejects.toBeInstanceOf(
+      VeloError,
+    );
     expect(urls).toHaveLength(0);
   });
 
   it("lowers a weekly resolution to Monday-aligned minute buckets", async () => {
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({
+    await orderbookQuery(velo, {
       ...SCOPE,
       between: [Date.UTC(2026, 0, 7), Date.UTC(2026, 0, 13)],
       resolution: "1W",
-    });
+    }).execute();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("reso")).toBe("10080");
@@ -194,7 +236,10 @@ describe("Velo.orderbook", () => {
 
   it("converts Date bounds to millisecond timestamps", async () => {
     const { velo, urls } = client([BODY]);
-    await velo.orderbook.execute({ ...SCOPE, between: [new Date(HOUR), new Date(3 * HOUR)] });
+    await orderbookQuery(velo, {
+      ...SCOPE,
+      between: [new Date(HOUR), new Date(3 * HOUR)],
+    }).execute();
 
     const url = new URL(urls[0] as string);
     expect(url.searchParams.get("begin")).toBe(String(HOUR));
@@ -206,25 +251,25 @@ describe("Velo.orderbook", () => {
       new Response("product binance-futures NOPEUSDT undefined not found", { status: 404 });
     const velo = new Velo({ apiKey: "test_key", fetch });
 
-    await expect(velo.orderbook.execute(SCOPE)).rejects.toBeInstanceOf(VeloHttpError);
-    await expect(velo.orderbook.execute(SCOPE)).rejects.toThrow(/not found/);
+    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toBeInstanceOf(VeloHttpError);
+    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toThrow(/not found/);
   });
 
   it("rejects empty target strings", () => {
     const { velo } = client([BODY]);
 
-    expect(() => velo.orderbook.query({ ...SCOPE, product: "" })).toThrow(
+    expect(() => orderbookQuery(velo, { ...SCOPE, product: "" })).toThrow(
       /Invalid orderbook params/,
     );
     expect(() =>
-      velo.orderbook.query({ coin: "", between: [HOUR, 3 * HOUR], resolution: "1h" }),
+      orderbookQuery(velo, { coin: "", between: [HOUR, 3 * HOUR], resolution: "1h" }),
     ).toThrow(/Invalid orderbook params/);
   });
 
   it("wraps a malformed response with endpoint context", async () => {
     const { velo } = client(["not a levels response\n"]);
 
-    await expect(velo.orderbook.execute(SCOPE)).rejects.toThrow(
+    await expect(orderbookQuery(velo, SCOPE).execute()).rejects.toThrow(
       /Unexpected \/api\/l\/levels response/,
     );
   });
@@ -232,25 +277,25 @@ describe("Velo.orderbook", () => {
   it("rejects a scope that selects both or neither target", () => {
     const { velo } = client([BODY]);
 
-    expect(() => velo.orderbook.query({ ...SCOPE, coin: "BTC" } as never)).toThrow(
+    expect(() => orderbookQuery(velo, { ...SCOPE, coin: "BTC" } as never)).toThrow(
       /cannot select both a product and a coin/,
     );
     expect(() =>
-      velo.orderbook.query({ between: [HOUR, 3 * HOUR], resolution: "1h" } as never),
+      orderbookQuery(velo, { between: [HOUR, 3 * HOUR], resolution: "1h" } as never),
     ).toThrow(/must select an exchange and product, or a coin/);
   });
 
   it("rejects scopes the types rule out", () => {
     const { velo } = client([BODY]);
 
-    expect(() => velo.orderbook.query({ ...SCOPE, resolution: "1M" } as never)).toThrow(VeloError);
-    expect(() => velo.orderbook.query({ ...SCOPE, resolution: undefined } as never)).toThrow(
+    expect(() => orderbookQuery(velo, { ...SCOPE, resolution: "1M" } as never)).toThrow(VeloError);
+    expect(() => orderbookQuery(velo, { ...SCOPE, resolution: undefined } as never)).toThrow(
       /must set a resolution/,
     );
-    expect(() => velo.orderbook.query({ ...SCOPE, exchange: "nasdaq" } as never)).toThrow(
+    expect(() => orderbookQuery(velo, { ...SCOPE, exchange: "nasdaq" } as never)).toThrow(
       /Invalid orderbook params/,
     );
-    expect(() => velo.orderbook.query({ ...SCOPE, between: [3 * HOUR, HOUR] } as never)).toThrow(
+    expect(() => orderbookQuery(velo, { ...SCOPE, between: [3 * HOUR, HOUR] } as never)).toThrow(
       VeloError,
     );
   });

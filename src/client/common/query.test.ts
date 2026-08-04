@@ -4,7 +4,7 @@ import { VeloError } from "../../errors.ts";
 import { Http } from "../../transport/http.ts";
 import type { HttpParams } from "../../transport/http.ts";
 import { MAX_IN_FLIGHT_REQUESTS, MAX_REQUESTS_PER_QUERY, Query } from "./query.ts";
-import type { QueryOptions, QueryRequest } from "./query.ts";
+import type { HttpRequest, QueryOptions } from "./query.ts";
 
 interface Point {
   step: number;
@@ -133,7 +133,7 @@ describe("Query options", () => {
   it("snapshots and freezes request params without freezing caller-owned data", () => {
     const products = ["BTCUSDT"];
     const params: HttpParams = { step: 1, products };
-    const request: QueryRequest = { path: "/api/v1/test", params };
+    const request: HttpRequest = { path: "/api/v1/test", params };
     const options: QueryOptions<Point> = {
       requests: [request],
       decode: decodePoints,

@@ -15,7 +15,7 @@ export const MAX_IN_FLIGHT_REQUESTS = 4;
  * A query may contain multiple requests when an endpoint splits its work
  * into chunks.
  */
-export interface QueryRequest {
+export interface HttpRequest {
   readonly path: string;
   readonly params: HttpParams;
 }
@@ -27,7 +27,7 @@ export interface QueryRequest {
  * @typeParam D - The value {@link Query#execute | execute()} resolves to.
  */
 export interface QueryOptions<T, D = T[]> {
-  readonly requests: readonly QueryRequest[];
+  readonly requests: readonly HttpRequest[];
   readonly decode: (body: string) => readonly T[];
 
   /**
@@ -37,6 +37,9 @@ export interface QueryOptions<T, D = T[]> {
    */
   collect?(items: T[]): D;
 }
+
+/** A transport-ready plan consumed by a lazy {@link Query}. */
+export type QueryPlan<T, D = T[]> = QueryOptions<T, D>;
 
 /**
  * A lazy, self-contained query bound to an HTTP transport.
@@ -137,7 +140,7 @@ export class Query<T, D = T[]> {
   /**
    * Sends and decodes one request.
    */
-  async #fetch(request: QueryRequest, options: HttpRequestOptions): Promise<readonly T[]> {
+  async #fetch(request: HttpRequest, options: HttpRequestOptions): Promise<readonly T[]> {
     const body = await this.#http.text(request.path, request.params, options);
     return this.#options.decode(body);
   }

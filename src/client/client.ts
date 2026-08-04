@@ -10,6 +10,15 @@ import { Options } from "./api/options/options.ts";
 import { Orderbook } from "./api/orderbook/orderbook.ts";
 import { Spot } from "./api/spot/spot.ts";
 import { Status } from "./api/status/status.ts";
+import { Query } from "./common/query.ts";
+import {
+  plan,
+  type QueryInput,
+  type QueryItem,
+  type QueryKind,
+  type QueryResult,
+  toQueryRequest,
+} from "./plan.ts";
 
 export interface VeloConfig extends HttpConfig {
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
@@ -35,7 +44,7 @@ export class Velo {
     this.#news = new News(this.#http, webSocket);
     this.#futures = new Futures(this.#http);
     this.#options = new Options(this.#http);
-    this.#orderbook = new Orderbook(this.#http);
+    this.#orderbook = new Orderbook((request) => this.query(request));
     this.#spot = new Spot(this.#http);
     this.#status = new Status(this.#http);
   }
@@ -70,5 +79,11 @@ export class Velo {
 
   get status(): Status {
     return this.#status;
+  }
+
+  /** Binds an endpoint request or builder to this client as an immutable lazy query. */
+  query<K extends QueryKind>(input: QueryInput<K>): Query<QueryItem<K>, QueryResult<K>> {
+    const request = toQueryRequest(input);
+    return new Query(this.#http, plan(request));
   }
 }
