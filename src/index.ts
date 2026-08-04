@@ -1,5 +1,6 @@
 export type { MarketCaps } from "./client/api/market-caps/market-caps.ts";
-export type { MarketCapsParams } from "./client/api/market-caps/query.ts";
+export type { MarketCapsHistoryBuilder } from "./client/api/market-caps/builder.ts";
+export type { MarketCapsParams } from "./client/api/market-caps/params.ts";
 export type { MarketCap } from "./client/api/market-caps/validation.ts";
 export { MARKET_CAPS_COLUMNS } from "./client/api/market-caps/validation.ts";
 export type { Catalog } from "./client/api/catalog/catalog.ts";

@@ -5,6 +5,9 @@ import type {
   FuturesStandardParams,
 } from "./api/futures/params.ts";
 import { planFuturesBasis, planFuturesRows } from "./api/futures/plan.ts";
+import type { MarketCapsParams } from "./api/market-caps/params.ts";
+import { planMarketCapsHistory } from "./api/market-caps/plan.ts";
+import type { MarketCap } from "./api/market-caps/validation.ts";
 import type { NewsStoriesParams } from "./api/news/params.ts";
 import { planNewsStories } from "./api/news/plan.ts";
 import type { NewsStory } from "./api/news/validation.ts";
@@ -34,6 +37,11 @@ export interface QueryDefinitions {
     params: FuturesStandardParams;
     item: FuturesRow<FuturesStandardColumn>;
     result: DataResult<FuturesExchange, FuturesStandardColumn>;
+  };
+  "marketCaps.history": {
+    params: MarketCapsParams;
+    item: MarketCap;
+    result: MarketCap[];
   };
   "news.stories": {
     params: NewsStoriesParams;
@@ -130,6 +138,7 @@ type PlannerRegistry = {
 const PLANNERS: PlannerRegistry = Object.freeze({
   "futures.basis": planFuturesBasis,
   "futures.rows": planFuturesRows,
+  "marketCaps.history": planMarketCapsHistory,
   "news.stories": planNewsStories,
   "options.rows": planOptionsRows,
   "options.terms": planOptionsTerms,

@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import { MARKET_CAPS_COLUMNS } from "./validation.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import { MARKET_CAPS_COLUMNS, type MarketCap } from "./validation.ts";
 
 const MARKET_CAPS_CSV =
   "coin,time,circ,circ_dollars,fdv,fdv_dollars\n" +
@@ -25,13 +27,28 @@ describe("Velo.marketCaps", () => {
   it("exposes one stable market-caps endpoint", () => {
     const { velo } = client("");
     expect(velo.marketCaps).toBe(velo.marketCaps);
+    expect(velo.marketCaps.history).toBeTypeOf("function");
+    expect(velo.marketCaps).not.toHaveProperty("query");
   });
 
   it("is lazy, sends the requested coins, and decodes market caps", async () => {
     const { velo, urls } = client(MARKET_CAPS_CSV);
-    const query = velo.marketCaps.query({ coins: ["BTC", "ETH"] });
+    const coins = ["BTC", "ETH"];
+    const builder = velo.marketCaps.history({ coins });
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    coins.push("SOL");
 
     expect(urls).toHaveLength(0);
+    expect(request.kind).toBe("marketCaps.history");
+    expect(request.params.coins).toEqual(["BTC", "ETH"]);
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.coins)).toBe(true);
+    expect(builder.build()).toBe(request);
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"marketCaps.history">>();
+    expectTypeOf(query).toEqualTypeOf<Query<MarketCap, MarketCap[]>>();
 
     const rows = await query.execute();
     expect(urls).toHaveLength(1);
@@ -76,13 +93,13 @@ describe("Velo.marketCaps", () => {
   it("accepts empty responses", async () => {
     await expect(
       client("")
-        .velo.marketCaps.query({ coins: ["BTC"] })
-        .execute(),
+        .velo.marketCaps.history({ coins: ["BTC"] })
+        .fetch(),
     ).resolves.toEqual([]);
     await expect(
       client("coin,time,circ,circ_dollars,fdv,fdv_dollars\n")
-        .velo.marketCaps.query({ coins: ["BTC"] })
-        .execute(),
+        .velo.marketCaps.history({ coins: ["BTC"] })
+        .fetch(),
     ).resolves.toEqual([]);
   });
 
@@ -99,8 +116,11 @@ describe("Velo.marketCaps", () => {
     ];
 
     for (const params of invalid) {
-      expect(() => velo.marketCaps.query(params as never)).toThrow(VeloError);
+      expect(() => velo.marketCaps.history(params as never)).toThrow(VeloError);
     }
+    expect(() =>
+      velo.query({ kind: "marketCaps.history", params: { coins: [] } } as never),
+    ).toThrow(VeloError);
     expect(urls).toHaveLength(0);
   });
 
@@ -113,8 +133,8 @@ describe("Velo.marketCaps", () => {
 
     for (const body of invalid) {
       const execution = client(body)
-        .velo.marketCaps.query({ coins: ["BTC"] })
-        .execute();
+        .velo.marketCaps.history({ coins: ["BTC"] })
+        .fetch();
       await expect(execution).rejects.toBeInstanceOf(VeloError);
       await expect(execution).rejects.toThrow(/Unexpected \/api\/v1\/caps response/);
     }
@@ -133,9 +153,22 @@ describe("Velo.marketCaps", () => {
     for (const body of invalid) {
       await expect(
         client(body)
-          .velo.marketCaps.query({ coins: ["BTC"] })
-          .execute(),
+          .velo.marketCaps.history({ coins: ["BTC"] })
+          .fetch(),
       ).rejects.toBeInstanceOf(VeloError);
     }
+  });
+
+  it("streams market caps through the central query pipeline", async () => {
+    const { velo, urls } = client(MARKET_CAPS_CSV);
+    const rows: MarketCap[] = [];
+
+    for await (const row of velo.marketCaps.history({ coins: ["BTC", "ETH"] }).stream()) {
+      rows.push(row);
+    }
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.coin).toBe("BTC");
+    expect(urls).toHaveLength(1);
   });
 });
