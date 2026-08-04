@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { ZodError } from "zod";
 
-import { VeloError, VeloRateLimitError, VeloRequestError } from "../../../errors.ts";
+import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import type { NewsStoriesBuilder } from "./builder.ts";
+import type { NewsStory } from "./validation.ts";
 
 const STORY = {
   id: 1646,
@@ -29,7 +33,26 @@ function velo(body: string, urls: string[] = []) {
 describe("Velo.news.stories", () => {
   it("fetches stories published after begin and validates their types", async () => {
     const { velo: client, urls } = velo(JSON.stringify({ stories: [STORY] }));
-    const stories = await client.news.stories({ begin: 1767225600000 });
+    const builder = client.news.stories({ begin: 1767225600000 });
+    const request = builder.build();
+
+    expect(request).toEqual({
+      kind: "news.stories",
+      params: { begin: 1767225600000 },
+    });
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(builder.build()).toBe(request);
+    expect(urls).toHaveLength(0);
+    expectTypeOf(builder).toEqualTypeOf<NewsStoriesBuilder>();
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"news.stories">>();
+
+    const query = client.query(builder);
+    const requestQuery = client.query(request);
+    expectTypeOf(query).toEqualTypeOf<Query<NewsStory, NewsStory[]>>();
+    expectTypeOf(requestQuery).toEqualTypeOf<Query<NewsStory, NewsStory[]>>();
+
+    const stories = await query.execute();
 
     expect(urls).toHaveLength(1);
     const url = new URL(urls[0] as string);
@@ -56,14 +79,25 @@ describe("Velo.news.stories", () => {
     };
     const { velo: client, urls } = velo(JSON.stringify({ stories: [nullable] }));
 
-    await expect(client.news.stories()).resolves.toEqual([nullable]);
+    await expect(client.news.stories().fetch()).resolves.toEqual([nullable]);
     expect(new URL(urls[0] as string).searchParams.has("begin")).toBe(false);
   });
 
   it("sends an explicit zero begin and accepts an empty stories array", async () => {
     const { velo: client, urls } = velo('{"stories":[]}');
 
-    await expect(client.news.stories({ begin: 0 })).resolves.toEqual([]);
+    await expect(client.news.stories({ begin: 0 }).fetch()).resolves.toEqual([]);
+    expect(new URL(urls[0] as string).searchParams.get("begin")).toBe("0");
+  });
+
+  it("executes a direct news request through the central query pipeline", async () => {
+    const { velo: client, urls } = velo(JSON.stringify({ stories: [STORY] }));
+    const request: QueryRequest<"news.stories"> = {
+      kind: "news.stories",
+      params: { begin: 0 },
+    };
+
+    await expect(client.query(request).execute()).resolves.toEqual([STORY]);
     expect(new URL(urls[0] as string).searchParams.get("begin")).toBe("0");
   });
 
@@ -98,7 +132,7 @@ describe("Velo.news.stories", () => {
       },
     });
 
-    await expect(client.news.stories(undefined, { retry: { retries: 0 } })).rejects.toBeInstanceOf(
+    await expect(client.news.stories().fetch({ retry: { retries: 0 } })).rejects.toBeInstanceOf(
       VeloRateLimitError,
     );
     expect(calls).toBe(1);
@@ -107,7 +141,10 @@ describe("Velo.news.stories", () => {
   it("rejects valid JSON whose response wrapper is malformed", async () => {
     for (const body of ["null", "[]", "{}", '{"stories":{}}']) {
       const { velo: client } = velo(body);
-      const error = await client.news.stories().catch((caught: unknown) => caught);
+      const error = await client.news
+        .stories()
+        .fetch()
+        .catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(VeloError);
       expect((error as Error).message).toMatch(/unexpected \/api\/n\/news response/);
       expect((error as Error).cause).toBeInstanceOf(ZodError);
@@ -119,7 +156,9 @@ describe("Velo.news.stories", () => {
       const missing = { ...STORY } as Record<string, unknown>;
       delete missing[field];
       const { velo: client } = velo(JSON.stringify({ stories: [missing] }));
-      await expect(client.news.stories()).rejects.toThrow(new RegExp(`stories\\[0\\]\\.${field}`));
+      await expect(client.news.stories().fetch()).rejects.toThrow(
+        new RegExp(`stories\\[0\\]\\.${field}`),
+      );
     }
   });
 
@@ -138,7 +177,9 @@ describe("Velo.news.stories", () => {
 
     for (const story of invalidStories) {
       const { velo: client } = velo(JSON.stringify({ stories: [story] }));
-      await expect(client.news.stories()).rejects.toThrow(/unexpected \/api\/n\/news response/);
+      await expect(client.news.stories().fetch()).rejects.toThrow(
+        /unexpected \/api\/n\/news response/,
+      );
     }
   });
 
@@ -150,17 +191,31 @@ describe("Velo.news.stories", () => {
       }),
     );
 
-    const stories = await client.news.stories();
+    const stories = await client.news.stories().fetch();
     expect(stories).toEqual([STORY]);
     expect(stories[0]).not.toHaveProperty("futureField");
   });
 
-  it("surfaces invalid JSON through the current request error contract", async () => {
+  it("wraps invalid JSON with endpoint context", async () => {
     const { velo: client } = velo("{not json");
-    const error = await client.news.stories().catch((caught: unknown) => caught);
+    const error = await client.news
+      .stories()
+      .fetch()
+      .catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(VeloRequestError);
-    expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news");
+    expect(error).toBeInstanceOf(VeloError);
+    expect((error as Error).message).toMatch(/unexpected \/api\/n\/news response: invalid JSON/);
     expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+  });
+
+  it("streams stories individually through the builder", async () => {
+    const { velo: client } = velo(JSON.stringify({ stories: [STORY] }));
+    const stories: NewsStory[] = [];
+
+    for await (const story of client.news.stories().stream()) {
+      stories.push(story);
+    }
+
+    expect(stories).toEqual([STORY]);
   });
 });

@@ -42,7 +42,8 @@ export type {
 export { BASIS_COINS } from "./client/api/futures/params.ts";
 export type { FuturesRow } from "./client/api/futures/query.ts";
 export type { News } from "./client/api/news/news.ts";
-export type { NewsStoriesParams } from "./client/api/news/stories.ts";
+export type { NewsStoriesBuilder } from "./client/api/news/builder.ts";
+export type { NewsStoriesParams } from "./client/api/news/params.ts";
 export type { NewsStory } from "./client/api/news/validation.ts";
 export type {
   NewsClose,

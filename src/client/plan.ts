@@ -1,4 +1,7 @@
 import { assert } from "../util/assert.ts";
+import type { NewsStoriesParams } from "./api/news/params.ts";
+import { planNewsStories } from "./api/news/plan.ts";
+import type { NewsStory } from "./api/news/validation.ts";
 import type { OrderbookData, OrderbookRow } from "./api/orderbook/data.ts";
 import type { OrderbookParams } from "./api/orderbook/params.ts";
 import { planOrderbook } from "./api/orderbook/plan.ts";
@@ -6,6 +9,11 @@ import type { QueryPlan } from "./common/query.ts";
 
 /** Endpoint contracts understood by the central query planner. */
 export interface QueryDefinitions {
+  "news.stories": {
+    params: NewsStoriesParams;
+    item: NewsStory;
+    result: NewsStory[];
+  };
   "orderbook.levels": {
     params: OrderbookParams;
     item: OrderbookRow;
@@ -50,6 +58,7 @@ type PlannerRegistry = {
 };
 
 const PLANNERS: PlannerRegistry = Object.freeze({
+  "news.stories": planNewsStories,
   "orderbook.levels": planOrderbook,
 });
 

@@ -140,9 +140,11 @@ Fetch historical stories published after a millisecond timestamp.
 Omit `begin` to use the API default and request the full history from timestamp `0`.
 
 ```ts
-const stories = await velo.news.stories({
-  begin: Date.now() - 24 * 60 * 60 * 1000,
-});
+const stories = await velo.news
+  .stories({
+    begin: Date.now() - 24 * 60 * 60 * 1000,
+  })
+  .fetch();
 
 for (const story of stories) {
   console.log(story);
