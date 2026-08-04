@@ -13,8 +13,7 @@ import { metricColumns, partColumns, splitParts } from "../../common/builder/sel
 import type { DataResult } from "../../common/data/data.ts";
 import type { OptionsColumn } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryFactory, QueryRequest } from "../../plan.ts";
 import {
   OptionsParams,
   type OptionsParams as OptionsParamsType,
@@ -89,11 +88,6 @@ interface State<C extends OptionsColumn> {
   readonly window?: BuilderWindow;
 }
 
-/** Binds an options rows request to the central lazy-query constructor. */
-export type OptionsRowsQueryFactory = <C extends OptionsColumn>(
-  request: QueryRequest<"options.rows", OptionsParamsType<C>>,
-) => Query<OptionsRow<C>, DataResult<OptionsExchange, C>>;
-
 /**
  * An immutable fluent options request builder.
  *
@@ -104,10 +98,10 @@ export type OptionsRowsQueryFactory = <C extends OptionsColumn>(
  * @typeParam S - Scope-setting methods completed by the chain.
  */
 export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuilderStep = never> {
-  readonly #query: OptionsRowsQueryFactory;
+  readonly #query: QueryFactory<"options.rows">;
   readonly #state: State<C>;
 
-  constructor(query: OptionsRowsQueryFactory, state: State<C> = { columns: [] }) {
+  constructor(query: QueryFactory<"options.rows">, state: State<C> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }

@@ -1,11 +1,12 @@
-import { OrderbookLevelsBuilder, type OrderbookQueryFactory } from "./builder.ts";
+import type { QueryFactory } from "../../plan.ts";
+import { OrderbookLevelsBuilder } from "./builder.ts";
 import type { OrderbookScope } from "./scope.ts";
 
 /** The orderbook depth namespace exposed by {@link Velo}. */
 export class Orderbook {
-  readonly #query: OrderbookQueryFactory;
+  readonly #query: QueryFactory<"orderbook.levels">;
 
-  constructor(query: OrderbookQueryFactory) {
+  constructor(query: QueryFactory<"orderbook.levels">) {
     this.#query = query;
   }
 

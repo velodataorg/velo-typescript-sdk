@@ -1,11 +1,12 @@
-import { MarketCapsHistoryBuilder, type MarketCapsQueryFactory } from "./builder.ts";
+import type { QueryFactory } from "../../plan.ts";
+import { MarketCapsHistoryBuilder } from "./builder.ts";
 import type { MarketCapsParams } from "./params.ts";
 
 /** The market-caps namespace exposed by {@link Velo}. */
 export class MarketCaps {
-  readonly #query: MarketCapsQueryFactory;
+  readonly #query: QueryFactory<"marketCaps.history">;
 
-  constructor(query: MarketCapsQueryFactory) {
+  constructor(query: QueryFactory<"marketCaps.history">) {
     this.#query = query;
   }
 

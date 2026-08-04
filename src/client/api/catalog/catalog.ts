@@ -1,25 +1,19 @@
-import {
-  FuturesCatalogBuilder,
-  type FuturesCatalogQueryFactory,
-  OptionsCatalogBuilder,
-  type OptionsCatalogQueryFactory,
-  SpotCatalogBuilder,
-  type SpotCatalogQueryFactory,
-} from "./builder.ts";
+import type { QueryFactory } from "../../plan.ts";
+import { FuturesCatalogBuilder, OptionsCatalogBuilder, SpotCatalogBuilder } from "./builder.ts";
 import type { FuturesCatalogParams } from "./futures.ts";
 import type { OptionsCatalogParams } from "./options.ts";
 import type { SpotCatalogParams } from "./spot.ts";
 
 /** The product-catalog namespace exposed by {@link Velo}. */
 export class Catalog {
-  readonly #futuresQuery: FuturesCatalogQueryFactory;
-  readonly #optionsQuery: OptionsCatalogQueryFactory;
-  readonly #spotQuery: SpotCatalogQueryFactory;
+  readonly #futuresQuery: QueryFactory<"catalog.futures">;
+  readonly #optionsQuery: QueryFactory<"catalog.options">;
+  readonly #spotQuery: QueryFactory<"catalog.spot">;
 
   constructor(
-    futuresQuery: FuturesCatalogQueryFactory,
-    optionsQuery: OptionsCatalogQueryFactory,
-    spotQuery: SpotCatalogQueryFactory,
+    futuresQuery: QueryFactory<"catalog.futures">,
+    optionsQuery: QueryFactory<"catalog.options">,
+    spotQuery: QueryFactory<"catalog.spot">,
   ) {
     this.#futuresQuery = futuresQuery;
     this.#optionsQuery = optionsQuery;

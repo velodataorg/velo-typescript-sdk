@@ -1,5 +1,6 @@
-import { FuturesBasisBuilder, type FuturesBasisQueryFactory } from "./basis.ts";
-import { FuturesBuilder, type FuturesRowsQueryFactory } from "./builder.ts";
+import type { QueryFactory } from "../../plan.ts";
+import { FuturesBasisBuilder } from "./basis.ts";
+import { FuturesBuilder } from "./builder.ts";
 
 /** The futures `/rows` namespace exposed by {@link Velo}. */
 export class Futures {
@@ -13,7 +14,7 @@ export class Futures {
   readonly liquidations: FuturesBuilder<never>["liquidations"];
   readonly liquidationVolume: FuturesBuilder<never>["liquidationVolume"];
 
-  constructor(rowsQuery: FuturesRowsQueryFactory, basisQuery: FuturesBasisQueryFactory) {
+  constructor(rowsQuery: QueryFactory<"futures.rows">, basisQuery: QueryFactory<"futures.basis">) {
     const builder = new FuturesBuilder(rowsQuery);
     this.basis = () => new FuturesBasisBuilder(basisQuery);
     this.price = builder.price.bind(builder);

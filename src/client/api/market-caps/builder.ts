@@ -1,20 +1,14 @@
 import type { HttpRequestOptions } from "../../../transport/http.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryFactory, QueryRequest } from "../../plan.ts";
 import { MarketCapsParams } from "./params.ts";
 import type { MarketCap } from "./validation.ts";
-
-/** Binds a market-cap history request to the central lazy-query constructor. */
-export type MarketCapsQueryFactory = (
-  request: QueryRequest<"marketCaps.history">,
-) => Query<MarketCap, MarketCap[]>;
 
 /** An immutable market-cap history request builder bound to one client. */
 export class MarketCapsHistoryBuilder implements QueryBuilder<"marketCaps.history"> {
   readonly #request: QueryRequest<"marketCaps.history">;
-  readonly #query: MarketCapsQueryFactory;
+  readonly #query: QueryFactory<"marketCaps.history">;
 
-  constructor(params: MarketCapsParams, query: MarketCapsQueryFactory) {
+  constructor(params: MarketCapsParams, query: QueryFactory<"marketCaps.history">) {
     const snapshot = MarketCapsParams.parse(params);
     Object.freeze(snapshot.coins);
     Object.freeze(snapshot);

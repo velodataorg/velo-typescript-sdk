@@ -4,9 +4,8 @@ import { TERMS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import type { HttpRequestOptions } from "../../../transport/http.ts";
 import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.ts";
-import type { Query } from "../../common/query.ts";
 import { invalidParamsError } from "../../common/validation.ts";
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryFactory, QueryRequest } from "../../plan.ts";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];
@@ -43,17 +42,12 @@ export const TermsParams = Object.freeze({
   },
 });
 
-/** Binds an options term-structure request to the central lazy-query constructor. */
-export type OptionsTermsQueryFactory = (
-  request: QueryRequest<"options.terms">,
-) => Query<TermPoint, TermPoint[]>;
-
 /** An immutable options term-structure request builder bound to one client. */
 export class OptionsTermsBuilder implements QueryBuilder<"options.terms"> {
   readonly #request: QueryRequest<"options.terms">;
-  readonly #query: OptionsTermsQueryFactory;
+  readonly #query: QueryFactory<"options.terms">;
 
-  constructor(params: TermsParams, query: OptionsTermsQueryFactory) {
+  constructor(params: TermsParams, query: QueryFactory<"options.terms">) {
     const snapshot = TermsParams.parse(params);
     Object.freeze(snapshot.coins);
     Object.freeze(snapshot);

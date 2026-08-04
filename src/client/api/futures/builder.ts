@@ -14,8 +14,7 @@ import { metricColumns, partColumns, splitParts } from "../../common/builder/sel
 import type { DataResult } from "../../common/data/data.ts";
 import type { FuturesStandardColumn } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryFactory, QueryRequest } from "../../plan.ts";
 import {
   type FuturesRow,
   FuturesStandardParams,
@@ -85,11 +84,6 @@ interface State<C extends FuturesStandardColumn, E extends FuturesExchange> {
   readonly window?: BuilderWindow;
 }
 
-/** Binds a standard futures request to the central lazy-query constructor. */
-export type FuturesRowsQueryFactory = <C extends FuturesStandardColumn, E extends FuturesExchange>(
-  request: QueryRequest<"futures.rows", FuturesStandardParamsType<C, E>>,
-) => Query<FuturesRow<C, E>, DataResult<E, C>>;
-
 /**
  * An immutable fluent futures request builder.
  *
@@ -105,10 +99,10 @@ export class FuturesBuilder<
   E extends FuturesExchange = FuturesExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: FuturesRowsQueryFactory;
+  readonly #query: QueryFactory<"futures.rows">;
   readonly #state: State<C, E>;
 
-  constructor(query: FuturesRowsQueryFactory, state: State<C, E> = { columns: [] }) {
+  constructor(query: QueryFactory<"futures.rows">, state: State<C, E> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }

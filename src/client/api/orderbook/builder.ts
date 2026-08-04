@@ -1,20 +1,14 @@
 import type { HttpRequestOptions } from "../../../transport/http.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryFactory, QueryRequest } from "../../plan.ts";
 import type { OrderbookData, OrderbookRow } from "./data.ts";
 import { toOrderbookParams, type OrderbookScope } from "./scope.ts";
-
-/** Binds an orderbook request to the central lazy-query constructor. */
-export type OrderbookQueryFactory = (
-  request: QueryRequest<"orderbook.levels">,
-) => Query<OrderbookRow, OrderbookData>;
 
 /** An immutable orderbook-levels request builder bound to one client. */
 export class OrderbookLevelsBuilder implements QueryBuilder<"orderbook.levels"> {
   readonly #request: QueryRequest<"orderbook.levels">;
-  readonly #query: OrderbookQueryFactory;
+  readonly #query: QueryFactory<"orderbook.levels">;
 
-  constructor(scope: OrderbookScope, query: OrderbookQueryFactory) {
+  constructor(scope: OrderbookScope, query: QueryFactory<"orderbook.levels">) {
     const params = Object.freeze(toOrderbookParams(scope));
     this.#request = Object.freeze({ kind: "orderbook.levels", params });
     this.#query = query;

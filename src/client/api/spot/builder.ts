@@ -14,8 +14,7 @@ import { metricColumns, partColumns, splitParts } from "../../common/builder/sel
 import type { DataResult } from "../../common/data/data.ts";
 import type { SpotColumn } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryFactory, QueryRequest } from "../../plan.ts";
 import { SpotParams, type SpotParams as SpotParamsType, type SpotRow } from "./params.ts";
 import {
   SPOT_SELECTOR_COLUMNS,
@@ -58,11 +57,6 @@ interface State<C extends SpotColumn, E extends SpotExchange> {
   readonly window?: BuilderWindow;
 }
 
-/** Binds a spot rows request to the central lazy-query constructor. */
-export type SpotRowsQueryFactory = <C extends SpotColumn, E extends SpotExchange>(
-  request: QueryRequest<"spot.rows", SpotParamsType<C, E>>,
-) => Query<SpotRow<C, E>, DataResult<E, C>>;
-
 /**
  * An immutable fluent spot request builder.
  *
@@ -78,10 +72,10 @@ export class SpotBuilder<
   E extends SpotExchange = SpotExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: SpotRowsQueryFactory;
+  readonly #query: QueryFactory<"spot.rows">;
   readonly #state: State<C, E>;
 
-  constructor(query: SpotRowsQueryFactory, state: State<C, E> = { columns: [] }) {
+  constructor(query: QueryFactory<"spot.rows">, state: State<C, E> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }

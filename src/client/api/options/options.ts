@@ -1,9 +1,10 @@
-import { OptionsBuilder, type OptionsRowsQueryFactory } from "./builder.ts";
-import { OptionsTermsBuilder, type OptionsTermsQueryFactory, type TermsParams } from "./terms.ts";
+import type { QueryFactory } from "../../plan.ts";
+import { OptionsBuilder } from "./builder.ts";
+import { OptionsTermsBuilder, type TermsParams } from "./terms.ts";
 
 /** The options namespace exposed by {@link Velo}. */
 export class Options {
-  readonly #termsQuery: OptionsTermsQueryFactory;
+  readonly #termsQuery: QueryFactory<"options.terms">;
   readonly iv: OptionsBuilder<never>["iv"];
   readonly skew: OptionsBuilder<never>["skew"];
   readonly vega: OptionsBuilder<never>["vega"];
@@ -16,7 +17,7 @@ export class Options {
   readonly dvol: OptionsBuilder<never>["dvol"];
   readonly indexPrice: OptionsBuilder<never>["indexPrice"];
 
-  constructor(query: OptionsRowsQueryFactory, termsQuery: OptionsTermsQueryFactory) {
+  constructor(query: QueryFactory<"options.rows">, termsQuery: QueryFactory<"options.terms">) {
     this.#termsQuery = termsQuery;
     const builder = new OptionsBuilder(query);
     this.iv = builder.iv.bind(builder);

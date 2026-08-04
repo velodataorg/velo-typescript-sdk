@@ -9,8 +9,7 @@ import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scope
 import type { DataResult } from "../../common/data/data.ts";
 import { BASIS_COLUMN } from "../../common/market/columns.ts";
 import type { FuturesExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryFactory, QueryRequest } from "../../plan.ts";
 import {
   BASIS_COINS,
   type BasisCoin,
@@ -27,17 +26,12 @@ interface State {
   readonly window?: BuilderWindow;
 }
 
-/** Binds a futures basis request to the central lazy-query constructor. */
-export type FuturesBasisQueryFactory = (
-  request: QueryRequest<"futures.basis", FuturesBasisParamsType>,
-) => Query<FuturesRow<typeof BASIS_COLUMN>, DataResult<FuturesExchange, typeof BASIS_COLUMN>>;
-
 /** An immutable fluent request builder for the annualized three-month futures basis. */
 export class FuturesBasisBuilder<S extends ScopeBuilderStep = never> {
-  readonly #query: FuturesBasisQueryFactory;
+  readonly #query: QueryFactory<"futures.basis">;
   readonly #state: State;
 
-  constructor(query: FuturesBasisQueryFactory, state: State = {}) {
+  constructor(query: QueryFactory<"futures.basis">, state: State = {}) {
     this.#query = query;
     this.#state = state;
   }
