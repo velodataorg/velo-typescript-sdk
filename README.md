@@ -6,18 +6,11 @@
 </p>
 <br />
 
-This repository contains the TypeScript SDK for the Velo API. It exposes a fluent builder and typed queries for fetching market data.
+This repository contains the TypeScript SDK for the Velo API. It exposes a fluent builder for fetching market data.
 
 ## Quick start
 
-### Builder pattern
-
-The builder pattern is syntactic sugar on top of the core SDK. Column
-selections chain with two required scope steps: `.for()` selects optional
-`exchanges` and a target (`products` or `coins`), while `.over()` selects a time
-range (`between` or `last`) and `resolution`. TypeScript prevents terminal calls
-until both steps are present. Omitting `exchanges` selects every exchange
-supported by the market.
+### Usage
 
 ```ts
 import { Velo } from "./index.js";
@@ -52,55 +45,7 @@ async function main() {
 main();
 ```
 
-### Query pattern
-
-The query pattern accepts a typed request envelope containing an endpoint `kind`
-and its endpoint-specific `params`.
-
-```ts
-import { Velo } from "./index.js";
-
-async function main() {
-  const apiKey = process.env.VELO_API_KEY;
-  if (!apiKey) throw new Error("VELO_API_KEY not set");
-
-  const velo = new Velo({ apiKey });
-  const data = await velo.query({
-    kind: "futures.rows",
-    params: {
-      exchanges: ["binance-futures", "bybit"],
-      products: ["BTCUSDT"],
-      columns: ["close_price", "funding_rate"],
-      begin: Date.now() - 10 * 60 * 1000,
-      end: Date.now(),
-      resolution: "1m",
-    },
-  });
-
-  for (const row of data.rows()) {
-    console.log(row);
-  }
-}
-
-main();
-```
-
-Queries are lazy and awaitable. Awaiting collects the endpoint result and
-memoizes it, so awaiting the same query again does not repeat its requests.
-Use `stream()` to process decoded items incrementally; each call creates a new
-streaming execution.
-
-```ts
-const query = velo.query(velo.catalog.futures({ coin: "BTC" }), { timeout: 10_000 });
-const products = await query;
-
-for await (const product of query.stream()) {
-  console.log(product);
-}
-```
-
-`exchanges` cross-joins with `products` (or `coins`): the result contains one
-series per (exchange, product) pair, keyed `"exchange:product"`.
+The `exchanges` cross-joins with `products` (or `coins`) for the amount of data returned. If the result is not `.rows()`, then the result contains one series per (exchange, product) pair, keyed `"exchange:product"`.
 
 ```
 exchanges: ["binance-futures", "bybit"]     products: ["BTCUSDT", "ETHUSDT"]
@@ -128,17 +73,19 @@ views over the fetched rows. A query sends nothing until it is awaited or its
 `stream()` iterator is advanced.
 
 ```ts
-const data = await velo.query({
-  kind: "futures.rows",
-  params: {
-    exchanges: ["binance-futures"],
-    coins: ["BTC"],
-    columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
-    begin: Date.now() - 60 * 60 * 1000,
-    end: Date.now(),
-    resolution: "1m",
-  },
-});
+const data = await velo.query(
+  velo.futures
+    .price()
+    .volume(["total"])
+    .for({
+      exchanges: ["binance-futures"],
+      coins: ["BTC"],
+    })
+    .over({
+      last: "1h",
+      resolution: "1m",
+    }),
+);
 
 // Different ways to view the returned data
 const rows = data.rows();
@@ -147,16 +94,11 @@ const columns = data.columns();
 const candles = data.candles();
 ```
 
-Results whose requested columns are the four OHLC prices plus at most one volume
-column are typed as `CandleData`; other results are typed as `Data`. Only
-`CandleData` exposes `candles()`, and buckets without trades are skipped. When
-accumulating rows from `stream()` instead, build the same views with
-`Data.from(rows)`.
+Results whose requested columns are the four OHLC prices plus at most one volume column are typed as `CandleData`, other results are typed as `Data`. Only `CandleData` exposes `candles()`, and buckets without trades are skipped. When accumulating rows from `stream()` instead, build the same views with `Data.from(rows)`.
 
 ### News
 
-Fetch historical stories published after a millisecond timestamp.
-Omit `begin` to use the API default and request the full history from timestamp `0`.
+Fetch historical stories published after a millisecond timestamp. Omit `begin` to use the API default and request the full history from timestamp `0`.
 
 ```ts
 const stories = await velo.query(
@@ -194,5 +136,3 @@ const watcher = velo.news.watch({
   onListenerError: (error) => log.error(error), // Receives errors your listeners throw
 });
 ```
-
-The watcher never reconnects on its own: after an unexpected `close` event, call `connect()` again. Errors thrown by your event listeners never close the connection or crash the process — they go to `onListenerError` when provided, and otherwise to `reportError` in runtimes that have it or `console.error` elsewhere.
