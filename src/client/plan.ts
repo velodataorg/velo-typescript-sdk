@@ -1,4 +1,8 @@
 import { assert } from "../util/assert.ts";
+import type { FutureProduct, FuturesCatalogParams } from "./api/catalog/futures.ts";
+import type { OptionProduct, OptionsCatalogParams } from "./api/catalog/options.ts";
+import { planFuturesCatalog, planOptionsCatalog, planSpotCatalog } from "./api/catalog/plan.ts";
+import type { SpotCatalogParams, SpotProduct } from "./api/catalog/spot.ts";
 import type {
   FuturesBasisParams,
   FuturesRow,
@@ -28,6 +32,21 @@ import type { QueryPlan } from "./common/query.ts";
 
 /** Endpoint contracts understood by the central query planner. */
 export interface QueryDefinitions {
+  "catalog.futures": {
+    params: FuturesCatalogParams;
+    item: FutureProduct;
+    result: FutureProduct[];
+  };
+  "catalog.options": {
+    params: OptionsCatalogParams;
+    item: OptionProduct;
+    result: OptionProduct[];
+  };
+  "catalog.spot": {
+    params: SpotCatalogParams;
+    item: SpotProduct;
+    result: SpotProduct[];
+  };
   "futures.basis": {
     params: FuturesBasisParams;
     item: FuturesRow<typeof BASIS_COLUMN>;
@@ -136,6 +155,9 @@ type PlannerRegistry = {
 };
 
 const PLANNERS: PlannerRegistry = Object.freeze({
+  "catalog.futures": planFuturesCatalog,
+  "catalog.options": planOptionsCatalog,
+  "catalog.spot": planSpotCatalog,
   "futures.basis": planFuturesBasis,
   "futures.rows": planFuturesRows,
   "marketCaps.history": planMarketCapsHistory,

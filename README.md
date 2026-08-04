@@ -103,9 +103,9 @@ exchanges: ["binance-futures", "bybit"]     products: ["BTCUSDT", "ETHUSDT"]
 Fetch and locally search the products catalog.
 
 ```ts
-const futures = await velo.catalog.futures({ product: "BTCUSDT" });
-const spot = await velo.catalog.spot({ coin: "BTC" });
-const options = await velo.catalog.options({ coin: "BTC" });
+const futures = await velo.catalog.futures({ product: "BTCUSDT" }).fetch();
+const spot = await velo.catalog.spot({ coin: "BTC" }).fetch();
+const options = await velo.catalog.options({ coin: "BTC" }).fetch();
 ```
 
 ### Result views

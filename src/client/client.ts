@@ -41,7 +41,11 @@ export class Velo {
     this.#http = new Http(config);
     const webSocket = new WebSocketTransport(config, config.webSocketFactory);
     this.#marketCaps = new MarketCaps((request) => this.query(request));
-    this.#catalog = new Catalog(this.#http);
+    this.#catalog = new Catalog(
+      (request) => this.query(request),
+      (request) => this.query(request),
+      (request) => this.query(request),
+    );
     this.#news = new News((request) => this.query(request), webSocket);
     this.#futures = new Futures(
       (request) => this.query(request),

@@ -20,7 +20,7 @@ function client(body: string, urls: string[] = []) {
 describe("Velo.catalog.options", () => {
   it("fetches, searches, and decodes the options product catalog", async () => {
     const { velo, urls } = client(OPTIONS_CSV);
-    const products = await velo.catalog.options({ product: "btc" });
+    const products = await velo.catalog.options({ product: "btc" }).fetch();
 
     const url = new URL(urls[0] as string);
     expect(url.pathname).toBe("/api/v1/options");
@@ -64,7 +64,7 @@ describe("Velo.catalog.options", () => {
     ];
 
     for (const body of invalid) {
-      const request = client(body).velo.catalog.options();
+      const request = client(body).velo.catalog.options().fetch();
       await expect(request).rejects.toBeInstanceOf(VeloError);
       await expect(request).rejects.toThrow(/Unexpected \/api\/v1\/options response/);
     }

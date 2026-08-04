@@ -2,10 +2,9 @@ import { z } from "zod";
 
 import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
 import { csvTimestamp, decode } from "../../common/decode/csv.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import { CatalogParams } from "./params.ts";
+import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
 const spotProductSchema = z.strictObject({
   exchange: z.enum(SPOT_EXCHANGES),
@@ -30,31 +29,19 @@ export type SpotCatalogParams = CatalogParams<SpotExchange> & {
   readonly delisted?: boolean;
 };
 
-/** Fetches validated spot product catalogs bound to an HTTP transport. */
-export class SpotCatalogQuery {
-  readonly #http: Http;
+/** Validates and normalizes a spot catalog search. */
+export function prepareSpotCatalogParams(params: SpotCatalogParams): PreparedCatalogParams {
+  return CatalogParams.parse("spot", params, SPOT_EXCHANGES, {
+    delisted: true,
+    depth: false,
+  });
+}
 
-  constructor(http: Http) {
-    this.#http = http;
-  }
-
-  /** Fetches the spot product catalog from raw parameters. */
-  build(params: SpotCatalogParams = {}, options?: HttpRequestOptions): Promise<SpotProduct[]> {
-    const prepared = CatalogParams.parse("spot", params, SPOT_EXCHANGES, {
-      delisted: true,
-      depth: false,
-    });
-    return this.#http
-      .text(SPOT_CATALOG_PATH, { delisted: prepared.delisted ? 1 : 0 }, options)
-      .then((body) => this.#decodeSpotCatalog(body, prepared.delisted))
-      .then((rows) => CatalogParams.filter(rows, prepared));
-  }
-
-  #decodeSpotCatalog(body: string, delisted: boolean): SpotProduct[] {
-    try {
-      return delisted ? decode(body, delistedSpotProductSchema) : decode(body, spotProductSchema);
-    } catch (cause) {
-      throw new VeloError(`Unexpected ${SPOT_CATALOG_PATH} response`, { cause });
-    }
+/** Decodes a spot catalog response using its active or delisted wire shape. */
+export function decodeSpotCatalog(body: string, delisted: boolean): SpotProduct[] {
+  try {
+    return delisted ? decode(body, delistedSpotProductSchema) : decode(body, spotProductSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${SPOT_CATALOG_PATH} response`, { cause });
   }
 }

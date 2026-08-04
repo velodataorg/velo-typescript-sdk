@@ -23,10 +23,12 @@ function client(body: string, urls: string[] = []) {
 describe("Velo.catalog.spot", () => {
   it("fetches, searches, and decodes the spot product catalog", async () => {
     const { velo, urls } = client(SPOT_CSV);
-    const products = await velo.catalog.spot({
-      coin: "btc",
-      exchange: "COINBASE" as SpotExchange,
-    });
+    const products = await velo.catalog
+      .spot({
+        coin: "btc",
+        exchange: "COINBASE" as SpotExchange,
+      })
+      .fetch();
 
     const url = new URL(urls[0] as string);
     expect(url.pathname).toBe("/api/v1/spot");
@@ -48,7 +50,7 @@ describe("Velo.catalog.spot", () => {
   it("selects delisted-only spot products", async () => {
     const { velo, urls } = client(DELISTED_SPOT_CSV);
 
-    const products = await velo.catalog.spot({ delisted: true });
+    const products = await velo.catalog.spot({ delisted: true }).fetch();
 
     expect(new URL(urls[0] as string).searchParams.get("delisted")).toBe("1");
     expect(products[0]?.end).toBe(1764172800000);
@@ -71,7 +73,7 @@ describe("Velo.catalog.spot", () => {
     ];
 
     for (const body of invalid) {
-      const request = client(body).velo.catalog.spot();
+      const request = client(body).velo.catalog.spot().fetch();
       await expect(request).rejects.toBeInstanceOf(VeloError);
       await expect(request).rejects.toThrow(/Unexpected \/api\/v1\/spot response/);
     }

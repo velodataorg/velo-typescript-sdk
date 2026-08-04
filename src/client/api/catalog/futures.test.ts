@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
 import type { FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import type { FutureProduct } from "./futures.ts";
 
 const FUTURES_CSV =
   "exchange,coin,product,begin,depth\n" +
@@ -25,7 +28,19 @@ function client(body: string, urls: string[] = []) {
 describe("Velo.catalog.futures", () => {
   it("fetches the active futures catalog and decodes its exact shape", async () => {
     const { velo, urls } = client(FUTURES_CSV);
-    const products = await velo.catalog.futures();
+    const builder = velo.catalog.futures();
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    expect(urls).toHaveLength(0);
+    expect(request.kind).toBe("catalog.futures");
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(builder.build()).toBe(request);
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"catalog.futures">>();
+    expectTypeOf(query).toEqualTypeOf<Query<FutureProduct, FutureProduct[]>>();
+
+    const products = await query.execute();
 
     const url = new URL(urls[0] as string);
     expect(url.pathname).toBe("/api/v1/futures");
@@ -63,20 +78,22 @@ describe("Velo.catalog.futures", () => {
   it("searches locally and case-insensitively without sending selectors", async () => {
     const { velo, urls } = client(FUTURES_CSV);
 
-    await expect(velo.catalog.futures({ coin: "btc" })).resolves.toHaveLength(2);
-    await expect(velo.catalog.futures({ product: "btcusdt" })).resolves.toEqual([
+    await expect(velo.catalog.futures({ coin: "btc" }).fetch()).resolves.toHaveLength(2);
+    await expect(velo.catalog.futures({ product: "btcusdt" }).fetch()).resolves.toEqual([
       expect.objectContaining({ exchange: "binance-futures", product: "BTCUSDT" }),
     ]);
     await expect(
-      velo.catalog.futures({ exchange: "BINANCE-FUTURES" as FuturesExchange }),
+      velo.catalog.futures({ exchange: "BINANCE-FUTURES" as FuturesExchange }).fetch(),
     ).resolves.toEqual([expect.objectContaining({ exchange: "binance-futures" })]);
     await expect(
-      velo.catalog.futures({
-        coin: "BTC",
-        exchange: "HYPERLIQUID" as FuturesExchange,
-      }),
+      velo.catalog
+        .futures({
+          coin: "BTC",
+          exchange: "HYPERLIQUID" as FuturesExchange,
+        })
+        .fetch(),
     ).resolves.toEqual([expect.objectContaining({ product: "BTC-USD" })]);
-    await expect(velo.catalog.futures({ product: "missing" })).resolves.toEqual([]);
+    await expect(velo.catalog.futures({ product: "missing" }).fetch()).resolves.toEqual([]);
 
     expect(urls).toHaveLength(5);
     for (const raw of urls) {
@@ -87,11 +104,11 @@ describe("Velo.catalog.futures", () => {
   it("filters on depth locally without sending it", async () => {
     const { velo, urls } = client(FUTURES_CSV);
 
-    await expect(velo.catalog.futures({ depth: true })).resolves.toEqual([
+    await expect(velo.catalog.futures({ depth: true }).fetch()).resolves.toEqual([
       expect.objectContaining({ product: "BTC-USD", depth: true }),
     ]);
-    await expect(velo.catalog.futures({ depth: false })).resolves.toHaveLength(2);
-    await expect(velo.catalog.futures({ coin: "BTC", depth: false })).resolves.toEqual([
+    await expect(velo.catalog.futures({ depth: false }).fetch()).resolves.toHaveLength(2);
+    await expect(velo.catalog.futures({ coin: "BTC", depth: false }).fetch()).resolves.toEqual([
       expect.objectContaining({ product: "BTCUSDT" }),
     ]);
 
@@ -104,7 +121,7 @@ describe("Velo.catalog.futures", () => {
   it("selects the delisted-only catalog", async () => {
     const { velo, urls } = client(DELISTED_FUTURES_CSV);
 
-    const products = await velo.catalog.futures({ delisted: true });
+    const products = await velo.catalog.futures({ delisted: true }).fetch();
 
     expect(new URL(urls[0] as string).searchParams.get("delisted")).toBe("1");
     expect(products[0]?.end).toBe(1624608000000);
@@ -129,6 +146,9 @@ describe("Velo.catalog.futures", () => {
     for (const params of invalid) {
       expect(() => velo.catalog.futures(params as never)).toThrow(VeloError);
     }
+    expect(() =>
+      velo.query({ kind: "catalog.futures", params: { coin: "", product: undefined } } as never),
+    ).toThrow(VeloError);
     expect(urls).toHaveLength(0);
   });
 
@@ -138,12 +158,12 @@ describe("Velo.catalog.futures", () => {
       "bybit,ETH,ETHUSDT,1614589200000,false\n" +
       "hyperliquid,BTC,BTC-USD,1718136000000,true\n" +
       "hyperliquid,BTC,BTC-USD,1718136000000,true\n";
-    const products = await client(duplicate).velo.catalog.futures();
+    const products = await client(duplicate).velo.catalog.futures().fetch();
 
     expect(products.map((product) => product.product)).toEqual(["ETHUSDT", "BTC-USD", "BTC-USD"]);
-    await expect(client("").velo.catalog.futures()).resolves.toEqual([]);
+    await expect(client("").velo.catalog.futures().fetch()).resolves.toEqual([]);
     await expect(
-      client("exchange,coin,product,begin,depth\n").velo.catalog.futures(),
+      client("exchange,coin,product,begin,depth\n").velo.catalog.futures().fetch(),
     ).resolves.toEqual([]);
   });
 
@@ -159,7 +179,7 @@ describe("Velo.catalog.futures", () => {
     ];
 
     for (const body of invalid) {
-      const request = client(body).velo.catalog.futures();
+      const request = client(body).velo.catalog.futures().fetch();
       await expect(request).rejects.toBeInstanceOf(VeloError);
       await expect(request).rejects.toThrow(/Unexpected \/api\/v1\/futures response/);
     }
@@ -172,7 +192,7 @@ describe("Velo.catalog.futures", () => {
     ];
 
     for (const body of invalid) {
-      await expect(client(body).velo.catalog.futures({ delisted: true })).rejects.toThrow(
+      await expect(client(body).velo.catalog.futures({ delisted: true }).fetch()).rejects.toThrow(
         /Unexpected \/api\/v1\/futures response/,
       );
     }
@@ -188,9 +208,21 @@ describe("Velo.catalog.futures", () => {
       },
     });
 
-    await expect(velo.catalog.futures(undefined, { retry: { retries: 0 } })).rejects.toBeInstanceOf(
+    await expect(velo.catalog.futures().fetch({ retry: { retries: 0 } })).rejects.toBeInstanceOf(
       VeloRateLimitError,
     );
     expect(calls).toBe(1);
+  });
+
+  it("streams locally filtered futures products", async () => {
+    const { velo, urls } = client(FUTURES_CSV);
+    const products: FutureProduct[] = [];
+
+    for await (const product of velo.catalog.futures({ coin: "BTC", depth: true }).stream()) {
+      products.push(product);
+    }
+
+    expect(products.map((product) => product.product)).toEqual(["BTC-USD"]);
+    expect(new URL(urls[0]!).searchParams.has("depth")).toBe(false);
   });
 });

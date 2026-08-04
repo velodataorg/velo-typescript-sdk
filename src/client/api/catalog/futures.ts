@@ -2,10 +2,9 @@ import { z } from "zod";
 
 import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import type { Http, HttpRequestOptions } from "../../../transport/http.ts";
 import { csvBoolean, csvTimestamp, decode } from "../../common/decode/csv.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
-import { CatalogParams } from "./params.ts";
+import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
 const futureProductSchema = z.strictObject({
   exchange: z.enum(FUTURES_EXCHANGES),
@@ -41,33 +40,19 @@ export type FuturesCatalogParams = CatalogParams<FuturesExchange> & {
   readonly depth?: boolean;
 };
 
-/** Fetches validated futures product catalogs bound to an HTTP transport. */
-export class FuturesCatalogQuery {
-  readonly #http: Http;
+/** Validates and normalizes a futures catalog search. */
+export function prepareFuturesCatalogParams(params: FuturesCatalogParams): PreparedCatalogParams {
+  return CatalogParams.parse("futures", params, FUTURES_EXCHANGES, {
+    delisted: true,
+    depth: true,
+  });
+}
 
-  constructor(http: Http) {
-    this.#http = http;
-  }
-
-  /** Fetches the futures product catalog from raw parameters. */
-  build(params: FuturesCatalogParams = {}, options?: HttpRequestOptions): Promise<FutureProduct[]> {
-    const prepared = CatalogParams.parse("futures", params, FUTURES_EXCHANGES, {
-      delisted: true,
-      depth: true,
-    });
-    return this.#http
-      .text(FUTURES_CATALOG_PATH, { delisted: prepared.delisted ? 1 : 0 }, options)
-      .then((body) => this.#decodeFuturesCatalog(body, prepared.delisted))
-      .then((rows) => CatalogParams.filter(rows, prepared));
-  }
-
-  #decodeFuturesCatalog(body: string, delisted: boolean): FutureProduct[] {
-    try {
-      return delisted
-        ? decode(body, delistedFutureProductSchema)
-        : decode(body, futureProductSchema);
-    } catch (cause) {
-      throw new VeloError(`Unexpected ${FUTURES_CATALOG_PATH} response`, { cause });
-    }
+/** Decodes a futures catalog response using its active or delisted wire shape. */
+export function decodeFuturesCatalog(body: string, delisted: boolean): FutureProduct[] {
+  try {
+    return delisted ? decode(body, delistedFutureProductSchema) : decode(body, futureProductSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${FUTURES_CATALOG_PATH} response`, { cause });
   }
 }

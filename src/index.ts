@@ -4,6 +4,11 @@ export type { MarketCapsParams } from "./client/api/market-caps/params.ts";
 export type { MarketCap } from "./client/api/market-caps/validation.ts";
 export { MARKET_CAPS_COLUMNS } from "./client/api/market-caps/validation.ts";
 export type { Catalog } from "./client/api/catalog/catalog.ts";
+export type {
+  FuturesCatalogBuilder,
+  OptionsCatalogBuilder,
+  SpotCatalogBuilder,
+} from "./client/api/catalog/builder.ts";
 export type { FutureProduct, FuturesCatalogParams } from "./client/api/catalog/futures.ts";
 export type { OptionProduct, OptionsCatalogParams } from "./client/api/catalog/options.ts";
 export type { CatalogParams } from "./client/api/catalog/params.ts";

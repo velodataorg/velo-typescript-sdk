@@ -1,20 +1,43 @@
-import type { Http } from "../../../transport/http.ts";
-import { FuturesCatalogQuery } from "./futures.ts";
-import { OptionsCatalogQuery } from "./options.ts";
-import { SpotCatalogQuery } from "./spot.ts";
+import {
+  FuturesCatalogBuilder,
+  type FuturesCatalogQueryFactory,
+  OptionsCatalogBuilder,
+  type OptionsCatalogQueryFactory,
+  SpotCatalogBuilder,
+  type SpotCatalogQueryFactory,
+} from "./builder.ts";
+import type { FuturesCatalogParams } from "./futures.ts";
+import type { OptionsCatalogParams } from "./options.ts";
+import type { SpotCatalogParams } from "./spot.ts";
 
 /** The product-catalog namespace exposed by {@link Velo}. */
 export class Catalog {
-  readonly futures: FuturesCatalogQuery["build"];
-  readonly options: OptionsCatalogQuery["build"];
-  readonly spot: SpotCatalogQuery["build"];
+  readonly #futuresQuery: FuturesCatalogQueryFactory;
+  readonly #optionsQuery: OptionsCatalogQueryFactory;
+  readonly #spotQuery: SpotCatalogQueryFactory;
 
-  constructor(http: Http) {
-    const futures = new FuturesCatalogQuery(http);
-    const options = new OptionsCatalogQuery(http);
-    const spot = new SpotCatalogQuery(http);
-    this.futures = futures.build.bind(futures);
-    this.options = options.build.bind(options);
-    this.spot = spot.build.bind(spot);
+  constructor(
+    futuresQuery: FuturesCatalogQueryFactory,
+    optionsQuery: OptionsCatalogQueryFactory,
+    spotQuery: SpotCatalogQueryFactory,
+  ) {
+    this.#futuresQuery = futuresQuery;
+    this.#optionsQuery = optionsQuery;
+    this.#spotQuery = spotQuery;
+  }
+
+  /** Creates an immutable futures catalog builder bound to this client. */
+  futures(params: FuturesCatalogParams = {}): FuturesCatalogBuilder {
+    return new FuturesCatalogBuilder(params, this.#futuresQuery);
+  }
+
+  /** Creates an immutable options catalog builder bound to this client. */
+  options(params: OptionsCatalogParams = {}): OptionsCatalogBuilder {
+    return new OptionsCatalogBuilder(params, this.#optionsQuery);
+  }
+
+  /** Creates an immutable spot catalog builder bound to this client. */
+  spot(params: SpotCatalogParams = {}): SpotCatalogBuilder {
+    return new SpotCatalogBuilder(params, this.#spotQuery);
   }
 }
