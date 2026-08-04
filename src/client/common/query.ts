@@ -31,6 +31,15 @@ export interface QueryOptions<T, D = T[]> {
   readonly decode: (body: string) => readonly T[];
 
   /**
+   * Decodes a response from its lines as they arrive.
+   *
+   * When present the query streams the response body instead of buffering it,
+   * so rows surface before the last byte lands. Line-oriented endpoints (CSV)
+   * set this; whole-document ones (JSON) rely on {@link QueryOptions.decode}.
+   */
+  decodeLines?: (lines: AsyncIterable<string>) => AsyncIterable<T>;
+
+  /**
    * Shapes the collected items into the awaited result.
    *
    * When omitted, `D` must be `T[]` and the items are returned as-is.
@@ -127,10 +136,10 @@ export class Query<T, D = T[]> {
      * catch keeps a failure from becoming an unhandled rejection while
      * earlier responses are still being yielded.
      */
-    const inFlight: Promise<readonly T[]>[] = [];
+    const inFlight: Promise<AsyncIterable<T> | readonly T[]>[] = [];
     let next = 0;
     const start = (): void => {
-      const rows = this.#fetch(requests[next++]!, requestOptions);
+      const rows = this.#open(requests[next++]!, requestOptions);
       rows.catch(() => {});
       inFlight.push(rows);
     };
@@ -148,9 +157,22 @@ export class Query<T, D = T[]> {
   }
 
   /**
-   * Sends and decodes one request.
+   * Starts one request and returns its decoded rows.
+   *
+   * The promise settles once the response headers arrive, so a prefetched
+   * request is genuinely in flight. With {@link QueryOptions.decodeLines} the
+   * resolved value is a lazy iterable read from the body as it streams;
+   * otherwise the body is buffered and decoded whole.
    */
-  async #fetch(request: HttpRequest, options: HttpRequestOptions): Promise<readonly T[]> {
+  async #open(
+    request: HttpRequest,
+    options: HttpRequestOptions,
+  ): Promise<AsyncIterable<T> | readonly T[]> {
+    const { decodeLines } = this.#options;
+    if (decodeLines) {
+      const lines = await this.#http.openLines(request.path, request.params, options);
+      return decodeLines(lines);
+    }
     const body = await this.#http.text(request.path, request.params, options);
     return this.#options.decode(body);
   }
@@ -191,6 +213,7 @@ export class Query<T, D = T[]> {
     return Object.freeze({
       requests,
       decode: options.decode,
+      ...(options.decodeLines ? { decodeLines: options.decodeLines } : {}),
       ...(options.collect ? { collect: options.collect } : {}),
     });
   }

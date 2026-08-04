@@ -96,3 +96,50 @@ export function decode<Schema extends z.ZodObject>(
 
   return z.array(schema).parse(rows);
 }
+
+/**
+ * Decodes header-first CSV from its lines as they arrive.
+ *
+ * Applies the same header, cell-count, and schema checks as {@link decode},
+ * but validates and yields each row as soon as its line lands rather than
+ * waiting for the whole body. An empty response yields nothing.
+ *
+ * @param lines - The response body's lines, without trailing newlines.
+ * @param schema - The schema for one raw CSV row.
+ * @returns The validated and transformed rows, in response order.
+ * @throws If the header, a row's cell count, or any cell does not match the
+ * schema.
+ */
+export async function* decodeLines<Schema extends z.ZodObject>(
+  lines: AsyncIterable<string>,
+  schema: Schema,
+): AsyncGenerator<z.output<Schema>> {
+  const expected = Object.keys(schema.shape);
+  let index = 0;
+
+  for await (const line of lines) {
+    /* The server terminates the body with a newline, so the split yields a
+     * trailing empty line that carries no row.
+     */
+    if (line.length === 0) continue;
+    const cells = csvParseRows(line)[0] ?? [];
+
+    if (index === 0) {
+      if (cells.length !== expected.length || cells.some((c, i) => c !== expected[i])) {
+        throw new Error(
+          `CSV header ${JSON.stringify(cells)} does not match expected ${JSON.stringify(expected)}`,
+        );
+      }
+      index++;
+      continue;
+    }
+
+    if (cells.length !== expected.length) {
+      throw new Error(
+        `CSV row ${index - 1} has ${cells.length} cells, expected ${expected.length}`,
+      );
+    }
+    yield schema.parse(Object.fromEntries(expected.map((c, i) => [c, cells[i]])));
+    index++;
+  }
+}
