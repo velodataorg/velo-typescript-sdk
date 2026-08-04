@@ -15,6 +15,7 @@ export type { CatalogParams } from "./client/api/catalog/params.ts";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
 export type { VeloConfig } from "./client/client.ts";
 export { Velo } from "./client/client.ts";
+export { catalog, futures, marketCaps, news, options, orderbook, spot } from "./client/builders.ts";
 export type {
   QueryBuilder,
   QueryInput,
