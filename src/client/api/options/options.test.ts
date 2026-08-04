@@ -27,8 +27,9 @@ describe("Velo.options", () => {
       "deribit,BTC,BTC,1767225600000,0.55,52.4,100000\n";
     const { velo, urls } = client(body);
     expect(velo.options).toBe(velo.options);
+    expect(velo.options).not.toHaveProperty("query");
 
-    const rows = (await velo.options.query(params).execute()).rows();
+    const rows = (await velo.query({ kind: "options.rows", params }).execute()).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("options");
 
     const exchange: "deribit" = rows[0]!.exchange;
@@ -39,11 +40,17 @@ describe("Velo.options", () => {
 
   it("rejects spot columns and exchanges at runtime", () => {
     const { velo } = client("");
-    expect(() => velo.options.query({ ...params, columns: ["close_price"] } as never)).toThrow(
-      VeloError,
-    );
-    expect(() => velo.options.query({ ...params, exchanges: ["coinbase"] } as never)).toThrow(
-      VeloError,
-    );
+    expect(() =>
+      velo.query({
+        kind: "options.rows",
+        params: { ...params, columns: ["close_price"] },
+      } as never),
+    ).toThrow(VeloError);
+    expect(() =>
+      velo.query({
+        kind: "options.rows",
+        params: { ...params, exchanges: ["coinbase"] },
+      } as never),
+    ).toThrow(VeloError);
   });
 });

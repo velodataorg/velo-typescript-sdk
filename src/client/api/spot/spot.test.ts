@@ -27,8 +27,9 @@ describe("Velo.spot", () => {
       "coinbase,BTC,BTC-USD,1767225600000,100000,12.5\n";
     const { velo, urls } = client(body);
     expect(velo.spot).toBe(velo.spot);
+    expect(velo.spot).not.toHaveProperty("query");
 
-    const rows = (await velo.spot.query(params).execute()).rows();
+    const rows = (await velo.query({ kind: "spot.rows", params }).execute()).rows();
     expect(new URL(urls[0] as string).searchParams.get("type")).toBe("spot");
 
     const exchange: "binance" | "coinbase" = rows[0]!.exchange;
@@ -39,12 +40,18 @@ describe("Velo.spot", () => {
 
   it("rejects futures columns and exchanges at runtime", () => {
     const { velo } = client("");
-    expect(() => velo.spot.query({ ...params, columns: ["funding_rate"] } as never)).toThrow(
-      VeloError,
-    );
-    expect(() => velo.spot.query({ ...params, exchanges: ["binance-futures"] } as never)).toThrow(
-      VeloError,
-    );
+    expect(() =>
+      velo.query({
+        kind: "spot.rows",
+        params: { ...params, columns: ["funding_rate"] },
+      } as never),
+    ).toThrow(VeloError);
+    expect(() =>
+      velo.query({
+        kind: "spot.rows",
+        params: { ...params, exchanges: ["binance-futures"] },
+      } as never),
+    ).toThrow(VeloError);
   });
 
   it("rejects response rows from an unrequested supported exchange", async () => {
@@ -53,6 +60,6 @@ describe("Velo.spot", () => {
       "okex,BTC,BTC-USDT,1767225600000,100000,12.5\n";
     const { velo } = client(body);
 
-    await expect(velo.spot.query(params).execute()).rejects.toThrow(VeloError);
+    await expect(velo.query({ kind: "spot.rows", params }).execute()).rejects.toThrow(VeloError);
   });
 });

@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import { TERMS_COLUMNS, type TermsCoin } from "./terms.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import { TERMS_COLUMNS, type TermPoint, type TermsCoin } from "./terms.ts";
 
 const TERMS_CSV =
   "coin,time,at_the_money_iv,dte,fwd_iv\n" +
@@ -24,9 +26,17 @@ function client(body: string, urls: string[] = []) {
 describe("Velo.options.terms", () => {
   it("is lazy, sends the requested coins, and decodes term points", async () => {
     const { velo, urls } = client(TERMS_CSV);
-    const query = velo.options.terms({ coins: ["BTC", "ETH"] });
+    const builder = velo.options.terms({ coins: ["BTC", "ETH"] });
+    const request = builder.build();
+    const query = velo.query(builder);
 
     expect(urls).toHaveLength(0);
+    expect(request.kind).toBe("options.terms");
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.coins)).toBe(true);
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"options.terms">>();
+    expectTypeOf(query).toEqualTypeOf<Query<TermPoint, TermPoint[]>>();
 
     const rows = await query.execute();
     expect(urls).toHaveLength(1);
@@ -65,12 +75,12 @@ describe("Velo.options.terms", () => {
     await expect(
       client("")
         .velo.options.terms({ coins: ["BTC"] })
-        .execute(),
+        .fetch(),
     ).resolves.toEqual([]);
     await expect(
       client("coin,time,at_the_money_iv,dte,fwd_iv\n")
         .velo.options.terms({ coins: ["BTC"] })
-        .execute(),
+        .fetch(),
     ).resolves.toEqual([]);
   });
 
@@ -103,7 +113,7 @@ describe("Velo.options.terms", () => {
     for (const body of invalid) {
       const execution = client(body)
         .velo.options.terms({ coins: ["BTC"] })
-        .execute();
+        .fetch();
       await expect(execution).rejects.toBeInstanceOf(VeloError);
       await expect(execution).rejects.toThrow(/Unexpected \/api\/v1\/terms response/);
     }
@@ -119,7 +129,7 @@ describe("Velo.options.terms", () => {
     await expect(
       client(body)
         .velo.options.terms({ coins: ["BTC", "ETH"] })
-        .execute(),
+        .fetch(),
     ).resolves.toEqual([
       { coin: "BTC", time: 1767225600000, at_the_money_iv: 0.5, dte: 7, fwd_iv: 0.52 },
       { coin: "BTC", time: 1767229200000, at_the_money_iv: null, dte: 7, fwd_iv: 0.53 },
@@ -142,8 +152,21 @@ describe("Velo.options.terms", () => {
       await expect(
         client(body)
           .velo.options.terms({ coins: ["BTC"] })
-          .execute(),
+          .fetch(),
       ).rejects.toBeInstanceOf(VeloError);
     }
+  });
+
+  it("streams term points through the central query pipeline", async () => {
+    const { velo, urls } = client(TERMS_CSV);
+    const rows: TermPoint[] = [];
+
+    for await (const row of velo.options.terms({ coins: ["BTC", "ETH"] }).stream()) {
+      rows.push(row);
+    }
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.coin).toBe("BTC");
+    expect(urls).toHaveLength(1);
   });
 });

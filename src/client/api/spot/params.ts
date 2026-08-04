@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import type { Equals, Expect } from "../../../util/types.ts";
+import type { Row } from "../../common/data/row.ts";
 import { SPOT_COLUMNS, type SpotColumn } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
 import { RowsParams } from "../../common/rows/params.ts";
@@ -10,6 +11,8 @@ export type SpotParams<
   C extends SpotColumn = SpotColumn,
   E extends SpotExchange = SpotExchange,
 > = RowsParams<E, C>;
+
+export type SpotRow<C extends SpotColumn, E extends SpotExchange = SpotExchange> = Row<E, C>;
 
 const SpotParamsSchema = RowsParams.schema(SPOT_EXCHANGES, SPOT_COLUMNS);
 

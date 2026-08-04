@@ -2,9 +2,14 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { OhlcColumn } from "../../common/data/candles.ts";
+import type { CandleData } from "../../common/data/data.ts";
 import { SPOT_COLUMNS } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration } from "./builder.ts";
+import type { SpotParams, SpotRow } from "./params.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -74,25 +79,42 @@ describe("spot fluent builder", () => {
   });
 
   it("tracks exchange selections through fluent result types", () => {
-    const base = client().velo.spot.price(["close"]);
-    const selected = base
-      .for({ exchanges: ["coinbase"], coins: ["BTC"] })
-      .trades(["buy"])
-      .over(window)
-      .build();
-    const omitted = base
-      .for({ coins: ["BTC"] })
-      .over(window)
-      .build();
-    const reset = base
-      .for({ exchanges: ["coinbase"], coins: ["BTC"] })
-      .for({ coins: ["ETH"] })
-      .over(window)
-      .build();
+    const { velo } = client();
+    const base = velo.spot.price(["close"]);
+    const selected = velo.query(
+      base
+        .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+        .trades(["buy"])
+        .over(window),
+    );
+    const omitted = velo.query(base.for({ coins: ["BTC"] }).over(window));
+    const reset = velo.query(
+      base
+        .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+        .for({ coins: ["ETH"] })
+        .over(window),
+    );
 
     expectTypeOf<StreamExchange<ReturnType<typeof selected.stream>>>().toEqualTypeOf<"coinbase">();
     expectTypeOf<StreamExchange<ReturnType<typeof omitted.stream>>>().toEqualTypeOf<SpotExchange>();
     expectTypeOf<StreamExchange<ReturnType<typeof reset.stream>>>().toEqualTypeOf<SpotExchange>();
+  });
+
+  it("preserves exact request, row, and candle result types through velo.query", () => {
+    const { velo } = client();
+    const builder = velo.spot
+      .price()
+      .for({ exchanges: ["coinbase"], coins: ["BTC"] })
+      .over(window);
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    expectTypeOf(request).toEqualTypeOf<
+      QueryRequest<"spot.rows", SpotParams<OhlcColumn, "coinbase">>
+    >();
+    expectTypeOf(query).toEqualTypeOf<
+      Query<SpotRow<OhlcColumn, "coinbase">, CandleData<"coinbase", OhlcColumn>>
+    >();
   });
 
   it("exposes candles only for candle-compatible result columns", () => {
@@ -172,6 +194,28 @@ describe("spot fluent builder", () => {
     });
   });
 
+  it("builds a frozen request that fixes scope arrays", async () => {
+    const urls: string[] = [];
+    const { velo } = client("exchange,coin,product,time,close_price\n", urls);
+    const exchanges: SpotExchange[] = ["coinbase"];
+    const products = ["BTC-USD"];
+    const request = velo.spot.price(["close"]).for({ exchanges, products }).over(window).build();
+
+    exchanges[0] = "binance";
+    products[0] = "ETH-USD";
+    expect(request.kind).toBe("spot.rows");
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.exchanges)).toBe(true);
+    expect(Object.isFrozen(request.params.columns)).toBe(true);
+    expect(Object.isFrozen(request.params.products)).toBe(true);
+    await velo.query(request).execute();
+
+    const sent = search(urls[0]!);
+    expect(sent.get("exchanges")).toBe("coinbase");
+    expect(sent.get("products")).toBe("BTC-USD");
+  });
+
   it("supports immutable branching", () => {
     const base = client().velo.spot.price(["open"]).for(market).over(window);
     const volume = base.volume(["total"]);
@@ -192,6 +236,8 @@ describe("spot fluent builder", () => {
       base.params();
       // @ts-expect-error over() is required
       base.for(market).build();
+      // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
+      velo.query(base);
       // @ts-expect-error for() is required
       base.over(window).fetch();
       // @ts-expect-error for() is required
@@ -316,7 +362,7 @@ describe("spot fluent builder", () => {
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build();
+      const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);
@@ -328,7 +374,7 @@ describe("spot fluent builder", () => {
     }
   });
 
-  it("lowers through the existing query pipeline and decodes typed data", async () => {
+  it("lowers through the central query pipeline and decodes typed data", async () => {
     const body =
       "exchange,coin,product,time,open_price,high_price,buy_coin_volume\n" +
       "coinbase,BTC,BTC-USD,1783929600000,63100,63200,12.5\n";
@@ -367,6 +413,32 @@ describe("spot fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
+  });
+
+  it("streams directly from a fully scoped builder", async () => {
+    const body =
+      "exchange,coin,product,time,close_price\n" + "coinbase,BTC,BTC-USD,1783929600000,63100\n";
+    const { velo, urls } = client(body);
+    const rows: SpotRow<"close_price", "coinbase">[] = [];
+
+    for await (const row of velo.spot
+      .price(["close"])
+      .for({ exchanges: ["coinbase"], products: ["BTC-USD"] })
+      .over(window)
+      .stream()) {
+      rows.push(row);
+    }
+
+    expect(rows).toEqual([
+      {
+        exchange: "coinbase",
+        coin: "BTC",
+        product: "BTC-USD",
+        time: 1783929600000,
+        close_price: 63_100,
+      },
+    ]);
+    expect(search(urls[0]!).get("columns")).toBe("close_price");
   });
 
   it("rejects response rows from an unrequested spot exchange", async () => {

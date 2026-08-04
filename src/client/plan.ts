@@ -8,14 +8,19 @@ import { planFuturesBasis, planFuturesRows } from "./api/futures/plan.ts";
 import type { NewsStoriesParams } from "./api/news/params.ts";
 import { planNewsStories } from "./api/news/plan.ts";
 import type { NewsStory } from "./api/news/validation.ts";
+import type { OptionsParams, OptionsRow } from "./api/options/params.ts";
+import { planOptionsRows, planOptionsTerms } from "./api/options/plan.ts";
+import type { TermPoint, TermsParams } from "./api/options/terms.ts";
 import type { OrderbookData, OrderbookRow } from "./api/orderbook/data.ts";
 import type { OrderbookParams } from "./api/orderbook/params.ts";
 import { planOrderbook } from "./api/orderbook/plan.ts";
+import type { SpotParams, SpotRow } from "./api/spot/params.ts";
+import { planSpotRows } from "./api/spot/plan.ts";
 import type { DataResult } from "./common/data/data.ts";
 import type { Row } from "./common/data/row.ts";
-import type { FuturesStandardColumn } from "./common/market/columns.ts";
+import type { FuturesStandardColumn, OptionsColumn, SpotColumn } from "./common/market/columns.ts";
 import { BASIS_COLUMN } from "./common/market/columns.ts";
-import type { FuturesExchange } from "./common/market/exchanges.ts";
+import type { FuturesExchange, OptionsExchange, SpotExchange } from "./common/market/exchanges.ts";
 import type { QueryPlan } from "./common/query.ts";
 
 /** Endpoint contracts understood by the central query planner. */
@@ -35,10 +40,25 @@ export interface QueryDefinitions {
     item: NewsStory;
     result: NewsStory[];
   };
+  "options.rows": {
+    params: OptionsParams;
+    item: OptionsRow<OptionsColumn>;
+    result: DataResult<OptionsExchange, OptionsColumn>;
+  };
+  "options.terms": {
+    params: TermsParams;
+    item: TermPoint;
+    result: TermPoint[];
+  };
   "orderbook.levels": {
     params: OrderbookParams;
     item: OrderbookRow;
     result: OrderbookData;
+  };
+  "spot.rows": {
+    params: SpotParams;
+    item: SpotRow<SpotColumn>;
+    result: DataResult<SpotExchange, SpotColumn>;
   };
 }
 
@@ -111,7 +131,10 @@ const PLANNERS: PlannerRegistry = Object.freeze({
   "futures.basis": planFuturesBasis,
   "futures.rows": planFuturesRows,
   "news.stories": planNewsStories,
+  "options.rows": planOptionsRows,
+  "options.terms": planOptionsTerms,
   "orderbook.levels": planOrderbook,
+  "spot.rows": planSpotRows,
 });
 
 /** Resolves a direct endpoint request or invokes a request builder. */

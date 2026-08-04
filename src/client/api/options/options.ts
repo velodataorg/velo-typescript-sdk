@@ -1,12 +1,9 @@
-import type { Http } from "../../../transport/http.ts";
-import { OptionsBuilder } from "./builder.ts";
-import { OptionsQuery } from "./query.ts";
-import { TermsQuery } from "./terms.ts";
+import { OptionsBuilder, type OptionsRowsQueryFactory } from "./builder.ts";
+import { OptionsTermsBuilder, type OptionsTermsQueryFactory, type TermsParams } from "./terms.ts";
 
 /** The options namespace exposed by {@link Velo}. */
 export class Options {
-  readonly query: OptionsQuery["build"];
-  readonly terms: TermsQuery["build"];
+  readonly #termsQuery: OptionsTermsQueryFactory;
   readonly iv: OptionsBuilder<never>["iv"];
   readonly skew: OptionsBuilder<never>["skew"];
   readonly vega: OptionsBuilder<never>["vega"];
@@ -19,12 +16,9 @@ export class Options {
   readonly dvol: OptionsBuilder<never>["dvol"];
   readonly indexPrice: OptionsBuilder<never>["indexPrice"];
 
-  constructor(http: Http) {
-    const query = new OptionsQuery(http);
-    const terms = new TermsQuery(http);
+  constructor(query: OptionsRowsQueryFactory, termsQuery: OptionsTermsQueryFactory) {
+    this.#termsQuery = termsQuery;
     const builder = new OptionsBuilder(query);
-    this.query = query.build.bind(query);
-    this.terms = terms.build.bind(terms);
     this.iv = builder.iv.bind(builder);
     this.skew = builder.skew.bind(builder);
     this.vega = builder.vega.bind(builder);
@@ -36,5 +30,10 @@ export class Options {
     this.notional = builder.notional.bind(builder);
     this.dvol = builder.dvol.bind(builder);
     this.indexPrice = builder.indexPrice.bind(builder);
+  }
+
+  /** Creates an immutable options term-structure builder bound to this client. */
+  terms(params: TermsParams): OptionsTermsBuilder {
+    return new OptionsTermsBuilder(params, this.#termsQuery);
   }
 }

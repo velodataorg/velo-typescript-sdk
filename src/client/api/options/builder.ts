@@ -14,8 +14,12 @@ import type { DataResult } from "../../common/data/data.ts";
 import type { OptionsColumn } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
-import { OptionsParams, type OptionsRow } from "./params.ts";
-import { OptionsQuery } from "./query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import {
+  OptionsParams,
+  type OptionsParams as OptionsParamsType,
+  type OptionsRow,
+} from "./params.ts";
 import {
   OPTIONS_SELECTOR_COLUMNS,
   type OptionsDeltaColumn,
@@ -85,8 +89,13 @@ interface State<C extends OptionsColumn> {
   readonly window?: BuilderWindow;
 }
 
+/** Binds an options rows request to the central lazy-query constructor. */
+export type OptionsRowsQueryFactory = <C extends OptionsColumn>(
+  request: QueryRequest<"options.rows", OptionsParamsType<C>>,
+) => Query<OptionsRow<C>, DataResult<OptionsExchange, C>>;
+
 /**
- * An immutable fluent options query under construction.
+ * An immutable fluent options request builder.
  *
  * Each selector returns a new builder, so a partially configured chain can be
  * safely reused as the base for multiple queries.
@@ -95,10 +104,10 @@ interface State<C extends OptionsColumn> {
  * @typeParam S - Scope-setting methods completed by the chain.
  */
 export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuilderStep = never> {
-  readonly #query: OptionsQuery;
+  readonly #query: OptionsRowsQueryFactory;
   readonly #state: State<C>;
 
-  constructor(query: OptionsQuery, state: State<C> = { columns: [] }) {
+  constructor(query: OptionsRowsQueryFactory, state: State<C> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }
@@ -318,18 +327,20 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
   }
 
   /**
-   * Lowers the chain into a lazy query without sending a request.
+   * Lowers the chain into an immutable transport-independent request.
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
   build(
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
-  ): Query<OptionsRow<C>, DataResult<OptionsExchange, C>> {
+    ...ready: ScopeBuilderStep extends S ? [] : [never]
+  ): QueryRequest<"options.rows", OptionsParamsType<C>> {
+    void ready;
     return this.#build();
   }
 
   /**
-   * Builds and immediately fetches the query.
+   * Builds the request and immediately fetches its query.
    *
    * @param options - Per-request transport options.
    */
@@ -337,7 +348,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
     options?: HttpRequestOptions,
   ): Promise<DataResult<OptionsExchange, C>> {
-    return this.#build().execute(options);
+    return this.#query(this.#build()).execute(options);
   }
 
   /** Builds and streams decoded rows without collecting them into a data object. */
@@ -345,7 +356,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     this: ScopedBuilder<OptionsBuilder<C, S>, S>,
     options?: HttpRequestOptions,
   ): AsyncIterable<OptionsRow<C>> {
-    return this.#build().stream(options);
+    return this.#query(this.#build()).stream(options);
   }
 
   #withColumns<Added extends OptionsColumn>(
@@ -372,7 +383,18 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     return OptionsParams.parse(lowered);
   }
 
-  #build(): Query<OptionsRow<C>, DataResult<OptionsExchange, C>> {
-    return this.#query.build(this.#params());
+  #build(): QueryRequest<"options.rows", OptionsParamsType<C>> {
+    const params = freezeOptionsRowsParams(this.#params());
+    return Object.freeze({ kind: "options.rows", params });
   }
+}
+
+function freezeOptionsRowsParams<C extends OptionsColumn>(
+  params: OptionsParamsType<C>,
+): OptionsParamsType<C> {
+  Object.freeze(params.exchanges);
+  Object.freeze(params.columns);
+  if (params.products !== undefined) Object.freeze(params.products);
+  if (params.coins !== undefined) Object.freeze(params.coins);
+  return Object.freeze(params);
 }

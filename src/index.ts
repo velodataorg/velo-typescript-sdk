@@ -74,7 +74,12 @@ export type {
   OptionsVolumePart,
 } from "./client/api/options/builder.ts";
 export type { OptionsParams, OptionsRow } from "./client/api/options/params.ts";
-export type { TermPoint, TermsCoin, TermsParams } from "./client/api/options/terms.ts";
+export type {
+  OptionsTermsBuilder,
+  TermPoint,
+  TermsCoin,
+  TermsParams,
+} from "./client/api/options/terms.ts";
 export { TERMS_COINS, TERMS_COLUMNS } from "./client/api/options/terms.ts";
 export type { Orderbook } from "./client/api/orderbook/orderbook.ts";
 export type { OrderbookLevelsBuilder } from "./client/api/orderbook/builder.ts";
@@ -91,8 +96,7 @@ export type {
   OrderbookResolution,
 } from "./client/api/orderbook/params.ts";
 export type { OrderbookScope, OrderbookTarget } from "./client/api/orderbook/scope.ts";
-export type { SpotParams } from "./client/api/spot/params.ts";
-export type { SpotRow } from "./client/api/spot/query.ts";
+export type { SpotParams, SpotRow } from "./client/api/spot/params.ts";
 export type {
   SpotBuilder,
   SpotMarketScope,

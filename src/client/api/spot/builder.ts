@@ -15,8 +15,8 @@ import type { DataResult } from "../../common/data/data.ts";
 import type { SpotColumn } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
-import { SpotParams } from "./params.ts";
-import { SpotQuery, type SpotRow } from "./query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import { SpotParams, type SpotParams as SpotParamsType, type SpotRow } from "./params.ts";
 import {
   SPOT_SELECTOR_COLUMNS,
   type SpotPriceColumn,
@@ -58,8 +58,13 @@ interface State<C extends SpotColumn, E extends SpotExchange> {
   readonly window?: BuilderWindow;
 }
 
+/** Binds a spot rows request to the central lazy-query constructor. */
+export type SpotRowsQueryFactory = <C extends SpotColumn, E extends SpotExchange>(
+  request: QueryRequest<"spot.rows", SpotParamsType<C, E>>,
+) => Query<SpotRow<C, E>, DataResult<E, C>>;
+
 /**
- * An immutable fluent spot query under construction.
+ * An immutable fluent spot request builder.
  *
  * Each selector returns a new builder, so a partially configured chain can be
  * safely reused as the base for multiple queries.
@@ -73,10 +78,10 @@ export class SpotBuilder<
   E extends SpotExchange = SpotExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: SpotQuery;
+  readonly #query: SpotRowsQueryFactory;
   readonly #state: State<C, E>;
 
-  constructor(query: SpotQuery, state: State<C, E> = { columns: [] }) {
+  constructor(query: SpotRowsQueryFactory, state: State<C, E> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }
@@ -179,16 +184,20 @@ export class SpotBuilder<
   }
 
   /**
-   * Lowers the chain into a lazy query without sending a request.
+   * Lowers the chain into an immutable transport-independent request.
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
-  build(this: ScopedBuilder<SpotBuilder<C, E, S>, S>): Query<SpotRow<C, E>, DataResult<E, C>> {
+  build(
+    this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
+    ...ready: ScopeBuilderStep extends S ? [] : [never]
+  ): QueryRequest<"spot.rows", SpotParamsType<C, E>> {
+    void ready;
     return this.#build();
   }
 
   /**
-   * Builds and immediately fetches the query.
+   * Builds the request and immediately fetches its query.
    *
    * @param options - Per-request transport options.
    */
@@ -196,7 +205,7 @@ export class SpotBuilder<
     this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
   ): Promise<DataResult<E, C>> {
-    return this.#build().execute(options);
+    return this.#query(this.#build()).execute(options);
   }
 
   /** Builds and streams decoded rows without collecting them into a data object. */
@@ -204,7 +213,7 @@ export class SpotBuilder<
     this: ScopedBuilder<SpotBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
   ): AsyncIterable<SpotRow<C, E>> {
-    return this.#build().stream(options);
+    return this.#query(this.#build()).stream(options);
   }
 
   #withColumns<Added extends SpotColumn>(columns: readonly Added[]): SpotBuilder<C | Added, E, S> {
@@ -229,7 +238,18 @@ export class SpotBuilder<
     return SpotParams.parse(lowered);
   }
 
-  #build(): Query<SpotRow<C, E>, DataResult<E, C>> {
-    return this.#query.build(this.#params());
+  #build(): QueryRequest<"spot.rows", SpotParamsType<C, E>> {
+    const params = freezeSpotRowsParams(this.#params());
+    return Object.freeze({ kind: "spot.rows", params });
   }
+}
+
+function freezeSpotRowsParams<C extends SpotColumn, E extends SpotExchange>(
+  params: SpotParamsType<C, E>,
+): SpotParamsType<C, E> {
+  Object.freeze(params.exchanges);
+  Object.freeze(params.columns);
+  if (params.products !== undefined) Object.freeze(params.products);
+  if (params.coins !== undefined) Object.freeze(params.coins);
+  return Object.freeze(params);
 }

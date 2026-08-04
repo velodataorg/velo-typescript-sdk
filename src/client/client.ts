@@ -47,9 +47,12 @@ export class Velo {
       (request) => this.query(request),
       (request) => this.query(request),
     );
-    this.#options = new Options(this.#http);
+    this.#options = new Options(
+      (request) => this.query(request),
+      (request) => this.query(request),
+    );
     this.#orderbook = new Orderbook((request) => this.query(request));
-    this.#spot = new Spot(this.#http);
+    this.#spot = new Spot((request) => this.query(request));
     this.#status = new Status(this.#http);
   }
 

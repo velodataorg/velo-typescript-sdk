@@ -1,18 +1,13 @@
-import type { Http } from "../../../transport/http.ts";
-import { SpotBuilder } from "./builder.ts";
-import { SpotQuery } from "./query.ts";
+import { SpotBuilder, type SpotRowsQueryFactory } from "./builder.ts";
 
 /** The spot `/rows` namespace exposed by {@link Velo}. */
 export class Spot {
-  readonly query: SpotQuery["build"];
   readonly price: SpotBuilder<never>["price"];
   readonly volume: SpotBuilder<never>["volume"];
   readonly trades: SpotBuilder<never>["trades"];
 
-  constructor(http: Http) {
-    const query = new SpotQuery(http);
+  constructor(query: SpotRowsQueryFactory) {
     const builder = new SpotBuilder(query);
-    this.query = query.build.bind(query);
     this.price = builder.price.bind(builder);
     this.volume = builder.volume.bind(builder);
     this.trades = builder.trades.bind(builder);

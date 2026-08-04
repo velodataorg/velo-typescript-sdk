@@ -2,10 +2,11 @@ import { z } from "zod";
 
 import { TERMS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import type { Http } from "../../../transport/http.ts";
+import type { HttpRequestOptions } from "../../../transport/http.ts";
 import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.ts";
-import { Query } from "../../common/query.ts";
+import type { Query } from "../../common/query.ts";
 import { invalidParamsError } from "../../common/validation.ts";
+import type { QueryBuilder, QueryRequest } from "../../plan.ts";
 
 export const TERMS_COINS = ["BTC", "ETH"] as const;
 export type TermsCoin = (typeof TERMS_COINS)[number];
@@ -42,31 +43,42 @@ export const TermsParams = Object.freeze({
   },
 });
 
-/** Creates validated lazy options term-structure queries bound to an HTTP transport. */
-export class TermsQuery {
-  readonly #http: Http;
+/** Binds an options term-structure request to the central lazy-query constructor. */
+export type OptionsTermsQueryFactory = (
+  request: QueryRequest<"options.terms">,
+) => Query<TermPoint, TermPoint[]>;
 
-  constructor(http: Http) {
-    this.#http = http;
+/** An immutable options term-structure request builder bound to one client. */
+export class OptionsTermsBuilder implements QueryBuilder<"options.terms"> {
+  readonly #request: QueryRequest<"options.terms">;
+  readonly #query: OptionsTermsQueryFactory;
+
+  constructor(params: TermsParams, query: OptionsTermsQueryFactory) {
+    const snapshot = TermsParams.parse(params);
+    Object.freeze(snapshot.coins);
+    Object.freeze(snapshot);
+    this.#request = Object.freeze({ kind: "options.terms", params: snapshot });
+    this.#query = query;
   }
 
-  /** Creates a lazy query from raw options term-structure parameters. */
-  build(params: TermsParams): Query<TermPoint> {
-    const parsed = TermsParams.parse(params);
-    return new Query(this.#http, {
-      requests: [
-        {
-          path: TERMS_PATH,
-          params: { coins: parsed.coins },
-        },
-      ],
-      decode: decodeTerms,
-    });
+  /** Returns the immutable transport-independent endpoint request. */
+  build(): QueryRequest<"options.terms"> {
+    return this.#request;
+  }
+
+  /** Creates and immediately executes a lazy query through the bound client. */
+  fetch(options?: HttpRequestOptions): Promise<TermPoint[]> {
+    return this.#query(this.#request).execute(options);
+  }
+
+  /** Creates a lazy query and streams term points through the bound client. */
+  stream(options?: HttpRequestOptions): AsyncIterable<TermPoint> {
+    return this.#query(this.#request).stream(options);
   }
 }
 
 /** Decodes a terms response and adds endpoint context to malformed data errors. */
-function decodeTerms(body: string): TermPoint[] {
+export function decodeTerms(body: string): TermPoint[] {
   try {
     return decode(body, termPointSchema);
   } catch (cause) {

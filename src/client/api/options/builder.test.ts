@@ -5,7 +5,10 @@ import { Velo } from "../../client.ts";
 import type { Data } from "../../common/data/data.ts";
 import { OPTIONS_COLUMNS } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration } from "./builder.ts";
+import type { OptionsParams, OptionsRow } from "./params.ts";
 import type { OptionsIvColumn } from "./selectors.ts";
 
 function client(body = "", urls: string[] = []) {
@@ -89,15 +92,25 @@ describe("options fluent builder", () => {
   });
 
   it("omits candles from options result types", () => {
-    const iv = client().velo.options.iv().for(market).over(window);
+    const { velo } = client();
+    const iv = velo.options.iv().for(market).over(window);
+    const query = velo.query(iv);
 
     expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().toEqualTypeOf<
       Data<OptionsExchange, OptionsIvColumn>
     >();
     expectTypeOf<Awaited<ReturnType<typeof iv.fetch>>>().not.toHaveProperty("candles");
-    expectTypeOf<Awaited<ReturnType<ReturnType<typeof iv.build>["execute"]>>>().not.toHaveProperty(
-      "candles",
-    );
+    expectTypeOf<Awaited<ReturnType<typeof query.execute>>>().not.toHaveProperty("candles");
+  });
+
+  it("preserves exact request, row, and result types through velo.query", () => {
+    const { velo } = client();
+    const builder = velo.options.iv(["1m"]).for(market).over(window);
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"options.rows", OptionsParams<"iv_1m">>>();
+    expectTypeOf(query).toEqualTypeOf<Query<OptionsRow<"iv_1m">, Data<OptionsExchange, "iv_1m">>>();
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {
@@ -202,6 +215,27 @@ describe("options fluent builder", () => {
     });
   });
 
+  it("builds a frozen request that fixes scope arrays", async () => {
+    const urls: string[] = [];
+    const { velo } = client("exchange,coin,product,time,iv_1m\n", urls);
+    const exchanges: OptionsExchange[] = ["deribit"];
+    const coins = ["BTC"];
+    const request = velo.options.iv(["1m"]).for({ exchanges, coins }).over(window).build();
+
+    coins[0] = "ETH";
+    expect(request.kind).toBe("options.rows");
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.exchanges)).toBe(true);
+    expect(Object.isFrozen(request.params.columns)).toBe(true);
+    expect(Object.isFrozen(request.params.coins)).toBe(true);
+    await velo.query(request).execute();
+
+    const sent = search(urls[0]!);
+    expect(sent.get("exchanges")).toBe("deribit");
+    expect(sent.get("coins")).toBe("BTC");
+  });
+
   it("supports immutable branching", () => {
     const base = client().velo.options.iv(["1m"]).for(market).over(window);
     const greeks = base.delta(["call"]);
@@ -244,6 +278,8 @@ describe("options fluent builder", () => {
       base.params();
       // @ts-expect-error over() is required
       base.for(market).build();
+      // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
+      velo.query(base);
       // @ts-expect-error for() is required
       base.over(window).fetch();
       // @ts-expect-error for() is required
@@ -368,7 +404,7 @@ describe("options fluent builder", () => {
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build();
+      const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);
@@ -380,7 +416,7 @@ describe("options fluent builder", () => {
     }
   });
 
-  it("lowers through the existing query pipeline and decodes typed data", async () => {
+  it("lowers through the central query pipeline and decodes typed data", async () => {
     const body =
       "exchange,coin,product,time,iv_1m,call_delta_coins,dvol_close,index_price\n" +
       "deribit,BTC,BTC,1783929600000,0.55,120,52.4,63100\n";
@@ -422,5 +458,30 @@ describe("options fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
+  });
+
+  it("streams directly from a fully scoped builder", async () => {
+    const body = "exchange,coin,product,time,iv_1m\n" + "deribit,BTC,BTC,1783929600000,0.55\n";
+    const { velo, urls } = client(body);
+    const rows: OptionsRow<"iv_1m">[] = [];
+
+    for await (const row of velo.options
+      .iv(["1m"])
+      .for({ exchanges: ["deribit"], coins: ["BTC"] })
+      .over(window)
+      .stream()) {
+      rows.push(row);
+    }
+
+    expect(rows).toEqual([
+      {
+        exchange: "deribit",
+        coin: "BTC",
+        product: "BTC",
+        time: 1783929600000,
+        iv_1m: 0.55,
+      },
+    ]);
+    expect(search(urls[0]!).get("columns")).toBe("iv_1m");
   });
 });
