@@ -11,6 +11,7 @@ import type {
 } from "../../../transport/websocket.ts";
 import { WebSocketTransport } from "../../../transport/websocket.ts";
 import { Velo } from "../../client.ts";
+import type { WatchOptions } from "../../watch.ts";
 import type { NewsStory } from "./validation.ts";
 import {
   DEFAULT_NEWS_CONNECT_TIMEOUT,
@@ -149,9 +150,10 @@ function harness(factory?: WebSocketFactory) {
     webSocketFactory,
   };
   const client = new Velo(config);
-  /* Lifecycle behaviour belongs to the controller, which the client only
-   * reaches once it is already connecting; these tests drive it directly so
-   * they can observe it before it opens.
+  /* A few behaviours are only reachable before the subscription opens —
+   * closing or aborting mid-connect, connect timeouts — which the client no
+   * longer exposes now that watch() connects. Those drive the controller
+   * directly; everything else goes through the client.
    */
   const transport = new WebSocketTransport(config, webSocketFactory);
   const newsWatcher = (options: NewsWatchOptions = {}): NewsWatcher =>
@@ -164,13 +166,22 @@ async function flushConnection(): Promise<void> {
   await Promise.resolve();
 }
 
-async function openWatcher(watcher: NewsWatcher, sockets: FakeSocket[]): Promise<FakeSocket> {
-  const connected = watcher.connect();
+/**
+ * Executes a feed subscription through the client and drives its socket open.
+ *
+ * The boundary a consumer actually uses: `velo.watch()` connects on its own,
+ * so an opened watcher is what the client hands back.
+ */
+async function openFeed(
+  client: Velo,
+  sockets: FakeSocket[],
+  options: WatchOptions<"news.feed"> = {},
+): Promise<{ watcher: NewsWatcher; socket: FakeSocket }> {
+  const pending = client.watch(client.news.feed(), options);
   await flushConnection();
-  const socket = sockets[0] as FakeSocket;
+  const socket = sockets[sockets.length - 1] as FakeSocket;
   socket.open();
-  await connected;
-  return socket;
+  return { watcher: await pending, socket };
 }
 
 function story(id: number = STORY.id): string {
@@ -182,7 +193,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("NewsWatcherController", () => {
+describe("News feed subscription", () => {
   it("creates a disconnected idle watcher and validates options synchronously", () => {
     const { newsWatcher, client, sockets } = harness();
     const watcher = newsWatcher();
@@ -299,8 +310,8 @@ describe("NewsWatcherController", () => {
   });
 
   it("emits decoded domain events in order and supports fluent on/off", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const received: (readonly [string, unknown])[] = [];
     const removed = vi.fn();
     const storyListener = (value: NewsStory): void => {
@@ -313,8 +324,6 @@ describe("NewsWatcherController", () => {
     watcher
       .on("edit", (value) => received.push(["edit", value]))
       .on("delete", (value) => received.push(["delete", value]));
-
-    const socket = await openWatcher(watcher, sockets);
     socket.message(JSON.stringify({ ...STORY, futureField: true }));
     socket.message(JSON.stringify({ ...STORY, headline: "Edited", edit: true }));
     socket.message(JSON.stringify({ id: STORY.id, deleted: true }));
@@ -328,13 +337,12 @@ describe("NewsWatcherController", () => {
   });
 
   it("consumes heartbeats internally and accepts Node Buffer frames", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const stories = vi.fn();
     const edits = vi.fn();
     const deletions = vi.fn();
     watcher.on("story", stories).on("edit", edits).on("delete", deletions);
-    const socket = await openWatcher(watcher, sockets);
 
     socket.message('{"heartbeat":true}');
     expect(stories).not.toHaveBeenCalled();
@@ -346,8 +354,8 @@ describe("NewsWatcherController", () => {
   });
 
   it("reports a post-open decode failure as error then close", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const order: string[] = [];
     let surfaced: VeloError | undefined;
     watcher
@@ -360,7 +368,6 @@ describe("NewsWatcherController", () => {
         order.push("close");
         expect(watcher.state).toBe("disconnected");
       });
-    const socket = await openWatcher(watcher, sockets);
 
     socket.message("{not json");
 
@@ -449,12 +456,11 @@ describe("NewsWatcherController", () => {
   });
 
   it("redacts credentials and emits one terminal outcome for a remote close", async () => {
-    const { newsWatcher, sockets, targets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets, targets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const errors: VeloError[] = [];
     const closes: NewsClose[] = [];
     watcher.on("error", (error) => errors.push(error)).on("close", (close) => closes.push(close));
-    const socket = await openWatcher(watcher, sockets);
     const target = targets[0] as WebSocketTarget;
 
     socket.remoteClose(1008, `bad test/key test%2Fkey ${target.headers.authorization as string}`);
@@ -472,11 +478,10 @@ describe("NewsWatcherController", () => {
   });
 
   it("settles an error/close race once and does not reconnect automatically", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const order: string[] = [];
     watcher.on("error", () => order.push("error")).on("close", () => order.push("close"));
-    const socket = await openWatcher(watcher, sockets);
 
     socket.error(new Error("socket failed"));
     socket.remoteClose(1006, "gone");
@@ -490,8 +495,8 @@ describe("NewsWatcherController", () => {
   });
 
   it("reconnects explicitly from a close listener and preserves listeners", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const stories = vi.fn();
     let reconnected: Promise<void> | undefined;
     watcher.on("story", stories).on("close", () => {
@@ -499,7 +504,7 @@ describe("NewsWatcherController", () => {
         reconnected = watcher.connect();
       }
     });
-    const firstSocket = await openWatcher(watcher, sockets);
+    const firstSocket = socket;
 
     firstSocket.remoteClose(1006, "gone");
 
@@ -544,8 +549,8 @@ describe("NewsWatcherController", () => {
   it("does not reclassify listener exceptions as watcher failures", async () => {
     const reportError = vi.fn();
     vi.stubGlobal("reportError", reportError);
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const later = vi.fn();
     const thrown = new Error("consumer failed");
     watcher
@@ -553,7 +558,6 @@ describe("NewsWatcherController", () => {
         throw thrown;
       })
       .on("story", later);
-    const socket = await openWatcher(watcher, sockets);
 
     socket.message(story());
 
@@ -565,8 +569,8 @@ describe("NewsWatcherController", () => {
   it("reports rejected listener promises without failing the watcher", async () => {
     const reportError = vi.fn();
     vi.stubGlobal("reportError", reportError);
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const later = vi.fn();
     const rejected = new Error("async consumer failed");
     watcher
@@ -574,7 +578,6 @@ describe("NewsWatcherController", () => {
         throw rejected;
       })
       .on("story", later);
-    const socket = await openWatcher(watcher, sockets);
 
     socket.message(story());
     await flushConnection();
@@ -588,8 +591,8 @@ describe("NewsWatcherController", () => {
     const reportError = vi.fn();
     vi.stubGlobal("reportError", reportError);
     const onListenerError = vi.fn();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher({ onListenerError });
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, { onListenerError });
     const later = vi.fn();
     const thrown = new Error("consumer failed");
     watcher
@@ -597,7 +600,6 @@ describe("NewsWatcherController", () => {
         throw thrown;
       })
       .on("story", later);
-    const socket = await openWatcher(watcher, sockets);
 
     socket.message(story());
 
@@ -610,8 +612,8 @@ describe("NewsWatcherController", () => {
 
 describe("News watcher lifecycle", () => {
   it("disconnects intentionally, preserves listeners, and reconnects from idle", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const stories = vi.fn();
     const closes: NewsClose[] = [];
     const closeListener = (event: NewsClose): void => {
@@ -619,7 +621,7 @@ describe("News watcher lifecycle", () => {
       expect(watcher.state).toBe("idle");
     };
     watcher.on("story", stories).on("close", closeListener);
-    const firstSocket = await openWatcher(watcher, sockets);
+    const firstSocket = socket;
 
     watcher.disconnect();
     watcher.disconnect();
@@ -741,13 +743,12 @@ describe("News watcher lifecycle", () => {
   });
 
   it("closes cleanly from open, detaches transport listeners, and is idempotent", async () => {
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const stories = vi.fn();
     const errors = vi.fn();
     const closes = vi.fn();
     watcher.on("story", stories).on("error", errors).on("close", closes);
-    const socket = await openWatcher(watcher, sockets);
 
     watcher.close();
     watcher.close();
@@ -784,12 +785,11 @@ describe("News watcher lifecycle", () => {
   it("aborts cleanly while open", async () => {
     const reason = new Error("stop");
     const controller = new AbortController();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher({ signal: controller.signal });
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, { signal: controller.signal });
     const closes = vi.fn();
     const errors = vi.fn();
     watcher.on("close", closes).on("error", errors);
-    const socket = await openWatcher(watcher, sockets);
 
     controller.abort(reason);
 
@@ -801,13 +801,12 @@ describe("News watcher lifecycle", () => {
 
   it("uses a five-minute default and fails after the heartbeat deadline", async () => {
     vi.useFakeTimers();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const events: string[] = [];
     watcher
       .on("error", (error) => events.push(error.message))
       .on("close", () => events.push("close"));
-    const socket = await openWatcher(watcher, sockets);
 
     await vi.advanceTimersByTimeAsync(DEFAULT_NEWS_HEARTBEAT_TIMEOUT - 1);
     expect(watcher.state).toBe("open");
@@ -823,12 +822,11 @@ describe("News watcher lifecycle", () => {
 
   it("resets the deadline only for heartbeat messages", async () => {
     vi.useFakeTimers();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher();
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets);
     const stories = vi.fn();
     const errors = vi.fn();
     watcher.on("story", stories).on("error", errors);
-    const socket = await openWatcher(watcher, sockets);
 
     await vi.advanceTimersByTimeAsync(DEFAULT_NEWS_HEARTBEAT_TIMEOUT - 1);
     socket.message('{"heartbeat":true}');
@@ -844,9 +842,8 @@ describe("News watcher lifecycle", () => {
 
   it("honors a custom heartbeat timeout", async () => {
     vi.useFakeTimers();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher({ heartbeatTimeout: 100 });
-    const socket = await openWatcher(watcher, sockets);
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, { heartbeatTimeout: 100 });
 
     await vi.advanceTimersByTimeAsync(99);
     expect(watcher.state).toBe("open");
@@ -905,11 +902,10 @@ describe("News watcher lifecycle", () => {
 
   it("keeps the connection once open past the connect deadline", async () => {
     vi.useFakeTimers();
-    const { newsWatcher, sockets } = harness();
-    const watcher = newsWatcher({ connectTimeout: 1000 });
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, { connectTimeout: 1000 });
     const closes = vi.fn();
     watcher.on("close", closes);
-    const socket = await openWatcher(watcher, sockets);
 
     await vi.advanceTimersByTimeAsync(10_000);
 
