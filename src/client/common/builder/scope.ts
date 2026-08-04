@@ -161,10 +161,22 @@ export function lowerBuilderScope<E extends string, R extends Resolution>(
   window: BuilderWindow<R> | undefined,
 ): BuilderMarket<E> & { readonly begin: number; readonly end: number; readonly resolution: R } {
   assert(market !== undefined, "for() must be called before a terminal method");
-  assert(window !== undefined, "over() must be called before a terminal method");
 
   const target =
     "products" in market ? { products: [...market.products] } : { coins: [...market.coins] };
+
+  return {
+    exchanges: [...market.exchanges],
+    ...target,
+    ...lowerBuilderWindow(window),
+  };
+}
+
+/** Lowers a snapshotted builder window, anchoring a trailing duration to now. */
+export function lowerBuilderWindow<R extends Resolution>(
+  window: BuilderWindow<R> | undefined,
+): { readonly begin: number; readonly end: number; readonly resolution: R } {
+  assert(window !== undefined, "over() must be called before a terminal method");
   const range =
     window.kind === "between"
       ? { begin: window.begin, end: window.end }
@@ -172,13 +184,7 @@ export function lowerBuilderScope<E extends string, R extends Resolution>(
           const end = Date.now();
           return { begin: end - window.milliseconds, end };
         })();
-
-  return {
-    exchanges: [...market.exchanges],
-    ...target,
-    ...range,
-    resolution: window.resolution,
-  };
+  return { ...range, resolution: window.resolution };
 }
 
 /**

@@ -1,10 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { DataResult } from "../../common/data/data.ts";
 import { BASIS_COLUMN } from "../../common/market/columns.ts";
+import type { FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import type { FuturesBasisBuilder } from "./basis.ts";
 import type { LastDuration } from "./builder.ts";
-import type { BasisCoin } from "./params.ts";
+import type { BasisCoin, FuturesRow } from "./params.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -24,8 +29,8 @@ describe("futures basis fluent builder", () => {
   const scope = { between: [begin, end], resolution: "1h" } as const;
 
   it("exposes a dedicated builder and defaults to BTC and ETH", () => {
-    const builder = client().velo.futures.basis();
-    const params = builder.params(scope);
+    const builder = client().velo.futures.basis().over(scope);
+    const params = builder.params();
 
     expect(params).toEqual({
       columns: ["3m_basis_ann"],
@@ -34,6 +39,7 @@ describe("futures basis fluent builder", () => {
       end,
       resolution: "1h",
     });
+    expectTypeOf(builder).toEqualTypeOf<FuturesBasisBuilder<"over">>();
   });
 
   it("does not expose standard selectors, products, exchanges, or scope methods", () => {
@@ -66,13 +72,13 @@ describe("futures basis fluent builder", () => {
 
     coins.push("ETH");
 
-    const first = bitcoin.params(scope);
+    const first = bitcoin.over(scope).params();
     expect(first).toMatchObject({ coins: ["BTC"], begin, end });
-    expect(ethereum.params(scope).coins).toEqual(["ETH"]);
-    expect(base.params(scope).coins).toEqual(["BTC", "ETH"]);
+    expect(ethereum.over(scope).params().coins).toEqual(["ETH"]);
+    expect(base.over(scope).params().coins).toEqual(["BTC", "ETH"]);
 
     (first.coins as BasisCoin[]).push("ETH");
-    expect(bitcoin.params(scope).coins).toEqual(["BTC"]);
+    expect(bitcoin.over(scope).params().coins).toEqual(["BTC"]);
   });
 
   it("rejects incomplete scopes at compile time", () => {
@@ -81,13 +87,15 @@ describe("futures basis fluent builder", () => {
     /* Never called: these statements pin compile-time rejections only. */
     const compileTimeOnly = () => {
       // @ts-expect-error the scope must set between or last
-      velo.futures.basis().params({ resolution: "1h" });
+      velo.futures.basis().over({ resolution: "1h" });
       // @ts-expect-error the scope must set a resolution
-      velo.futures.basis().params({ between: [begin, end] });
+      velo.futures.basis().over({ between: [begin, end] });
       // @ts-expect-error the scope cannot set both between and last
-      velo.futures.basis().build({ ...scope, last: "2h" });
+      velo.futures.basis().over({ ...scope, last: "2h" });
       // @ts-expect-error a terminal method requires a scope
       velo.futures.basis().fetch();
+      // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
+      velo.query(velo.futures.basis());
     };
     void compileTimeOnly;
   });
@@ -95,31 +103,36 @@ describe("futures basis fluent builder", () => {
   it("rejects malformed scopes and delegates the rest to the params schema", () => {
     const { velo } = client();
     const invalid = [
-      () => velo.futures.basis().coins([]).params(scope),
+      () => velo.futures.basis().coins([]).over(scope).params(),
       () =>
         velo.futures
           .basis()
           .coins(["SOL" as BasisCoin])
-          .params(scope),
-      () => velo.futures.basis().params({ ...scope, between: [end, begin] }),
+          .over(scope)
+          .params(),
+      () =>
+        velo.futures
+          .basis()
+          .over({ ...scope, between: [end, begin] })
+          .params(),
     ];
 
     for (const lower of invalid) {
       expect(lower).toThrow(VeloError);
       expect(lower).toThrow(/Invalid futures params/);
     }
-    expect(() => velo.futures.basis().params({ resolution: "1h" } as never)).toThrow(
+    expect(() => velo.futures.basis().over({ resolution: "1h" } as never)).toThrow(
       /scope must set between or last/,
     );
-    expect(() => velo.futures.basis().params({ between: [begin, end] } as never)).toThrow(
+    expect(() => velo.futures.basis().over({ between: [begin, end] } as never)).toThrow(
       /scope must set a resolution/,
     );
-    expect(() => velo.futures.basis().params({ ...scope, last: "2h" } as never)).toThrow(
+    expect(() => velo.futures.basis().over({ ...scope, last: "2h" } as never)).toThrow(
       /scope cannot set both between and last/,
     );
-    expect(() => velo.futures.basis().params({ last: "0m", resolution: "1h" })).toThrow(VeloError);
+    expect(() => velo.futures.basis().over({ last: "0m", resolution: "1h" })).toThrow(VeloError);
     expect(() =>
-      velo.futures.basis().params({ last: "1d" as LastDuration, resolution: "1h" }),
+      velo.futures.basis().over({ last: "1d" as LastDuration, resolution: "1h" }),
     ).toThrow(VeloError);
   });
 
@@ -128,24 +141,24 @@ describe("futures basis fluent builder", () => {
     try {
       const urls: string[] = [];
       const { velo } = client("exchange,coin,product,time,3m_basis_ann\n", urls);
-      const builder = velo.futures.basis().coins(["BTC"]);
       const trailing = { last: "2h", resolution: "1h" } as const;
+      const builder = velo.futures.basis().coins(["BTC"]).over(trailing);
       const firstEnd = Date.UTC(2026, 6, 13, 10);
       const secondEnd = firstEnd + 60 * 60_000;
 
       vi.setSystemTime(firstEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: firstEnd - 2 * 60 * 60_000,
         end: firstEnd,
       });
       vi.setSystemTime(secondEnd);
-      expect(builder.params(trailing)).toMatchObject({
+      expect(builder.params()).toMatchObject({
         begin: secondEnd - 2 * 60 * 60_000,
         end: secondEnd,
       });
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build(trailing);
+      const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 60 * 60_000);
@@ -166,7 +179,8 @@ describe("futures basis fluent builder", () => {
     const data = await velo.futures
       .basis()
       .coins(["BTC"])
-      .fetch({ between: [begin, end], resolution: "1h" });
+      .over({ between: [begin, end], resolution: "1h" })
+      .fetch();
 
     expect(data.rows()[0]?.[BASIS_COLUMN]).toBe(0.0395);
 
@@ -179,5 +193,44 @@ describe("futures basis fluent builder", () => {
     expect(sent.get("begin")).toBe(String(begin));
     expect(sent.get("end")).toBe(String(end));
     expect(sent.get("resolution")).toBe("60");
+  });
+
+  it("streams decoded basis rows through the central query pipeline", async () => {
+    const body =
+      "exchange,coin,product,time,3m_basis_ann\n" +
+      "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
+    const { velo, urls } = client(body);
+    const rows: FuturesRow<typeof BASIS_COLUMN>[] = [];
+
+    for await (const row of velo.futures.basis().coins(["BTC"]).over(scope).stream()) {
+      rows.push(row);
+    }
+
+    expect(rows).toEqual([
+      {
+        exchange: "deribit",
+        coin: "BTC",
+        product: "BTC-25SEP26",
+        time: 1783929600000,
+        [BASIS_COLUMN]: 0.0395,
+      },
+    ]);
+    expect(urls).toHaveLength(1);
+  });
+
+  it("builds a frozen request and preserves central query inference", () => {
+    const { velo } = client();
+    const builder = velo.futures.basis().coins(["BTC"]).over(scope);
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    expect(request.kind).toBe("futures.basis");
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.coins)).toBe(true);
+    expectTypeOf(request).toEqualTypeOf<QueryRequest<"futures.basis">>();
+    expectTypeOf(query).toEqualTypeOf<
+      Query<FuturesRow<typeof BASIS_COLUMN>, DataResult<FuturesExchange, typeof BASIS_COLUMN>>
+    >();
   });
 });

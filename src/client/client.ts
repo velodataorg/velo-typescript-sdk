@@ -16,6 +16,7 @@ import {
   type QueryInput,
   type QueryItem,
   type QueryKind,
+  type QueryParams,
   type QueryResult,
   toQueryRequest,
 } from "./plan.ts";
@@ -42,7 +43,10 @@ export class Velo {
     this.#marketCaps = new MarketCaps(this.#http);
     this.#catalog = new Catalog(this.#http);
     this.#news = new News((request) => this.query(request), webSocket);
-    this.#futures = new Futures(this.#http);
+    this.#futures = new Futures(
+      (request) => this.query(request),
+      (request) => this.query(request),
+    );
     this.#options = new Options(this.#http);
     this.#orderbook = new Orderbook((request) => this.query(request));
     this.#spot = new Spot(this.#http);
@@ -82,7 +86,9 @@ export class Velo {
   }
 
   /** Binds an endpoint request or builder to this client as an immutable lazy query. */
-  query<K extends QueryKind>(input: QueryInput<K>): Query<QueryItem<K>, QueryResult<K>> {
+  query<K extends QueryKind, P extends QueryParams<K>>(
+    input: QueryInput<K, P>,
+  ): Query<QueryItem<K, P>, QueryResult<K, P>> {
     const request = toQueryRequest(input);
     return new Query(this.#http, plan(request));
   }

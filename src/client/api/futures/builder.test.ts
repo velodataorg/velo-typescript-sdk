@@ -2,9 +2,14 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
+import type { OhlcColumn } from "../../common/data/candles.ts";
+import type { CandleData } from "../../common/data/data.ts";
 import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import type { Query } from "../../common/query.ts";
+import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration, MarketScope } from "./builder.ts";
+import type { FuturesRow, FuturesStandardParams } from "./params.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -99,37 +104,36 @@ describe("futures fluent builder", () => {
   });
 
   it("tracks exchange selections through fluent result types", () => {
-    const base = client().velo.futures.price(["close"]);
-    const one = base
-      .for({ exchanges: ["bybit"], coins: ["BTC"] })
-      .trades(["buy"])
-      .over(window)
-      .build();
-    const many = base
-      .for({ exchanges: ["bybit", "deribit"], coins: ["BTC"] })
-      .over(window)
-      .build();
-    const omitted = base
-      .for({ coins: ["BTC"] })
-      .over(window)
-      .build();
+    const { velo } = client();
+    const base = velo.futures.price(["close"]);
+    const one = velo.query(
+      base
+        .for({ exchanges: ["bybit"], coins: ["BTC"] })
+        .trades(["buy"])
+        .over(window),
+    );
+    const many = velo.query(
+      base.for({ exchanges: ["bybit", "deribit"], coins: ["BTC"] }).over(window),
+    );
+    const omitted = velo.query(base.for({ coins: ["BTC"] }).over(window));
     const annotatedOmission: MarketScope<"bybit"> = { coins: ["BTC"] };
-    const safelyWidened = base.for(annotatedOmission).over(window).build();
+    const safelyWidened = velo.query(base.for(annotatedOmission).over(window));
     const widenedExchanges: FuturesExchange[] = ["bybit"];
-    const widened = base
-      .for({ exchanges: widenedExchanges, coins: ["BTC"] })
-      .over(window)
-      .build();
-    const replaced = base
-      .for({ exchanges: ["bybit"], coins: ["BTC"] })
-      .for({ exchanges: ["deribit"], coins: ["ETH"] })
-      .over(window)
-      .build();
-    const reset = base
-      .for({ exchanges: ["bybit"], coins: ["BTC"] })
-      .for({ coins: ["ETH"] })
-      .over(window)
-      .build();
+    const widened = velo.query(
+      base.for({ exchanges: widenedExchanges, coins: ["BTC"] }).over(window),
+    );
+    const replaced = velo.query(
+      base
+        .for({ exchanges: ["bybit"], coins: ["BTC"] })
+        .for({ exchanges: ["deribit"], coins: ["ETH"] })
+        .over(window),
+    );
+    const reset = velo.query(
+      base
+        .for({ exchanges: ["bybit"], coins: ["BTC"] })
+        .for({ coins: ["ETH"] })
+        .over(window),
+    );
 
     expectTypeOf<StreamExchange<ReturnType<typeof one.stream>>>().toEqualTypeOf<"bybit">();
     expectTypeOf<StreamExchange<ReturnType<typeof many.stream>>>().toEqualTypeOf<
@@ -148,6 +152,23 @@ describe("futures fluent builder", () => {
     expectTypeOf<
       StreamExchange<ReturnType<typeof reset.stream>>
     >().toEqualTypeOf<FuturesExchange>();
+  });
+
+  it("preserves exact request, row, and candle result types through velo.query", () => {
+    const { velo } = client();
+    const builder = velo.futures
+      .price()
+      .for({ exchanges: ["bybit"], coins: ["BTC"] })
+      .over(window);
+    const request = builder.build();
+    const query = velo.query(builder);
+
+    expectTypeOf(request).toEqualTypeOf<
+      QueryRequest<"futures.rows", FuturesStandardParams<OhlcColumn, "bybit">>
+    >();
+    expectTypeOf(query).toEqualTypeOf<
+      Query<FuturesRow<OhlcColumn, "bybit">, CandleData<"bybit", OhlcColumn>>
+    >();
   });
 
   it("defaults to every price column when no parts are provided", () => {
@@ -247,6 +268,8 @@ describe("futures fluent builder", () => {
       base.params();
       // @ts-expect-error over() is required
       base.for(market).build();
+      // @ts-expect-error incomplete builders cannot be passed to the central query pipeline
+      velo.query(base);
       // @ts-expect-error for() is required
       base.over(window).fetch();
       // @ts-expect-error for() is required
@@ -367,16 +390,20 @@ describe("futures fluent builder", () => {
     expect(narrower.params()).toMatchObject({ begin: begin + 60_000, end, resolution: "1m" });
   });
 
-  it("fixes scope arrays in a built query", async () => {
+  it("builds an immutable request that fixes scope arrays", async () => {
     const urls: string[] = [];
     const { velo } = client("exchange,coin,product,time,close_price\n", urls);
     const exchanges: FuturesExchange[] = ["bybit"];
     const products = ["BTCUSDT"];
-    const query = velo.futures.price(["close"]).for({ exchanges, products }).over(window).build();
+    const request = velo.futures.price(["close"]).for({ exchanges, products }).over(window).build();
 
     exchanges[0] = "deribit";
     products[0] = "ETHUSDT";
-    await query.execute();
+    expect(Object.isFrozen(request)).toBe(true);
+    expect(Object.isFrozen(request.params)).toBe(true);
+    expect(Object.isFrozen(request.params.exchanges)).toBe(true);
+    expect(Object.isFrozen(request.params.products)).toBe(true);
+    await velo.query(request).execute();
 
     const sent = search(urls[0]!);
     expect(sent.get("exchanges")).toBe("bybit");
@@ -478,7 +505,7 @@ describe("futures fluent builder", () => {
       expect(search(urls[1]!).get("end")).toBe(String(secondEnd));
 
       vi.setSystemTime(firstEnd);
-      const query = builder.build();
+      const query = velo.query(builder.build());
       vi.setSystemTime(secondEnd);
       await query.execute();
       vi.setSystemTime(secondEnd + 5 * 60_000);

@@ -37,10 +37,10 @@ export type {
   BasisCoin,
   FuturesBasisParams,
   FuturesParams,
+  FuturesRow,
   FuturesStandardParams,
 } from "./client/api/futures/params.ts";
 export { BASIS_COINS } from "./client/api/futures/params.ts";
-export type { FuturesRow } from "./client/api/futures/query.ts";
 export type { News } from "./client/api/news/news.ts";
 export type { NewsStoriesBuilder } from "./client/api/news/builder.ts";
 export type { NewsStoriesParams } from "./client/api/news/params.ts";

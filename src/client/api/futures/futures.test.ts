@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
 import { FUTURES_COLUMNS } from "../../common/market/columns.ts";
-import { FUTURES_EXCHANGES } from "../../common/market/exchanges.ts";
+import type { FuturesStandardColumn } from "../../common/market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
+import type { FuturesStandardParams } from "./params.ts";
 
 const ROWS_CSV =
   "exchange,coin,product,time,close_price,funding_rate\n" +
@@ -23,6 +25,13 @@ function search(url: string): URLSearchParams {
   return new URL(url).searchParams;
 }
 
+function queryRows<C extends FuturesStandardColumn, E extends FuturesExchange>(
+  velo: Velo,
+  params: FuturesStandardParams<C, E>,
+) {
+  return velo.query({ kind: "futures.rows", params });
+}
+
 describe("Velo.futures", () => {
   const params = {
     exchanges: ["binance-futures", "bybit"],
@@ -40,7 +49,7 @@ describe("Velo.futures", () => {
 
   it("is lazy, aligns the range, sends futures type, and decodes requested columns", async () => {
     const { velo, urls } = client(ROWS_CSV);
-    const query = velo.futures.query(params);
+    const query = velo.query({ kind: "futures.rows", params });
     expect(urls).toHaveLength(0);
 
     const rows = (await query.execute()).rows();
@@ -95,7 +104,7 @@ describe("Velo.futures", () => {
     const urls: string[] = [];
     const products = ["BTCUSDT"];
     const columns: ("close_price" | "funding_rate")[] = ["close_price", "funding_rate"];
-    const query = client(ROWS_CSV, urls).velo.futures.query({
+    const query = queryRows(client(ROWS_CSV, urls).velo, {
       ...params,
       products,
       columns,
@@ -117,13 +126,16 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,3m_basis_ann\n" +
       "deribit,BTC,BTC-25SEP26,1783929600000,0.0395\n";
     const { velo, urls } = client(body);
-    const data = await velo.futures
+    const data = await velo
       .query({
-        columns: ["3m_basis_ann"],
-        coins: ["BTC", "ETH"],
-        begin: params.begin,
-        end: params.end,
-        resolution: "1h",
+        kind: "futures.basis",
+        params: {
+          columns: ["3m_basis_ann"],
+          coins: ["BTC", "ETH"],
+          begin: params.begin,
+          end: params.end,
+          resolution: "1h",
+        },
       })
       .execute();
 
@@ -137,16 +149,14 @@ describe("Velo.futures", () => {
   it("sends calendar-month chunks with months=true", async () => {
     const urls: string[] = [];
     const body = "exchange,coin,product,time,close_price\n";
-    await client(body, urls)
-      .velo.futures.query({
-        exchanges: ["binance-futures"],
-        products: ["BTCUSDT"],
-        columns: ["close_price"],
-        begin: Date.UTC(2026, 0, 15),
-        end: Date.UTC(2026, 2, 15),
-        resolution: "1M",
-      })
-      .execute();
+    await queryRows(client(body, urls).velo, {
+      exchanges: ["binance-futures"],
+      products: ["BTCUSDT"],
+      columns: ["close_price"],
+      begin: Date.UTC(2026, 0, 15),
+      end: Date.UTC(2026, 2, 15),
+      resolution: "1M",
+    }).execute();
 
     expect(urls).toHaveLength(3);
     expect(search(urls[0] as string).get("months")).toBe("true");
@@ -167,17 +177,23 @@ describe("Velo.futures", () => {
       } as const;
 
       const weekly: string[] = [];
-      await client("", weekly)
-        .velo.futures.query({ ...base, begin: Date.UTC(2026, 6, 1), end: now, resolution: "1W" })
-        .execute();
+      await queryRows(client("", weekly).velo, {
+        ...base,
+        begin: Date.UTC(2026, 6, 1),
+        end: now,
+        resolution: "1W",
+      }).execute();
       expect(weekly).toHaveLength(1);
       expect(search(weekly[0] as string).get("begin")).toBe(String(Date.UTC(2026, 5, 29)));
       expect(search(weekly[0] as string).get("end")).toBe(String(now));
 
       const monthly: string[] = [];
-      await client("", monthly)
-        .velo.futures.query({ ...base, begin: Date.UTC(2026, 5, 15), end: now, resolution: "1M" })
-        .execute();
+      await queryRows(client("", monthly).velo, {
+        ...base,
+        begin: Date.UTC(2026, 5, 15),
+        end: now,
+        resolution: "1M",
+      }).execute();
       expect(monthly).toHaveLength(2);
       expect(search(monthly[1] as string).get("begin")).toBe(String(Date.UTC(2026, 6, 1)));
       expect(search(monthly[1] as string).get("end")).toBe(String(now));
@@ -196,7 +212,7 @@ describe("Velo.futures", () => {
       // 1W floors the future begin back to a past Monday; the requested
       // begin decides, so this must still be rejected rather than clamped.
       const query = () =>
-        velo.futures.query({
+        queryRows(velo, {
           exchanges: ["binance-futures"],
           products: ["BTCUSDT"],
           columns: ["close_price"],
@@ -223,16 +239,14 @@ describe("Velo.futures", () => {
       );
     };
     const begin = Date.UTC(2026, 0, 1);
-    const data = await new Velo({ apiKey: "test_key", fetch }).futures
-      .query({
-        exchanges: ["binance-futures"],
-        products: ["BTCUSDT"],
-        columns: ["close_price"],
-        begin,
-        end: begin + 30_000 * 60_000,
-        resolution: "1m",
-      })
-      .execute();
+    const data = await queryRows(new Velo({ apiKey: "test_key", fetch }), {
+      exchanges: ["binance-futures"],
+      products: ["BTCUSDT"],
+      columns: ["close_price"],
+      begin,
+      end: begin + 30_000 * 60_000,
+      resolution: "1m",
+    }).execute();
 
     expect(urls).toHaveLength(2);
     expect(search(urls[1] as string).get("begin")).toBe(search(urls[0] as string).get("end"));
@@ -274,13 +288,13 @@ describe("Velo.futures", () => {
     ];
 
     for (const value of invalid) {
-      expect(() => velo.futures.query(value as never)).toThrow(VeloError);
+      expect(() => velo.query({ kind: "futures.rows", params: value } as never)).toThrow(VeloError);
     }
     expect(urls).toHaveLength(0);
   });
 
   it("accepts empty responses and rejects malformed responses", async () => {
-    const empty = await client("").velo.futures.query(params).execute();
+    const empty = await queryRows(client("").velo, params).execute();
     expect(empty.rows()).toEqual([]);
 
     for (const body of [
@@ -291,7 +305,7 @@ describe("Velo.futures", () => {
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,1.5,2,3\n",
       "exchange,coin,product,time,close_price,funding_rate\nbinance-futures,BTC,BTCUSDT,NaN,2,3\n",
     ]) {
-      await expect(client(body).velo.futures.query(params).execute()).rejects.toThrow(
+      await expect(queryRows(client(body).velo, params).execute()).rejects.toThrow(
         /Unexpected \/api\/v1\/rows response/,
       );
     }

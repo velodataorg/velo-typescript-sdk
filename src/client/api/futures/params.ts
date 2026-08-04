@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 import type { Equals, Expect } from "../../../util/types.ts";
+import type { Row } from "../../common/data/row.ts";
 import {
   BASIS_COLUMN,
   FUTURES_STANDARD_COLUMNS,
+  type FuturesColumn,
   type FuturesStandardColumn,
 } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
@@ -21,6 +23,11 @@ export type FuturesStandardParams<
   C extends FuturesStandardColumn = FuturesStandardColumn,
   E extends FuturesExchange = FuturesExchange,
 > = RowsParams<E, C>;
+
+export type FuturesRow<C extends FuturesColumn, E extends FuturesExchange = FuturesExchange> = Row<
+  E,
+  C
+>;
 
 export const BASIS_COINS = ["BTC", "ETH"] as const;
 export type BasisCoin = (typeof BASIS_COINS)[number];
@@ -55,6 +62,28 @@ const FuturesParamsSchema = z.union([FuturesStandardParamsSchema, FuturesBasisPa
 type _SchemaDoesNotTransform = Expect<
   Equals<z.input<typeof FuturesParamsSchema>, z.output<typeof FuturesParamsSchema>>
 >;
+
+export const FuturesStandardParams = Object.freeze({
+  /** Validates standard futures rows parameters while preserving their exact types. */
+  parse<P extends FuturesStandardParams>(params: P): P {
+    const parsed = FuturesStandardParamsSchema.safeParse(params);
+    if (!parsed.success) {
+      throw invalidParamsError("futures", parsed.error);
+    }
+    return structuredClone(params);
+  },
+});
+
+export const FuturesBasisParams = Object.freeze({
+  /** Validates futures basis parameters. */
+  parse(params: FuturesBasisParams): FuturesBasisParams {
+    const parsed = FuturesBasisParamsSchema.safeParse(params);
+    if (!parsed.success) {
+      throw invalidParamsError("futures", parsed.error);
+    }
+    return structuredClone(params);
+  },
+});
 
 export const FuturesParams = Object.freeze({
   /** Validates futures parameters while preserving their static column selection. */

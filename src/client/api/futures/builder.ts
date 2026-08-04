@@ -15,8 +15,12 @@ import type { DataResult } from "../../common/data/data.ts";
 import type { FuturesStandardColumn } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
 import type { Query } from "../../common/query.ts";
-import { FuturesParams, type FuturesStandardParams } from "./params.ts";
-import { FuturesQuery, type FuturesRow } from "./query.ts";
+import type { QueryRequest } from "../../plan.ts";
+import {
+  type FuturesRow,
+  FuturesStandardParams,
+  type FuturesStandardParams as FuturesStandardParamsType,
+} from "./params.ts";
 import {
   FUTURES_SELECTOR_COLUMNS,
   type FuturesFundingRateColumn,
@@ -81,8 +85,13 @@ interface State<C extends FuturesStandardColumn, E extends FuturesExchange> {
   readonly window?: BuilderWindow;
 }
 
+/** Binds a standard futures request to the central lazy-query constructor. */
+export type FuturesRowsQueryFactory = <C extends FuturesStandardColumn, E extends FuturesExchange>(
+  request: QueryRequest<"futures.rows", FuturesStandardParamsType<C, E>>,
+) => Query<FuturesRow<C, E>, DataResult<E, C>>;
+
 /**
- * An immutable fluent futures query under construction.
+ * An immutable fluent futures request builder.
  *
  * Each selector returns a new builder, so a partially configured chain can be
  * safely reused as the base for multiple queries.
@@ -96,10 +105,10 @@ export class FuturesBuilder<
   E extends FuturesExchange = FuturesExchange,
   S extends ScopeBuilderStep = never,
 > {
-  readonly #query: FuturesQuery;
+  readonly #query: FuturesRowsQueryFactory;
   readonly #state: State<C, E>;
 
-  constructor(query: FuturesQuery, state: State<C, E> = { columns: [] }) {
+  constructor(query: FuturesRowsQueryFactory, state: State<C, E> = { columns: [] }) {
     this.#query = query;
     this.#state = state;
   }
@@ -345,18 +354,20 @@ export class FuturesBuilder<
   }
 
   /**
-   * Lowers the chain into a lazy query without sending a request.
+   * Lowers the chain into an immutable transport-independent request.
    *
    * A trailing duration configured by `over()` is fixed when this method is called.
    */
   build(
     this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
-  ): Query<FuturesRow<C, E>, DataResult<E, C>> {
+    ...ready: ScopeBuilderStep extends S ? [] : [never]
+  ): QueryRequest<"futures.rows", FuturesStandardParamsType<C, E>> {
+    void ready;
     return this.#build();
   }
 
   /**
-   * Builds and immediately fetches the query.
+   * Builds the request and immediately fetches its query.
    *
    * @param options - Per-request transport options.
    */
@@ -364,7 +375,7 @@ export class FuturesBuilder<
     this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
   ): Promise<DataResult<E, C>> {
-    return this.#build().execute(options);
+    return this.#query(this.#build()).execute(options);
   }
 
   /** Builds and streams decoded rows without collecting them into a data object. */
@@ -372,7 +383,7 @@ export class FuturesBuilder<
     this: ScopedBuilder<FuturesBuilder<C, E, S>, S>,
     options?: HttpRequestOptions,
   ): AsyncIterable<FuturesRow<C, E>> {
-    return this.#build().stream(options);
+    return this.#query(this.#build()).stream(options);
   }
 
   #withColumns<Added extends FuturesStandardColumn>(
@@ -391,15 +402,26 @@ export class FuturesBuilder<
     });
   }
 
-  #params(): FuturesStandardParams<C, E> {
-    const lowered: FuturesStandardParams<C, E> = {
+  #params(): FuturesStandardParamsType<C, E> {
+    const lowered: FuturesStandardParamsType<C, E> = {
       columns: [...this.#state.columns],
       ...lowerBuilderScope(this.#state.market, this.#state.window),
     };
-    return FuturesParams.parse(lowered);
+    return FuturesStandardParams.parse(lowered);
   }
 
-  #build(): Query<FuturesRow<C, E>, DataResult<E, C>> {
-    return this.#query.build(this.#params());
+  #build(): QueryRequest<"futures.rows", FuturesStandardParamsType<C, E>> {
+    const params = freezeFuturesRowsParams(this.#params());
+    return Object.freeze({ kind: "futures.rows", params });
   }
+}
+
+function freezeFuturesRowsParams<C extends FuturesStandardColumn, E extends FuturesExchange>(
+  params: FuturesStandardParamsType<C, E>,
+): FuturesStandardParamsType<C, E> {
+  Object.freeze(params.exchanges);
+  Object.freeze(params.columns);
+  if (params.products !== undefined) Object.freeze(params.products);
+  if (params.coins !== undefined) Object.freeze(params.coins);
+  return Object.freeze(params);
 }

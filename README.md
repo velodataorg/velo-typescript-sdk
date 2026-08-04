@@ -53,7 +53,8 @@ main();
 
 ### Query pattern
 
-The query pattern utilizes objects as params.
+The query pattern accepts a typed request envelope containing an endpoint `kind`
+and its endpoint-specific `params`.
 
 ```ts
 import { Velo } from "./index.js";
@@ -63,14 +64,17 @@ async function main() {
   if (!apiKey) throw new Error("VELO_API_KEY not set");
 
   const velo = new Velo({ apiKey });
-  const data = await velo.futures
+  const data = await velo
     .query({
-      exchanges: ["binance-futures", "bybit"],
-      products: ["BTCUSDT"],
-      columns: ["close_price", "funding_rate"],
-      begin: Date.now() - 10 * 60 * 1000,
-      end: Date.now(),
-      resolution: "1m",
+      kind: "futures.rows",
+      params: {
+        exchanges: ["binance-futures", "bybit"],
+        products: ["BTCUSDT"],
+        columns: ["close_price", "funding_rate"],
+        begin: Date.now() - 10 * 60 * 1000,
+        end: Date.now(),
+        resolution: "1m",
+      },
     })
     .execute();
 
@@ -106,18 +110,21 @@ const options = await velo.catalog.options({ coin: "BTC" });
 
 ### Result views
 
-`fetch()` and a built query's `execute()` resolve to a `Data` object: lazily
-computed views over the fetched rows.
+`fetch()` and a query's `execute()` resolve to a `Data` object: lazily computed
+views over the fetched rows.
 
 ```ts
-const data = await velo.futures
+const data = await velo
   .query({
-    exchanges: ["binance-futures"],
-    coins: ["BTC"],
-    columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
-    begin: Date.now() - 60 * 60 * 1000,
-    end: Date.now(),
-    resolution: "1m",
+    kind: "futures.rows",
+    params: {
+      exchanges: ["binance-futures"],
+      coins: ["BTC"],
+      columns: ["open_price", "high_price", "low_price", "close_price", "dollar_volume"],
+      begin: Date.now() - 60 * 60 * 1000,
+      end: Date.now(),
+      resolution: "1m",
+    },
   })
   .execute();
 
