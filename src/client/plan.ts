@@ -33,31 +33,37 @@ import type { QueryPlan } from "./common/query.ts";
 /** Endpoint contracts understood by the central query planner. */
 export interface QueryDefinitions {
   "catalog.futures": {
+    streamable: true;
     params: FuturesCatalogParams;
     item: FutureProduct;
     result: FutureProduct[];
   };
   "catalog.options": {
+    streamable: true;
     params: OptionsCatalogParams;
     item: OptionProduct;
     result: OptionProduct[];
   };
   "catalog.spot": {
+    streamable: true;
     params: SpotCatalogParams;
     item: SpotProduct;
     result: SpotProduct[];
   };
   "futures.basis": {
+    streamable: true;
     params: FuturesBasisParams;
     item: FuturesRow<typeof BASIS_COLUMN>;
     result: DataResult<FuturesExchange, typeof BASIS_COLUMN>;
   };
   "futures.rows": {
+    streamable: true;
     params: FuturesStandardParams;
     item: FuturesRow<FuturesStandardColumn>;
     result: DataResult<FuturesExchange, FuturesStandardColumn>;
   };
   "marketCaps.history": {
+    streamable: true;
     params: MarketCapsParams;
     item: MarketCap;
     result: MarketCap[];
@@ -68,21 +74,25 @@ export interface QueryDefinitions {
     result: NewsStory[];
   };
   "options.rows": {
+    streamable: true;
     params: OptionsParams;
     item: OptionsRow<OptionsColumn>;
     result: DataResult<OptionsExchange, OptionsColumn>;
   };
   "options.terms": {
+    streamable: true;
     params: TermsParams;
     item: TermPoint;
     result: TermPoint[];
   };
   "orderbook.levels": {
+    streamable: true;
     params: OrderbookParams;
     item: OrderbookRow;
     result: OrderbookData;
   };
   "spot.rows": {
+    streamable: true;
     params: SpotParams;
     item: SpotRow<SpotColumn>;
     result: DataResult<SpotExchange, SpotColumn>;
@@ -91,6 +101,17 @@ export interface QueryDefinitions {
 
 /** A query endpoint handled by {@link plan}. */
 export type QueryKind = keyof QueryDefinitions;
+
+/**
+ * The kinds whose responses can be decoded as they arrive.
+ *
+ * Line-oriented (CSV) endpoints are streamable; whole-document (JSON) ones
+ * are not, since a document cannot be decoded a line at a time. Tagged on
+ * the definition so the type and the runtime plan cannot drift.
+ */
+export type StreamableKind = {
+  [K in QueryKind]: QueryDefinitions[K] extends { streamable: true } ? K : never;
+}[QueryKind];
 
 /** The endpoint parameters associated with a query kind. */
 export type QueryParams<K extends QueryKind> = QueryDefinitions[K]["params"];

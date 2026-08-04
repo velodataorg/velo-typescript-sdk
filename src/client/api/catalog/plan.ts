@@ -9,12 +9,14 @@ import {
   type FutureProduct,
   type FuturesCatalogParams,
   prepareFuturesCatalogParams,
+  decodeFuturesCatalogLines,
 } from "./futures.ts";
 import {
   decodeOptionsCatalog,
   type OptionProduct,
   type OptionsCatalogParams,
   prepareOptionsCatalogParams,
+  decodeOptionsCatalogLines,
 } from "./options.ts";
 import { CatalogParams } from "./params.ts";
 import {
@@ -22,6 +24,7 @@ import {
   prepareSpotCatalogParams,
   type SpotCatalogParams,
   type SpotProduct,
+  decodeSpotCatalogLines,
 } from "./spot.ts";
 
 /** Plans a futures product-catalog query. */
@@ -35,6 +38,11 @@ export function planFuturesCatalog(params: FuturesCatalogParams): QueryPlan<Futu
       },
     ],
     decode: (body) => CatalogParams.filter(decodeFuturesCatalog(body, prepared.delisted), prepared),
+    async *decodeLines(lines) {
+      for await (const row of decodeFuturesCatalogLines(lines, prepared.delisted)) {
+        if (CatalogParams.matches(row, prepared)) yield row;
+      }
+    },
   };
 }
 
@@ -44,6 +52,11 @@ export function planOptionsCatalog(params: OptionsCatalogParams): QueryPlan<Opti
   return {
     requests: [{ path: OPTIONS_CATALOG_PATH, params: { delisted: 0 } }],
     decode: (body) => CatalogParams.filter(decodeOptionsCatalog(body), prepared),
+    async *decodeLines(lines) {
+      for await (const row of decodeOptionsCatalogLines(lines)) {
+        if (CatalogParams.matches(row, prepared)) yield row;
+      }
+    },
   };
 }
 
@@ -58,5 +71,10 @@ export function planSpotCatalog(params: SpotCatalogParams): QueryPlan<SpotProduc
       },
     ],
     decode: (body) => CatalogParams.filter(decodeSpotCatalog(body, prepared.delisted), prepared),
+    async *decodeLines(lines) {
+      for await (const row of decodeSpotCatalogLines(lines, prepared.delisted)) {
+        if (CatalogParams.matches(row, prepared)) yield row;
+      }
+    },
   };
 }

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -35,6 +35,17 @@ export function prepareSpotCatalogParams(params: SpotCatalogParams): PreparedCat
     delisted: true,
     depth: false,
   });
+}
+
+export async function* decodeSpotCatalogLines(
+  lines: AsyncIterable<string>,
+  delisted: boolean,
+): AsyncGenerator<SpotProduct> {
+  try {
+    yield* decodeLines(lines, delisted ? delistedSpotProductSchema : spotProductSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${SPOT_CATALOG_PATH} response`, { cause });
+  }
 }
 
 /** Decodes a spot catalog response using its active or delisted wire shape. */

@@ -18,6 +18,7 @@ import {
   type QueryKind,
   type QueryParams,
   type QueryResult,
+  type StreamableKind,
   toQueryRequest,
 } from "./plan.ts";
 
@@ -105,7 +106,7 @@ export class Velo {
    * @param input - A direct endpoint request or completed request builder.
    * @param options - Per-request transport options.
    */
-  stream<K extends QueryKind, P extends QueryParams<K>>(
+  stream<K extends StreamableKind, P extends QueryParams<K>>(
     input: QueryInput<K, P>,
     options?: HttpRequestOptions,
   ): AsyncGenerator<QueryItem<K, P>, void, undefined> {

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvBoolean, csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { csvBoolean, csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -46,6 +46,17 @@ export function prepareFuturesCatalogParams(params: FuturesCatalogParams): Prepa
     delisted: true,
     depth: true,
   });
+}
+
+export async function* decodeFuturesCatalogLines(
+  lines: AsyncIterable<string>,
+  delisted: boolean,
+): AsyncGenerator<FutureProduct> {
+  try {
+    yield* decodeLines(lines, delisted ? delistedFutureProductSchema : futureProductSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${FUTURES_CATALOG_PATH} response`, { cause });
+  }
 }
 
 /** Decodes a futures catalog response using its active or delisted wire shape. */

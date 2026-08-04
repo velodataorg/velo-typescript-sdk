@@ -213,13 +213,10 @@ describe("Velo.catalog.futures", () => {
     expect(calls).toBe(1);
   });
 
-  it("streams locally filtered futures products", async () => {
+  it("filters locally without sending the depth filter", async () => {
     const { velo, urls } = client(FUTURES_CSV);
-    const products: FutureProduct[] = [];
 
-    for await (const product of velo.stream(velo.catalog.futures({ coin: "BTC", depth: true }))) {
-      products.push(product);
-    }
+    const products = await velo.query(velo.catalog.futures({ coin: "BTC", depth: true }));
 
     expect(products.map((product) => product.product)).toEqual(["BTC-USD"]);
     expect(new URL(urls[0]!).searchParams.has("depth")).toBe(false);
