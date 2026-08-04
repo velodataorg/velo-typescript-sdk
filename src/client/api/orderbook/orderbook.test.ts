@@ -294,4 +294,27 @@ describe("Velo.orderbook", () => {
       VeloError,
     );
   });
+
+  it("yields buckets while the response is still arriving", async () => {
+    let releaseTail: () => void;
+    const tail = new Promise<void>((resolve) => {
+      releaseTail = resolve;
+    });
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode(`15\n${HOUR},100,95,1\n`));
+        await tail;
+        controller.enqueue(encoder.encode(`${2 * HOUR},101,96,2\n`));
+        controller.close();
+      },
+    });
+    const velo = new Velo({ apiKey: "test_key", fetch: async () => new Response(body) });
+
+    const rows = velo.stream(velo.orderbook.levels(SCOPE))[Symbol.asyncIterator]();
+    await expect(rows.next().then((r) => r.value?.time)).resolves.toBe(HOUR);
+
+    releaseTail!();
+    await expect(rows.next().then((r) => r.value?.time)).resolves.toBe(2 * HOUR);
+  });
 });
