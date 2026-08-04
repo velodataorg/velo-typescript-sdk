@@ -6,10 +6,9 @@ import type { OhlcColumn } from "../../common/data/candles.ts";
 import type { CandleData } from "../../common/data/data.ts";
 import { FUTURES_STANDARD_COLUMNS } from "../../common/market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration, MarketScope } from "./builder.ts";
-import type { FuturesRow, FuturesStandardParams } from "./params.ts";
+import type { FuturesStandardParams } from "./params.ts";
 
 function client(body = "", urls: string[] = []) {
   const fetch: typeof globalThis.fetch = async (input) => {
@@ -109,52 +108,42 @@ describe("futures fluent builder", () => {
   it("tracks exchange selections through fluent result types", () => {
     const { velo } = client();
     const base = velo.futures.price(["close"]);
-    const one = velo.query(
+    const one = velo.stream(
       base
         .for({ exchanges: ["bybit"], coins: ["BTC"] })
         .trades(["buy"])
         .over(window),
     );
-    const many = velo.query(
+    const many = velo.stream(
       base.for({ exchanges: ["bybit", "deribit"], coins: ["BTC"] }).over(window),
     );
-    const omitted = velo.query(base.for({ coins: ["BTC"] }).over(window));
+    const omitted = velo.stream(base.for({ coins: ["BTC"] }).over(window));
     const annotatedOmission: MarketScope<"bybit"> = { coins: ["BTC"] };
-    const safelyWidened = velo.query(base.for(annotatedOmission).over(window));
+    const safelyWidened = velo.stream(base.for(annotatedOmission).over(window));
     const widenedExchanges: FuturesExchange[] = ["bybit"];
-    const widened = velo.query(
+    const widened = velo.stream(
       base.for({ exchanges: widenedExchanges, coins: ["BTC"] }).over(window),
     );
-    const replaced = velo.query(
+    const replaced = velo.stream(
       base
         .for({ exchanges: ["bybit"], coins: ["BTC"] })
         .for({ exchanges: ["deribit"], coins: ["ETH"] })
         .over(window),
     );
-    const reset = velo.query(
+    const reset = velo.stream(
       base
         .for({ exchanges: ["bybit"], coins: ["BTC"] })
         .for({ coins: ["ETH"] })
         .over(window),
     );
 
-    expectTypeOf<StreamExchange<ReturnType<typeof one.stream>>>().toEqualTypeOf<"bybit">();
-    expectTypeOf<StreamExchange<ReturnType<typeof many.stream>>>().toEqualTypeOf<
-      "bybit" | "deribit"
-    >();
-    expectTypeOf<
-      StreamExchange<ReturnType<typeof omitted.stream>>
-    >().toEqualTypeOf<FuturesExchange>();
-    expectTypeOf<
-      StreamExchange<ReturnType<typeof widened.stream>>
-    >().toEqualTypeOf<FuturesExchange>();
-    expectTypeOf<
-      StreamExchange<ReturnType<typeof safelyWidened.stream>>
-    >().toEqualTypeOf<FuturesExchange>();
-    expectTypeOf<StreamExchange<ReturnType<typeof replaced.stream>>>().toEqualTypeOf<"deribit">();
-    expectTypeOf<
-      StreamExchange<ReturnType<typeof reset.stream>>
-    >().toEqualTypeOf<FuturesExchange>();
+    expectTypeOf<StreamExchange<typeof one>>().toEqualTypeOf<"bybit">();
+    expectTypeOf<StreamExchange<typeof many>>().toEqualTypeOf<"bybit" | "deribit">();
+    expectTypeOf<StreamExchange<typeof omitted>>().toEqualTypeOf<FuturesExchange>();
+    expectTypeOf<StreamExchange<typeof widened>>().toEqualTypeOf<FuturesExchange>();
+    expectTypeOf<StreamExchange<typeof safelyWidened>>().toEqualTypeOf<FuturesExchange>();
+    expectTypeOf<StreamExchange<typeof replaced>>().toEqualTypeOf<"deribit">();
+    expectTypeOf<StreamExchange<typeof reset>>().toEqualTypeOf<FuturesExchange>();
   });
 
   it("preserves exact request, row, and candle result types through velo.query", () => {
@@ -169,9 +158,7 @@ describe("futures fluent builder", () => {
     expectTypeOf(request).toEqualTypeOf<
       QueryRequest<"futures.rows", FuturesStandardParams<OhlcColumn, "bybit">>
     >();
-    expectTypeOf(query).toEqualTypeOf<
-      Query<FuturesRow<OhlcColumn, "bybit">, CandleData<"bybit", OhlcColumn>>
-    >();
+    expectTypeOf(query).toEqualTypeOf<Promise<CandleData<"bybit", OhlcColumn>>>();
   });
 
   it("defaults to every price column when no parts are provided", () => {
@@ -605,13 +592,11 @@ describe("futures fluent builder", () => {
     const { velo, urls } = client(body);
     const rows = [];
 
-    const query = velo.query(
-      velo.futures
-        .price(["close"])
-        .for({ exchanges: ["bybit"], products: ["BTCUSDT"] })
-        .over(window),
-    );
-    for await (const row of query.stream()) {
+    const request = velo.futures
+      .price(["close"])
+      .for({ exchanges: ["bybit"], products: ["BTCUSDT"] })
+      .over(window);
+    for await (const row of velo.stream(request)) {
       rows.push(row);
     }
 

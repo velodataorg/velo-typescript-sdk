@@ -165,7 +165,7 @@ export { formatProductKey, parseProductKey } from "./client/common/data/product-
 export type { Resolution, ResolutionValue } from "./client/common/time/resolution.ts";
 export { RESOLUTIONS, toResolutionValue } from "./client/common/time/resolution.ts";
 export type { Row, RowBase, RowColumns } from "./client/common/data/row.ts";
-export { MAX_REQUESTS_PER_QUERY, Query } from "./client/common/query.ts";
+export { MAX_REQUESTS_PER_QUERY } from "./client/common/query.ts";
 export {
   VeloAuthError,
   VeloBadRequestError,

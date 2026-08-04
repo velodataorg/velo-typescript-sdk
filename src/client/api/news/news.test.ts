@@ -3,7 +3,6 @@ import { ZodError } from "zod";
 
 import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { NewsStoriesBuilder } from "./builder.ts";
 import type { NewsStoriesParams } from "./params.ts";
@@ -53,9 +52,7 @@ describe("Velo.news.stories", () => {
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"news.stories">>();
 
     const query = client.query(builder);
-    const requestQuery = client.query(request);
-    expectTypeOf(query).toEqualTypeOf<Query<NewsStory, NewsStory[]>>();
-    expectTypeOf(requestQuery).toEqualTypeOf<Query<NewsStory, NewsStory[]>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<NewsStory[]>>();
 
     const stories = await query;
 
@@ -207,7 +204,7 @@ describe("Velo.news.stories", () => {
     const { velo: client } = velo(JSON.stringify({ stories: [STORY] }));
     const stories: NewsStory[] = [];
 
-    for await (const story of storiesQuery(client).stream()) {
+    for await (const story of client.stream(client.news.stories())) {
       stories.push(story);
     }
 

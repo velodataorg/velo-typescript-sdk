@@ -40,3 +40,49 @@ describe("Velo.query", () => {
     );
   });
 });
+
+describe("Velo.stream", () => {
+  const ROWS = "exchange,coin,product,time,close_price\n" + "bybit,BTC,BTCUSDT,1750000000000,1\n";
+
+  function streamingClient(): { velo: Velo; calls: () => number } {
+    let calls = 0;
+    const velo = new Velo({
+      apiKey: "test_key",
+      fetch: async () => {
+        calls++;
+        return new Response(ROWS);
+      },
+    });
+    return { velo, calls: () => calls };
+  }
+
+  function request(velo: Velo) {
+    return velo.futures
+      .price(["close"])
+      .for({ coins: ["BTC"] })
+      .over({ between: [new Date(0), new Date(60_000)], resolution: "1m" });
+  }
+
+  it("yields decoded rows without collecting them into a result", async () => {
+    const { velo } = streamingClient();
+
+    const rows = [];
+    for await (const row of velo.stream(request(velo))) {
+      rows.push(row);
+    }
+
+    expect(rows).toEqual([
+      { exchange: "bybit", coin: "BTC", product: "BTCUSDT", time: 1750000000000, close_price: 1 },
+    ]);
+  });
+
+  it("is lazy and sends nothing until the iterator is advanced", async () => {
+    const { velo, calls } = streamingClient();
+
+    const stream = velo.stream(request(velo));
+    expect(calls()).toBe(0);
+
+    await stream[Symbol.asyncIterator]().next();
+    expect(calls()).toBe(1);
+  });
+});

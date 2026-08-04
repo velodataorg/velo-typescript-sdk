@@ -2,7 +2,6 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { MarketCapsParams } from "./params.ts";
 import { MARKET_CAPS_COLUMNS, type MarketCap } from "./validation.ts";
@@ -53,7 +52,7 @@ describe("Velo.marketCaps", () => {
     expect(Object.isFrozen(request.params.coins)).toBe(true);
     expect(builder.build()).toBe(request);
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"marketCaps.history">>();
-    expectTypeOf(query).toEqualTypeOf<Query<MarketCap, MarketCap[]>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<MarketCap[]>>();
 
     const rows = await query;
     expect(urls).toHaveLength(1);
@@ -158,7 +157,7 @@ describe("Velo.marketCaps", () => {
     const { velo, urls } = client(MARKET_CAPS_CSV);
     const rows: MarketCap[] = [];
 
-    for await (const row of history(velo, { coins: ["BTC", "ETH"] }).stream()) {
+    for await (const row of velo.stream(velo.marketCaps.history({ coins: ["BTC", "ETH"] }))) {
       rows.push(row);
     }
 

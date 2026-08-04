@@ -3,7 +3,6 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
 import type { FuturesExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { FutureProduct, FuturesCatalogParams } from "./futures.ts";
 
@@ -42,7 +41,7 @@ describe("Velo.catalog.futures", () => {
     expect(Object.isFrozen(request.params)).toBe(true);
     expect(builder.build()).toBe(request);
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"catalog.futures">>();
-    expectTypeOf(query).toEqualTypeOf<Query<FutureProduct, FutureProduct[]>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<FutureProduct[]>>();
 
     const products = await query;
 
@@ -218,7 +217,7 @@ describe("Velo.catalog.futures", () => {
     const { velo, urls } = client(FUTURES_CSV);
     const products: FutureProduct[] = [];
 
-    for await (const product of futures(velo, { coin: "BTC", depth: true }).stream()) {
+    for await (const product of velo.stream(velo.catalog.futures({ coin: "BTC", depth: true }))) {
       products.push(product);
     }
 

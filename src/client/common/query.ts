@@ -81,18 +81,14 @@ export class Query<T, D = T[]> {
   }
 
   /**
-   * Makes this query awaitable, collecting every decoded row on first use.
+   * Executes the query, collecting every decoded row.
    *
-   * The collected promise is memoized, so awaiting one query more than once
+   * The collected promise is memoized, so executing one query more than once
    * returns the same result without repeating its requests.
    */
-  // oxlint-disable-next-line unicorn/no-thenable -- Query intentionally exposes await syntax
-  then<TResult1 = D, TResult2 = never>(
-    onfulfilled?: ((value: D) => TResult1 | PromiseLike<TResult1>) | null,
-    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
-  ): Promise<TResult1 | TResult2> {
+  execute(): Promise<D> {
     this.#result ??= this.#collect();
-    return this.#result.then(onfulfilled, onrejected);
+    return this.#result;
   }
 
   /** Executes every request and collects its decoded rows. */

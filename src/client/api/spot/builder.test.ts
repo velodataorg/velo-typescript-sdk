@@ -6,7 +6,6 @@ import type { OhlcColumn } from "../../common/data/candles.ts";
 import type { CandleData } from "../../common/data/data.ts";
 import { SPOT_COLUMNS } from "../../common/market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration } from "./builder.ts";
 import type { SpotParams, SpotRow } from "./params.ts";
@@ -84,23 +83,23 @@ describe("spot fluent builder", () => {
   it("tracks exchange selections through fluent result types", () => {
     const { velo } = client();
     const base = velo.spot.price(["close"]);
-    const selected = velo.query(
+    const selected = velo.stream(
       base
         .for({ exchanges: ["coinbase"], coins: ["BTC"] })
         .trades(["buy"])
         .over(window),
     );
-    const omitted = velo.query(base.for({ coins: ["BTC"] }).over(window));
-    const reset = velo.query(
+    const omitted = velo.stream(base.for({ coins: ["BTC"] }).over(window));
+    const reset = velo.stream(
       base
         .for({ exchanges: ["coinbase"], coins: ["BTC"] })
         .for({ coins: ["ETH"] })
         .over(window),
     );
 
-    expectTypeOf<StreamExchange<ReturnType<typeof selected.stream>>>().toEqualTypeOf<"coinbase">();
-    expectTypeOf<StreamExchange<ReturnType<typeof omitted.stream>>>().toEqualTypeOf<SpotExchange>();
-    expectTypeOf<StreamExchange<ReturnType<typeof reset.stream>>>().toEqualTypeOf<SpotExchange>();
+    expectTypeOf<StreamExchange<typeof selected>>().toEqualTypeOf<"coinbase">();
+    expectTypeOf<StreamExchange<typeof omitted>>().toEqualTypeOf<SpotExchange>();
+    expectTypeOf<StreamExchange<typeof reset>>().toEqualTypeOf<SpotExchange>();
   });
 
   it("preserves exact request, row, and candle result types through velo.query", () => {
@@ -115,9 +114,7 @@ describe("spot fluent builder", () => {
     expectTypeOf(request).toEqualTypeOf<
       QueryRequest<"spot.rows", SpotParams<OhlcColumn, "coinbase">>
     >();
-    expectTypeOf(query).toEqualTypeOf<
-      Query<SpotRow<OhlcColumn, "coinbase">, CandleData<"coinbase", OhlcColumn>>
-    >();
+    expectTypeOf(query).toEqualTypeOf<Promise<CandleData<"coinbase", OhlcColumn>>>();
   });
 
   it("exposes candles only for candle-compatible result columns", () => {
@@ -424,13 +421,11 @@ describe("spot fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: SpotRow<"close_price", "coinbase">[] = [];
 
-    const query = velo.query(
-      velo.spot
-        .price(["close"])
-        .for({ exchanges: ["coinbase"], products: ["BTC-USD"] })
-        .over(window),
-    );
-    for await (const row of query.stream()) {
+    const request = velo.spot
+      .price(["close"])
+      .for({ exchanges: ["coinbase"], products: ["BTC-USD"] })
+      .over(window);
+    for await (const row of velo.stream(request)) {
       rows.push(row);
     }
 

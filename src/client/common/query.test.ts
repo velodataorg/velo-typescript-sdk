@@ -47,7 +47,7 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   return items;
 }
 
-describe("await Query", () => {
+describe("Query.execute", () => {
   it("executes every request and collects decoded items in request order", async () => {
     const urls: string[] = [];
     const fetch: typeof globalThis.fetch = async (input) => {
@@ -55,7 +55,7 @@ describe("await Query", () => {
       return response(stepFrom(input));
     };
 
-    const points = await new Query(http(fetch), OPTIONS);
+    const points = await new Query(http(fetch), OPTIONS).execute();
 
     expect(points).toEqual([
       { step: 1, value: 10 },
@@ -78,7 +78,7 @@ describe("await Query", () => {
       decode: decodePoints,
     };
 
-    await expect(new Query(http(fetch), options)).resolves.toEqual([]);
+    await expect(new Query(http(fetch), options).execute()).resolves.toEqual([]);
     expect(calls).toBe(0);
   });
 
@@ -89,7 +89,9 @@ describe("await Query", () => {
       return response(1);
     };
 
-    await expect(new Query(http(fetch), OPTIONS, { timeout: 0 })).rejects.toBeInstanceOf(VeloError);
+    await expect(new Query(http(fetch), OPTIONS, { timeout: 0 }).execute()).rejects.toBeInstanceOf(
+      VeloError,
+    );
     expect(calls).toBe(0);
   });
 
@@ -102,7 +104,7 @@ describe("await Query", () => {
     const query = new Query(http(fetch), options);
 
     expect(query.options.collect).toBe(options.collect);
-    await expect(query).resolves.toBe(30);
+    await expect(query.execute()).resolves.toBe(30);
   });
 
   it("is lazy and memoizes its collected promise", async () => {
@@ -114,8 +116,8 @@ describe("await Query", () => {
     const query = new Query(http(fetch), OPTIONS);
 
     expect(calls).toBe(0);
-    const first = Promise.resolve(query);
-    const second = Promise.resolve(query);
+    const first = query.execute();
+    const second = query.execute();
     await expect(Promise.all([first, second])).resolves.toEqual([
       [
         { step: 1, value: 10 },
@@ -131,7 +133,7 @@ describe("await Query", () => {
 
   it("assimilates when returned by an async function", async () => {
     const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
-    const create = async () => new Query(http(fetch), OPTIONS);
+    const create = async () => new Query(http(fetch), OPTIONS).execute();
 
     await expect(create()).resolves.toEqual([
       { step: 1, value: 10 },
@@ -345,6 +347,6 @@ describe("Query.stream", () => {
       options,
     );
 
-    await expect(query).rejects.toBeInstanceOf(SyntaxError);
+    await expect(query.execute()).rejects.toBeInstanceOf(SyntaxError);
   });
 });

@@ -2,10 +2,9 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError, VeloHttpError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { OrderbookLevelsBuilder } from "./builder.ts";
-import type { OrderbookData, OrderbookRow } from "./data.ts";
+import type { OrderbookData } from "./data.ts";
 import type { OrderbookScope } from "./scope.ts";
 
 const HOUR = 3_600_000;
@@ -73,11 +72,7 @@ describe("Velo.orderbook", () => {
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"orderbook.levels">>();
 
     const query = velo.query(builder);
-    const requestQuery = velo.query(request);
-
-    expect(urls).toHaveLength(0);
-    expectTypeOf(query).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
-    expectTypeOf(requestQuery).toEqualTypeOf<Query<OrderbookRow, OrderbookData>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<OrderbookData>>();
 
     await query;
     expect(urls).toHaveLength(1);
@@ -204,7 +199,7 @@ describe("Velo.orderbook", () => {
     const { velo } = client([BODY]);
 
     const times: number[] = [];
-    for await (const row of orderbookQuery(velo, SCOPE).stream()) {
+    for await (const row of velo.stream(velo.orderbook.levels(SCOPE))) {
       times.push(row.time);
     }
 

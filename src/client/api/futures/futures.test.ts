@@ -100,7 +100,7 @@ describe("Velo.futures", () => {
     expect(rows[0]!.open_price).toBeUndefined();
   });
 
-  it("snapshots caller arrays and freezes query options", async () => {
+  it("snapshots caller arrays so later mutations cannot change the request", async () => {
     const urls: string[] = [];
     const products = ["BTCUSDT"];
     const columns: ("close_price" | "funding_rate")[] = ["close_price", "funding_rate"];
@@ -112,9 +112,6 @@ describe("Velo.futures", () => {
 
     products.push("ETHUSDT");
     columns.pop();
-    expect(() =>
-      (query.options.requests[0]!.params.columns as string[]).push("open_price"),
-    ).toThrow(TypeError);
 
     await query;
     expect(search(urls[0] as string).get("products")).toBe("BTCUSDT");

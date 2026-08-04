@@ -5,7 +5,6 @@ import { Velo } from "../../client.ts";
 import type { Data } from "../../common/data/data.ts";
 import { OPTIONS_COLUMNS } from "../../common/market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { LastDuration } from "./builder.ts";
 import type { OptionsParams, OptionsRow } from "./params.ts";
@@ -110,7 +109,7 @@ describe("options fluent builder", () => {
     const query = velo.query(builder);
 
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"options.rows", OptionsParams<"iv_1m">>>();
-    expectTypeOf(query).toEqualTypeOf<Query<OptionsRow<"iv_1m">, Data<OptionsExchange, "iv_1m">>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<Data<OptionsExchange, "iv_1m">>>();
   });
 
   it("defaults tenor and OHLC selectors to every applicable column", () => {
@@ -463,13 +462,11 @@ describe("options fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: OptionsRow<"iv_1m">[] = [];
 
-    const query = velo.query(
-      velo.options
-        .iv(["1m"])
-        .for({ exchanges: ["deribit"], coins: ["BTC"] })
-        .over(window),
-    );
-    for await (const row of query.stream()) {
+    const request = velo.options
+      .iv(["1m"])
+      .for({ exchanges: ["deribit"], coins: ["BTC"] })
+      .over(window);
+    for await (const row of velo.stream(request)) {
       rows.push(row);
     }
 

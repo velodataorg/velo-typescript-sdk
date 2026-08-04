@@ -2,7 +2,6 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import { TERMS_COLUMNS, type TermPoint, type TermsCoin, type TermsParams } from "./terms.ts";
 
@@ -40,7 +39,7 @@ describe("Velo.options.terms", () => {
     expect(Object.isFrozen(request.params)).toBe(true);
     expect(Object.isFrozen(request.params.coins)).toBe(true);
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"options.terms">>();
-    expectTypeOf(query).toEqualTypeOf<Query<TermPoint, TermPoint[]>>();
+    expectTypeOf(query).toEqualTypeOf<Promise<TermPoint[]>>();
 
     const rows = await query;
     expect(urls).toHaveLength(1);
@@ -149,7 +148,7 @@ describe("Velo.options.terms", () => {
     const { velo, urls } = client(TERMS_CSV);
     const rows: TermPoint[] = [];
 
-    for await (const row of terms(velo, { coins: ["BTC", "ETH"] }).stream()) {
+    for await (const row of velo.stream(velo.options.terms({ coins: ["BTC", "ETH"] }))) {
       rows.push(row);
     }
 

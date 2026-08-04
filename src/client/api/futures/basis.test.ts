@@ -5,7 +5,6 @@ import { Velo } from "../../client.ts";
 import type { DataResult } from "../../common/data/data.ts";
 import { BASIS_COLUMN } from "../../common/market/columns.ts";
 import type { FuturesExchange } from "../../common/market/exchanges.ts";
-import type { Query } from "../../common/query.ts";
 import type { QueryRequest } from "../../plan.ts";
 import type { FuturesBasisBuilder } from "./basis.ts";
 import type { LastDuration } from "./builder.ts";
@@ -202,8 +201,8 @@ describe("futures basis fluent builder", () => {
     const { velo, urls } = client(body);
     const rows: FuturesRow<typeof BASIS_COLUMN>[] = [];
 
-    const query = velo.query(velo.futures.basis().coins(["BTC"]).over(scope));
-    for await (const row of query.stream()) {
+    const request = velo.futures.basis().coins(["BTC"]).over(scope);
+    for await (const row of velo.stream(request)) {
       rows.push(row);
     }
 
@@ -230,8 +229,6 @@ describe("futures basis fluent builder", () => {
     expect(Object.isFrozen(request.params)).toBe(true);
     expect(Object.isFrozen(request.params.coins)).toBe(true);
     expectTypeOf(request).toEqualTypeOf<QueryRequest<"futures.basis">>();
-    expectTypeOf(query).toEqualTypeOf<
-      Query<FuturesRow<typeof BASIS_COLUMN>, DataResult<FuturesExchange, typeof BASIS_COLUMN>>
-    >();
+    expectTypeOf(query).toEqualTypeOf<Promise<DataResult<FuturesExchange, typeof BASIS_COLUMN>>>();
   });
 });

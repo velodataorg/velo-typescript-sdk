@@ -91,8 +91,32 @@ export class Velo {
   query<K extends QueryKind, P extends QueryParams<K>>(
     input: QueryInput<K, P>,
     options?: HttpRequestOptions,
+  ): Promise<QueryResult<K, P>> {
+    return this.#build(input, options).execute();
+  }
+
+  /**
+   * Streams an endpoint request or builder, yielding decoded items in request
+   * order without collecting them into a result.
+   *
+   * Each call executes the request once; streaming the same input twice sends
+   * its requests twice.
+   *
+   * @param input - A direct endpoint request or completed request builder.
+   * @param options - Per-request transport options.
+   */
+  stream<K extends QueryKind, P extends QueryParams<K>>(
+    input: QueryInput<K, P>,
+    options?: HttpRequestOptions,
+  ): AsyncGenerator<QueryItem<K, P>, void, undefined> {
+    return this.#build(input, options).stream();
+  }
+
+  /** Lowers a request or builder into a transport-bound query. */
+  #build<K extends QueryKind, P extends QueryParams<K>>(
+    input: QueryInput<K, P>,
+    options?: HttpRequestOptions,
   ): Query<QueryItem<K, P>, QueryResult<K, P>> {
-    const request = toQueryRequest(input);
-    return new Query(this.#http, plan(request), options);
+    return new Query(this.#http, plan(toQueryRequest(input)), options);
   }
 }

@@ -68,9 +68,9 @@ const options = await velo.query(velo.catalog.options({ coin: "BTC" }));
 
 ### Result views
 
-Awaiting a market-data query resolves to a `Data` object with lazily computed
-views over the fetched rows. A query sends nothing until it is awaited or its
-`stream()` iterator is advanced.
+`velo.query()` resolves to a `Data` object with lazily computed views over the
+fetched rows. Building a request sends nothing; `velo.query()` executes it, and
+`velo.stream()` runs the same request yielding rows one at a time instead.
 
 ```ts
 const data = await velo.query(
