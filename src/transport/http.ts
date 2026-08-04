@@ -105,8 +105,8 @@ export class Http {
    * @param params - Query params, serialized per HttpParams.
    * @returns The absolute URL with the query string appended.
    */
-  url(path: string, params: HttpParams = {}): string {
-    const query = queryString.stringify(params, { arrayFormat: "comma", sort: false });
+  url(path: string, params?: HttpParams): string {
+    const query = queryString.stringify(params ?? {}, { arrayFormat: "comma", sort: false });
     return `${this.baseUrl}${path}${query ? `?${query}` : ""}`;
   }
 
@@ -124,11 +124,7 @@ export class Http {
    * @throws A VeloError subclass once the failure is not retryable or the
    * retry budget is exhausted.
    */
-  async text(
-    path: string,
-    params: HttpParams = {},
-    options: HttpRequestOptions = {},
-  ): Promise<string> {
+  async text(path: string, params?: HttpParams, options?: HttpRequestOptions): Promise<string> {
     const response = await this.#send(this.url(path, params), options);
     return response.text();
   }
@@ -149,8 +145,8 @@ export class Http {
    */
   async openLines(
     path: string,
-    params: HttpParams = {},
-    options: HttpRequestOptions = {},
+    params?: HttpParams,
+    options?: HttpRequestOptions,
   ): Promise<AsyncIterable<string>> {
     const response = await this.#send(this.url(path, params), options);
     return toLines(response.body);
@@ -162,12 +158,12 @@ export class Http {
    * The body is read here only to build an error: a successful response is
    * returned unread so the caller decides whether to buffer or stream it.
    */
-  async #send(url: string, options: HttpRequestOptions): Promise<Response> {
+  async #send(url: string, options?: HttpRequestOptions): Promise<Response> {
     // Validate the merged values: an override can corrupt a valid config,
     // e.g. an explicit `retries: undefined` would spread over the default.
-    const retry = { ...this.retry, ...options.retry };
+    const retry = { ...this.retry, ...options?.retry };
     validateRetryOptions(retry);
-    const timeout = options.timeout ?? this.timeout;
+    const timeout = options?.timeout ?? this.timeout;
     validateTimeout(timeout);
 
     for (let attempt = 0; ; attempt++) {
@@ -176,10 +172,10 @@ export class Http {
 
       try {
         // Paced per attempt: a retry is another request against the budget.
-        await this.rateLimiter?.acquire(options.signal);
+        await this.rateLimiter?.acquire(options?.signal);
 
         const signals = [AbortSignal.timeout(timeout)];
-        if (options.signal) signals.push(options.signal);
+        if (options?.signal) signals.push(options.signal);
         const response = await this.fetchFn(url, {
           headers: { authorization: this.authHeader, "user-agent": USER_AGENT },
           signal: AbortSignal.any(signals),
@@ -198,13 +194,13 @@ export class Http {
           retryAfter,
         );
       } catch (thrown) {
-        failure = toConnectionError(thrown, url, timeout, options.signal, (value) =>
+        failure = toConnectionError(thrown, url, timeout, options?.signal, (value) =>
           this.#redact(value),
         );
       }
 
       if (!isRetryable(failure) || attempt >= retry.retries) throw failure;
-      await sleep(backoffMs(attempt, retry, retryAfter), options.signal);
+      await sleep(backoffMs(attempt, retry, retryAfter), options?.signal);
     }
   }
 
@@ -222,11 +218,7 @@ export class Http {
    * @returns The parsed JSON value.
    * @throws A VeloError if a successful response is not valid JSON.
    */
-  async json(
-    path: string,
-    params: HttpParams = {},
-    options: HttpRequestOptions = {},
-  ): Promise<unknown> {
+  async json(path: string, params?: HttpParams, options?: HttpRequestOptions): Promise<unknown> {
     // Snapshot this before awaiting so a caller mutating its params cannot
     // make an invalid-JSON error point at a URL different from the one sent.
     const url = this.url(path, params);

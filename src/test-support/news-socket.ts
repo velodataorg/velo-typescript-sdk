@@ -148,7 +148,7 @@ export function harness(factory?: WebSocketFactory) {
    * directly; everything else goes through the client.
    */
   const transport = new WebSocketTransport(config, webSocketFactory);
-  const newsWatcher = (options: NewsWatchOptions = {}): NewsWatcher =>
+  const newsWatcher = (options?: NewsWatchOptions): NewsWatcher =>
     new NewsWatcherController(transport, options);
   return { client, sockets, targets, newsWatcher };
 }
@@ -167,7 +167,7 @@ export async function flushConnection(): Promise<void> {
 export async function openFeed(
   client: Velo,
   sockets: FakeSocket[],
-  options: WatchOptions<"news.feed"> = {},
+  options?: WatchOptions<"news.feed">,
 ): Promise<{ watcher: NewsWatcher; socket: FakeSocket }> {
   const pending = client.watch(client.news.feed(), options);
   await flushConnection();

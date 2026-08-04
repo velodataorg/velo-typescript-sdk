@@ -104,7 +104,7 @@ export class NewsWatcherController implements NewsWatcher {
   #session: WebSocketSession | undefined;
   #state: NewsWatcherState = "idle";
 
-  constructor(transport: WebSocketTransport, options: NewsWatchOptions = {}) {
+  constructor(transport: WebSocketTransport, options?: NewsWatchOptions) {
     const prepared = prepareNewsWatchOptions(options);
     this.#transport = transport;
     this.#signal = prepared.signal;
@@ -391,20 +391,22 @@ export class NewsWatcherController implements NewsWatcher {
   }
 }
 
-export function prepareNewsWatchOptions(options: NewsWatchOptions): PreparedNewsWatchOptions {
+export function prepareNewsWatchOptions(options?: NewsWatchOptions): PreparedNewsWatchOptions {
+  /* Omitted is valid; null or a non-object is not. */
   assert(
-    options !== null && typeof options === "object" && !Array.isArray(options),
+    options === undefined ||
+      (options !== null && typeof options === "object" && !Array.isArray(options)),
     "news watch options must be an object",
   );
 
-  const { signal, onListenerError } = options;
+  const { signal, onListenerError } = options ?? {};
   assert(signal === undefined || isAbortSignal(signal), "signal must be an AbortSignal");
   assert(
     onListenerError === undefined || typeof onListenerError === "function",
     "onListenerError must be a function",
   );
 
-  const heartbeatTimeout = options.heartbeatTimeout ?? DEFAULT_NEWS_HEARTBEAT_TIMEOUT;
+  const heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_NEWS_HEARTBEAT_TIMEOUT;
   assert(
     Number.isSafeInteger(heartbeatTimeout) &&
       heartbeatTimeout > 0 &&
@@ -413,7 +415,7 @@ export function prepareNewsWatchOptions(options: NewsWatchOptions): PreparedNews
       `heartbeatTimeout must be a positive integer of at most ${MAX_TIMER_MS} milliseconds (got ${String(heartbeatTimeout)})`,
   );
 
-  const connectTimeout = options.connectTimeout ?? DEFAULT_NEWS_CONNECT_TIMEOUT;
+  const connectTimeout = options?.connectTimeout ?? DEFAULT_NEWS_CONNECT_TIMEOUT;
   assert(
     Number.isSafeInteger(connectTimeout) && connectTimeout > 0 && connectTimeout <= MAX_TIMER_MS,
     () =>

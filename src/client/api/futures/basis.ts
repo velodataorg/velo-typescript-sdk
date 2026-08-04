@@ -26,8 +26,8 @@ interface State {
 export class FuturesBasisBuilder<S extends ScopeBuilderStep = never> {
   readonly #state: State;
 
-  constructor(state: State = {}) {
-    this.#state = state;
+  constructor(state?: State) {
+    this.#state = state ?? {};
   }
 
   /** Replaces the selected basis coins. Defaults to both BTC and ETH. */

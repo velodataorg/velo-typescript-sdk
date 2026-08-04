@@ -70,7 +70,7 @@ export class Query<T, D = T[]> {
    * @param options - The requests and endpoint-specific response decoder.
    * @param requestOptions - Default transport options for awaiting or streaming the query.
    */
-  constructor(http: Http, options: QueryOptions<T, D>, requestOptions: HttpRequestOptions = {}) {
+  constructor(http: Http, options: QueryOptions<T, D>, requestOptions?: HttpRequestOptions) {
     assert(
       options.requests.length <= MAX_REQUESTS_PER_QUERY,
       () =>
@@ -79,7 +79,7 @@ export class Query<T, D = T[]> {
     );
     this.#http = http;
     this.#options = Query.#snapshot(options);
-    this.#requestOptions = Query.#snapshotRequestOptions(requestOptions);
+    this.#requestOptions = Query.#snapshotRequestOptions(requestOptions ?? {});
   }
 
   /**

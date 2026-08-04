@@ -8,7 +8,8 @@ export interface NewsStoriesParams {
 
 export const NewsStoriesParams = Object.freeze({
   /** Validates and snapshots historical-news parameters. */
-  parse(params: NewsStoriesParams): NewsStoriesParams {
+  parse(params?: NewsStoriesParams): NewsStoriesParams {
+    if (params === undefined) return {};
     assert(
       params !== null && typeof params === "object" && !Array.isArray(params),
       "news stories params must be an object",

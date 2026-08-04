@@ -111,7 +111,7 @@ interface WatcherDefinition<K extends WatchableKind> {
    */
   create(
     transport: WebSocketTransport,
-    options: WatchDefinitions[K]["options"],
+    options: WatchDefinitions[K]["options"] | undefined,
   ): Watcher<K> & WatcherOf<WatchEvents<K>>;
 
   /**

@@ -4,7 +4,7 @@ import type { NewsStoriesParams } from "./params.ts";
 /** The news namespace exposed by {@link Velo}. */
 export class News {
   /** Creates an immutable historical-news request builder. */
-  stories(params: NewsStoriesParams = {}): NewsStoriesBuilder {
+  stories(params?: NewsStoriesParams): NewsStoriesBuilder {
     return new NewsStoriesBuilder(params);
   }
 

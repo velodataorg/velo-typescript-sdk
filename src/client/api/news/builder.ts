@@ -20,7 +20,7 @@ export class NewsFeedBuilder implements WatchBuilder<"news.feed"> {
 export class NewsStoriesBuilder implements QueryBuilder<"news.stories"> {
   readonly #request: QueryRequest<"news.stories">;
 
-  constructor(params: NewsStoriesParams) {
+  constructor(params?: NewsStoriesParams) {
     const snapshot = Object.freeze(NewsStoriesParams.parse(params));
     this.#request = Object.freeze({ kind: "news.stories", params: snapshot });
   }

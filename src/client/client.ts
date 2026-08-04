@@ -141,14 +141,16 @@ export class Velo {
    */
   watch<K extends WatchableKind, P extends WatchParams<K>>(
     input: WatchInput<K, P>,
-    options: WatchOptions<K> = {},
+    options?: WatchOptions<K>,
   ): Promise<Watcher<K>> {
+    /* Omitted is valid; null or a non-object is not. */
     assert(
-      options !== null && typeof options === "object" && !Array.isArray(options),
+      options === undefined ||
+        (options !== null && typeof options === "object" && !Array.isArray(options)),
       "watch options must be an object",
     );
 
-    const retry = prepareReconnect(options.reconnect);
+    const retry = prepareReconnect(options?.reconnect);
     const request = toRequest(input);
     const definition = WATCHERS[request.kind];
 
@@ -157,7 +159,7 @@ export class Velo {
      */
     const watcher = definition.create(this.#webSocket, options);
 
-    if (options.on) attachWatchListeners(watcher, definition.events, options.on);
+    if (options?.on) attachWatchListeners(watcher, definition.events, options.on);
     if (retry) resumeOnDrop(watcher, retry);
 
     /* Not an async method: options are validated synchronously, so a bad

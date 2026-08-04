@@ -19,8 +19,8 @@ export class VeloError extends Error {
    * @param message - The error message.
    * @param options - Standard error options; `cause` is forwarded to `Error`.
    */
-  constructor(message: string, options: ErrorOptions = {}) {
-    super(message, options.cause === undefined ? undefined : { cause: options.cause });
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = new.target.name;
   }
 }

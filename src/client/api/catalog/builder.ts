@@ -25,21 +25,21 @@ class CatalogBuilder<K extends CatalogKind, P extends QueryParams<K>> implements
 
 /** An immutable futures catalog request builder. */
 export class FuturesCatalogBuilder extends CatalogBuilder<"catalog.futures", FuturesCatalogParams> {
-  constructor(params: FuturesCatalogParams) {
-    super("catalog.futures", params, prepareFuturesCatalogParams);
+  constructor(params?: FuturesCatalogParams) {
+    super("catalog.futures", params === undefined ? {} : params, prepareFuturesCatalogParams);
   }
 }
 
 /** An immutable options catalog request builder. */
 export class OptionsCatalogBuilder extends CatalogBuilder<"catalog.options", OptionsCatalogParams> {
-  constructor(params: OptionsCatalogParams) {
-    super("catalog.options", params, prepareOptionsCatalogParams);
+  constructor(params?: OptionsCatalogParams) {
+    super("catalog.options", params === undefined ? {} : params, prepareOptionsCatalogParams);
   }
 }
 
 /** An immutable spot catalog request builder. */
 export class SpotCatalogBuilder extends CatalogBuilder<"catalog.spot", SpotCatalogParams> {
-  constructor(params: SpotCatalogParams) {
-    super("catalog.spot", params, prepareSpotCatalogParams);
+  constructor(params?: SpotCatalogParams) {
+    super("catalog.spot", params === undefined ? {} : params, prepareSpotCatalogParams);
   }
 }
