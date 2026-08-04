@@ -59,6 +59,31 @@ export function prepareReconnect(
 }
 
 /**
+ * A reconnection policy: how long to wait before `attempt`, or `undefined`
+ * to stop retrying.
+ *
+ * Folding "when to give up" into the same value as "how long to wait" leaves
+ * one decision point rather than two, so a policy is replaceable whole.
+ */
+export type ResumeSchedule = (attempt: number, retry: ResumeOptions) => number | undefined;
+
+/** Jittered exponential backoff, bounded by `retries` when one is set. */
+const exponentialBackoff: ResumeSchedule = (attempt, retry) =>
+  retry.retries !== undefined && attempt >= retry.retries ? undefined : backoffMs(attempt, retry);
+
+/**
+ * Overridable collaborators for {@link resumeOnDrop}.
+ *
+ * Deliberately not part of the package's public surface: the default policy
+ * is randomised, and a caller wanting a deterministic schedule is a test,
+ * not a consumer.
+ */
+export interface ResumeDeps {
+  /** Replaces the reconnection policy. Defaults to jittered backoff. */
+  readonly schedule?: ResumeSchedule;
+}
+
+/**
  * Reopens a subscription after an unexpected drop, with jittered backoff.
  *
  * A watcher lands in `disconnected` only when it lost a connection it did not
@@ -72,26 +97,26 @@ export function prepareReconnect(
 export function resumeOnDrop<E extends { close: unknown }>(
   watcher: WatcherOf<E>,
   retry: ResumeOptions,
+  deps: ResumeDeps = {},
 ): void {
+  const schedule = deps.schedule ?? exponentialBackoff;
   let attempt = 0;
 
-  const schedule = (): void => {
-    if (retry.retries !== undefined && attempt >= retry.retries) return;
+  const scheduleNext = (): void => {
+    const wait = schedule(attempt++, retry);
+    if (wait === undefined) return;
 
-    const timer = setTimeout(
-      () => {
-        if (watcher.state !== "disconnected") return;
-        void watcher.connect().then(
-          () => {
-            attempt = 0;
-          },
-          () => {
-            /* The close event this failure emits schedules the next attempt. */
-          },
-        );
-      },
-      backoffMs(attempt++, retry),
-    );
+    const timer = setTimeout(() => {
+      if (watcher.state !== "disconnected") return;
+      void watcher.connect().then(
+        () => {
+          attempt = 0;
+        },
+        () => {
+          /* The close event this failure emits schedules the next attempt. */
+        },
+      );
+    }, wait);
 
     /* A pending reconnect must not hold a Node process open on its own.
      * Called optionally because browsers return a plain number from
@@ -101,6 +126,6 @@ export function resumeOnDrop<E extends { close: unknown }>(
   };
 
   watcher.on("close", () => {
-    if (watcher.state === "disconnected") schedule();
+    if (watcher.state === "disconnected") scheduleNext();
   });
 }
