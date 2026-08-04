@@ -127,9 +127,12 @@ export class Velo {
   /**
    * Opens a live subscription for a subscription request or builder.
    *
-   * The returned watcher is idle: no socket is created until `connect()` is
-   * called. Listeners supplied through `options.on` are attached before that
-   * happens, so events cannot be missed between construction and connection.
+   * Executes, as `query()` does: the socket opens immediately and the promise
+   * resolves once the subscription is live. Listeners supplied through
+   * `options.on` are attached first, so no event can arrive unobserved.
+   *
+   * The resolved watcher stays reusable — `connect()` reopens it after an
+   * unexpected disconnect.
    *
    * @param input - A subscription request or builder.
    * @param options - Subscription options and the listeners to attach.
@@ -137,7 +140,7 @@ export class Velo {
   watch<K extends WatchableKind, P extends WatchParams<K>>(
     input: WatchInput<K, P>,
     options: WatchOptions<K> = {},
-  ): Watcher<K> {
+  ): Promise<Watcher<K>> {
     assert(
       options !== null && typeof options === "object" && !Array.isArray(options),
       "watch options must be an object",
@@ -167,7 +170,11 @@ export class Velo {
         watcher.on(type as never, listener as never);
       }
     }
-    return watcher;
+
+    /* Not an async method: options are validated synchronously, so a bad
+     * call throws where it is written rather than on await.
+     */
+    return watcher.connect().then(() => watcher);
   }
 
   /** Lowers a request or builder into a transport-bound query. */
