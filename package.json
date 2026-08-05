@@ -39,7 +39,7 @@
   "scripts": {
     "build": "tsdown",
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
-    "check:package": "publint && attw --pack . --profile esm-only",
+    "check:package": "publint && npm_config_dry_run=false attw --pack . --profile esm-only",
     "prepublishOnly": "bun run check && bun run build && bun run check:package",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
