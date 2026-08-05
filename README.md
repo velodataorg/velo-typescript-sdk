@@ -13,7 +13,7 @@ This repository contains the TypeScript SDK for the Velo API. It exposes a fluen
 ### Usage
 
 ```ts
-import { Velo } from "./index.js";
+import { Velo } from "velo-sdk";
 
 async function main() {
   const apiKey = process.env.VELO_API_KEY;
@@ -26,7 +26,6 @@ async function main() {
       .openInterest(["close"], { metric: "dollar" }) // Choose `dollar` or `coin`
       .volume(["total"])
       .premium()
-      .trades(["total"])
       .for({
         exchanges: ["binance-futures", "bybit"],
         coins: ["BTC"], // `coins` accepts the Velo-aggregated symbols
@@ -68,9 +67,7 @@ const options = await velo.query(velo.catalog.options({ coin: "BTC" }));
 
 ### Result views
 
-`velo.query()` resolves to a `Data` object with lazily computed views over the
-fetched rows. Building a request sends nothing; `velo.query()` executes it, and
-`velo.stream()` runs the same request yielding rows one at a time instead.
+For market-row requests, `velo.query()` resolves to a `Data` object with lazily computed views over the fetched rows. Building a request sends nothing, `velo.query()` executes it, and `velo.stream()` runs the same request yielding rows one at a time.
 
 ```ts
 const data = await velo.query(
@@ -94,7 +91,7 @@ const columns = data.columns();
 const candles = data.candles();
 ```
 
-Results whose requested columns are the four OHLC prices plus at most one volume column are typed as `CandleData`, other results are typed as `Data`. Only `CandleData` exposes `candles()`, and buckets without trades are skipped. When accumulating rows from `stream()` instead, build the same views with `Data.from(rows)`.
+Results containing exactly the four OHLC price columns, optionally with one total-volume column (`coin_volume` or `dollar_volume`), are typed as `CandleData` and expose the `candles()` method.
 
 ### News
 
@@ -126,23 +123,19 @@ const watcher = await velo.watch(velo.news.feed(), {
 });
 ```
 
-`velo.watch()` starts connecting immediately and resolves once the first
-connection is live. Listeners in `on` are attached before that connection, so
-they cannot miss an early event. Connection failures and unexpected later
-drops retry automatically by default.
+`velo.watch()` starts connecting immediately and resolves once the first connection is live. Connection failures and unexpected later drops retry automatically by default.
 
 `velo.watch()` also accepts connection and retry options:
 
 ```ts
+const controller = new AbortController();
 const watcher = await velo.watch(velo.news.feed(), {
   signal: controller.signal, // Closes the watcher when aborted
   connectTimeout: 30_000, // Limit each connection attempt (default 30s)
   heartbeatTimeout: 300_000, // Fail when the feed goes silent (default 5m)
   reconnect: { retries: 5, baseDelayMs: 500, maxDelayMs: 30_000 },
-  onListenerError: (error) => log.error(error), // Receives errors your listeners throw
+  onListenerError: (error) => console.error(error), // Receives errors your listeners throw
 });
 ```
 
-Pass `reconnect: false` for one initial connection attempt and no automatic
-recovery. The resolved watcher can be paused with `disconnect()`, manually
-reopened with `connect()`, or permanently disposed with `close()`.
+Pass `reconnect: false` for one initial connection attempt and no automatic recovery. The resolved watcher can be paused with `disconnect()`, manually reopened with `connect()`, or permanently disposed with `close()`.
