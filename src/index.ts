@@ -25,8 +25,8 @@ export type {
   QueryResult,
   StreamableKind,
 } from "./client/query/plan.ts";
-export { DEFAULT_WATCH_RECONNECT } from "./client/watch/resume.ts";
-export type { ResumeOptions } from "./client/watch/resume.ts";
+export { DEFAULT_WATCH_RECONNECT } from "./client/watch/connection.ts";
+export type { ResumeOptions } from "./client/watch/connection.ts";
 export type { EventListeners, TaggedEvent, WatcherOf, WatchState } from "./client/watch/watcher.ts";
 export type {
   WatchableKind,

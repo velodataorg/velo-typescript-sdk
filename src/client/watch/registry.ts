@@ -1,7 +1,7 @@
 import type { WebSocketTransport } from "../../transport/websocket.ts";
 import { NewsWatcherController } from "../api/news/watcher.ts";
 import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
-import type { ResumeOptions } from "./resume.ts";
+import type { ResumeOptions } from "./connection.ts";
 import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
 
 /**
@@ -59,12 +59,12 @@ export type WatchOptions<K extends WatchableKind> = WatchDefinitions[K]["options
   readonly on?: WatchListeners<K>;
 
   /**
-   * Reconnects automatically after an unexpected drop.
+   * Keeps the subscription connected from its initial attempt onward.
    *
-   * On by default: losing a socket is an infrastructure failure, not an
-   * application event, so the subscription resumes itself with jittered
-   * backoff and listeners keep firing. Pass `false` to opt out, or partial
-   * {@link ResumeOptions} to tune the backoff.
+   * On by default: a failed initial connection leaves `watch()` pending while
+   * it retries, and an unexpected later drop reconnects with the same jittered
+   * backoff. Pass `false` for one initial attempt and no automatic recovery,
+   * or partial {@link ResumeOptions} to tune the shared retry policy.
    *
    * Intentional endings — `disconnect()`, `close()`, an aborted signal —
    * never reconnect. Events published while disconnected are not replayed.
