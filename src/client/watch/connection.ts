@@ -1,4 +1,5 @@
-import { backoffMs, MAX_TIMER_MS } from "../../transport/retry.ts";
+import { VeloError } from "../../errors.ts";
+import { backoffMs, isRetryable, MAX_TIMER_MS } from "../../transport/retry.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
 import { assert } from "../../util/assert.ts";
 import type { WatcherOf } from "./watcher.ts";
@@ -7,16 +8,20 @@ import type { WatcherOf } from "./watcher.ts";
  * Backoff for establishing and maintaining a live subscription.
  *
  * Separate from the HTTP `RetryOptions` in one respect: `retries` is
- * optional. Omitted keeps trying until the subscription connects or its
- * watcher is intentionally ended.
+ * optional, and what omitting it means depends on whether the subscription
+ * has ever connected.
  */
 export interface ResumeOptions {
   /**
    * Automatic retry dials before giving up.
    *
-   * The initial sequence makes one immediate dial plus up to `retries`
-   * redials. After an established connection drops, it makes up to `retries`
-   * redials. Omitted keeps retrying.
+   * Each sequence makes one immediate dial plus up to `retries` redials.
+   * Omitted bounds the initial sequence, so a subscription that never
+   * connects reports the failure, and leaves later outages unbounded, since
+   * an endpoint that has served once is worth waiting on.
+   *
+   * A dial the server refuses outright ends the sequence whatever the
+   * budget: the next dial would only be refused the same way.
    */
   readonly retries?: number;
   /** First backoff delay; doubles per attempt. */
@@ -64,18 +69,40 @@ export function prepareReconnect(
   return merged;
 }
 
-/**
- * A reconnection policy: how long to wait before `attempt`, or `undefined`
- * to stop retrying.
- *
- * Folding "when to give up" into the same value as "how long to wait" leaves
- * one decision point rather than two, so a policy is replaceable whole.
- */
-export type ResumeSchedule = (attempt: number, retry: ResumeOptions) => number | undefined;
+/** What a policy knows about the attempt it is being asked to schedule. */
+export interface ResumeContext {
+  /** Zero-based index of the attempt about to be made. */
+  readonly attempt: number;
+  /** Whether a connection has succeeded at least once for this watcher. */
+  readonly connected: boolean;
+  /** Why the previous attempt failed, when one has. */
+  readonly error: unknown;
+}
 
-/** Jittered exponential backoff, bounded by `retries` when one is set. */
-const exponentialBackoff: ResumeSchedule = (attempt, retry) =>
-  retry.retries !== undefined && attempt >= retry.retries ? undefined : backoffMs(attempt, retry);
+/**
+ * A reconnection policy: how long to wait, or `undefined` to stop retrying.
+ *
+ * Every reason to give up is one policy decision rather than a branch beside
+ * it — a rejected handshake, an exhausted budget, a caller who never got a
+ * connection at all — so a policy is replaceable whole.
+ */
+export type ResumeSchedule = (context: ResumeContext, retry: ResumeOptions) => number | undefined;
+
+/**
+ * Attempts allowed before a first connection, when the caller sets no budget.
+ *
+ * Unbounded retries suit an established subscription: the endpoint is known
+ * good, so an outage is transient. Before that, an unbounded policy would
+ * leave a caller waiting forever on an endpoint that may never accept them.
+ */
+const DEFAULT_INITIAL_RETRIES = DEFAULT_RETRY.retries;
+
+const exponentialBackoff: ResumeSchedule = ({ attempt, connected, error }, retry) => {
+  if (error instanceof VeloError && !isRetryable(error)) return undefined;
+  const budget = connected ? retry.retries : (retry.retries ?? DEFAULT_INITIAL_RETRIES);
+  if (budget !== undefined && attempt >= budget) return undefined;
+  return backoffMs(attempt, retry);
+};
 
 /**
  * Additional inputs for {@link maintainConnection}.
@@ -212,7 +239,7 @@ export function maintainConnection<E extends { close: unknown }>(
       return;
     }
 
-    const wait = schedule(attempt++, retry);
+    const wait = schedule({ attempt: attempt++, connected, error: initialError }, retry);
     if (wait === undefined) {
       if (!connected) rejectFirstConnection(initialError);
       return;

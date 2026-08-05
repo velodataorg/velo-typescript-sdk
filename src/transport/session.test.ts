@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { VeloConnectionError, VeloError } from "../errors.ts";
+import { VeloError } from "../errors.ts";
 import { WebSocketSession } from "./session.ts";
 import { WebSocketTransport } from "./websocket.ts";
 import type {
@@ -99,12 +99,12 @@ function sessionHarness(factory?: WebSocketFactory) {
       }),
   );
   const messages: unknown[] = [];
-  const closes: { close: WebSocketCloseEvent; error: VeloConnectionError }[] = [];
+  const closes: { close: WebSocketCloseEvent; error: VeloError }[] = [];
   const handlers = {
     onMessage: (data: unknown): void => {
       messages.push(data);
     },
-    onClose: (close: WebSocketCloseEvent, error: VeloConnectionError): void => {
+    onClose: (close: WebSocketCloseEvent, error: VeloError): void => {
       closes.push({ close, error });
     },
   };
@@ -185,7 +185,7 @@ describe("WebSocketSession", () => {
 
     await vi.advanceTimersByTimeAsync(1);
     const error = await outcome;
-    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect(error).toBeInstanceOf(VeloError);
     expect((error as Error).message).toMatch(/timed out connecting after 5000 milliseconds/);
     expect(socket.closeCalls).toHaveLength(1);
     expect(harness.closes).toEqual([]);
@@ -203,7 +203,7 @@ describe("WebSocketSession", () => {
 
     await vi.advanceTimersByTimeAsync(1000);
     const error = await outcome;
-    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect(error).toBeInstanceOf(VeloError);
     expect((error as Error).message).toMatch(/timed out/);
   });
 
@@ -224,7 +224,7 @@ describe("WebSocketSession", () => {
     (deliver as (socket: WebSocketConnection) => void)(socket);
     await flushConnection();
 
-    expect(await outcome).toBeInstanceOf(VeloConnectionError);
+    expect(await outcome).toBeInstanceOf(VeloError);
     expect(socket.closeCalls).toHaveLength(1);
     expect(harness.closes).toEqual([]);
   });
@@ -235,7 +235,7 @@ describe("WebSocketSession", () => {
     });
     await expect(
       WebSocketSession.open(harness.transport, harness.handlers, { timeout: 5000 }),
-    ).rejects.toThrow(VeloConnectionError);
+    ).rejects.toThrow(VeloError);
     expect(harness.closes).toEqual([]);
   });
 
@@ -273,7 +273,7 @@ describe("WebSocketSession", () => {
     socket.remoteClose(1008, "bad test/key");
 
     const error = await outcome;
-    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect(error).toBeInstanceOf(VeloError);
     expect(harness.closes).toHaveLength(1);
     expect(harness.closes[0]?.close).toEqual({
       code: 1008,
@@ -295,7 +295,7 @@ describe("WebSocketSession", () => {
     socket.error(new Error("refused"));
 
     const error = await outcome;
-    expect(error).toBeInstanceOf(VeloConnectionError);
+    expect(error).toBeInstanceOf(VeloError);
     expect((error as Error).message).toMatch(/refused/);
     expect(harness.closes).toHaveLength(1);
     expect(harness.closes[0]?.close).toEqual({ code: 1006, reason: "", wasClean: false });
@@ -352,7 +352,7 @@ describe("WebSocketSession", () => {
         error: harness.closes[0]?.error,
       },
     ]);
-    expect(harness.closes[0]?.error).toBeInstanceOf(VeloConnectionError);
+    expect(harness.closes[0]?.error).toBeInstanceOf(VeloError);
   });
 
   it("close() detaches silently, is idempotent, and mutes late events", async () => {

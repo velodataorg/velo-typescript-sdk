@@ -75,7 +75,8 @@ describe("maintainConnection", () => {
       watcher,
       { baseDelayMs: 1_000, maxDelayMs: 8_000 },
       {
-        schedule: (attempt, retry) => Math.min(retry.maxDelayMs, retry.baseDelayMs * 2 ** attempt),
+        schedule: ({ attempt }, retry) =>
+          Math.min(retry.maxDelayMs, retry.baseDelayMs * 2 ** attempt),
       },
     );
 

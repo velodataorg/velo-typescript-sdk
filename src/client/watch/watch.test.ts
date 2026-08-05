@@ -8,6 +8,7 @@ import {
   story,
   STORY,
 } from "../../test-support/news-socket.ts";
+import { DEFAULT_RETRY } from "../../transport/retry.ts";
 import type { NewsStory } from "../api/news/validation.ts";
 
 afterEach(() => {
@@ -53,6 +54,32 @@ describe("Velo.watch", () => {
     /* Once watch() rejects, its unreachable watcher has stopped for good. */
     await vi.advanceTimersByTimeAsync(60_000);
     expect(attempts).toBe(3);
+  });
+
+  it("settles rather than retrying an initial connection forever", async () => {
+    vi.useFakeTimers();
+    let dials = 0;
+    const { client } = harness(() => {
+      dials++;
+      throw new Error("connection refused");
+    });
+
+    let settled = false;
+    void client.watch(client.news.feed()).then(
+      () => (settled = true),
+      () => (settled = true),
+    );
+
+    /* Five minutes is far longer than any transient outage a caller would
+     * wait through before wanting an error they can act on.
+     */
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+    expect(settled).toBe(true);
+    /* One dial plus the default redials, so a change to that default is a
+     * change to this test rather than a silent loosening.
+     */
+    expect(dials).toBe(DEFAULT_RETRY.retries + 1);
   });
 
   it("resolves with the watcher when an initial retry connects", async () => {
@@ -342,6 +369,20 @@ describe("News feed reconnection", () => {
 
     expect(watcher.state).toBe("open");
     watcher.close();
+  });
+
+  it("keeps retrying past any bounded budget once a connection has succeeded", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const { socket } = await openFeed(client, sockets, {
+      connectTimeout: 100,
+      reconnect: { baseDelayMs: 100, maxDelayMs: 100 },
+    });
+
+    socket.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(sockets.length).toBeGreaterThan(10);
   });
 
   it("stops reconnecting once the attempt budget is spent", async () => {

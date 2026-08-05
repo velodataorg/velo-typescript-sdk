@@ -1,6 +1,7 @@
 import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { VeloConnectionError, VeloError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
+import { toError } from "./error-mapping.ts";
 
 export interface WebSocketMessageEvent {
   readonly data: unknown;
@@ -89,6 +90,23 @@ export function isNodeRuntime(scope: WebSocketRuntime): boolean {
 }
 
 /**
+ * A handshake the server answered instead of upgrading.
+ *
+ * A browser never reports one — the WebSocket API withholds the response —
+ * so its absence is not evidence that the server accepted anything.
+ */
+interface RefusedHandshake extends Error {
+  status?: number | undefined;
+  headers?: Record<string, string> | undefined;
+  body?: string | undefined;
+}
+
+function refusedHandshake(cause: unknown): RefusedHandshake | undefined {
+  const refused = cause as RefusedHandshake | null | undefined;
+  return typeof refused?.status === "number" ? refused : undefined;
+}
+
+/**
  * Creates a socket using `ws` on Node and the native constructor everywhere
  * else. The Node dependency remains behind a dynamic import so browser
  * runtimes never execute it.
@@ -99,9 +117,38 @@ export async function defaultWebSocketFactory(
 ): Promise<WebSocketConnection> {
   if (isNodeRuntime(scope)) {
     const { default: NodeWebSocket } = await import("ws");
-    return new NodeWebSocket(target.url, {
-      headers: target.headers,
-    }) as unknown as WebSocketConnection;
+    const socket = new NodeWebSocket(target.url, { headers: target.headers });
+
+    /* An emitter with nothing listening for `error` throws, which would take
+     * the host process down for a failure the caller has already abandoned.
+     * Every later listener still receives its events.
+     */
+    socket.on("error", () => {});
+
+    /* A refused upgrade arrives as its own event carrying the response, and
+     * listening for it suppresses the generic error the socket would
+     * otherwise emit. Re-raise it with the status attached, so a caller reads
+     * the number the server sent instead of parsing a message for it.
+     */
+    socket.on("unexpected-response", (_request, response) => {
+      const chunks: Buffer[] = [];
+      response.on("data", (chunk: Buffer) => chunks.push(chunk));
+      response.on("end", () => {
+        const refused: RefusedHandshake = new Error(
+          `Unexpected server response: ${String(response.statusCode)}`,
+        );
+        refused.status = response.statusCode;
+        refused.headers = Object.fromEntries(
+          Object.entries(response.headers).map(([name, value]) => [name, String(value ?? "")]),
+        );
+        refused.body = Buffer.concat(chunks).toString("utf8");
+        socket.emit("error", refused);
+        socket.terminate();
+      });
+      response.resume();
+    });
+
+    return socket as unknown as WebSocketConnection;
   }
 
   const NativeWebSocket = scope.WebSocket;
@@ -169,7 +216,23 @@ export class WebSocketTransport {
    * copied rather than retained because factory errors may contain the
    * authenticated browser URL or Authorization header.
    */
-  connectionError(message: string, cause?: unknown): VeloConnectionError {
+  connectionError(message: string, cause?: unknown): VeloError {
+    /* A refused upgrade is a non-successful HTTP response, so it maps to the
+     * same typed errors a request would raise. Only a connection that never
+     * reached a server stays a bare connection failure.
+     */
+    const refused = refusedHandshake(cause);
+    if (refused?.status !== undefined) {
+      return toError(
+        refused.status,
+        this.redact(refused.body ?? ""),
+        this.url,
+        Object.fromEntries(
+          Object.entries(refused.headers ?? {}).map(([name, value]) => [name, this.redact(value)]),
+        ),
+      );
+    }
+
     const safeMessage = this.redact(message);
     const reason = cause === undefined ? "" : `: ${this.redact(reasonOf(cause))}`;
     const safeCause =
