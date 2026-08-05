@@ -1,4 +1,4 @@
-import type { VeloConnectionError } from "../errors.ts";
+import type { VeloError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
 import { MAX_TIMER_MS } from "./retry.ts";
 import type {
@@ -30,7 +30,7 @@ export interface WebSocketSessionHandlers {
    * abnormal close (code 1006); close events pass their real code with the
    * reason redacted.
    */
-  readonly onClose: (close: WebSocketCloseEvent, error: VeloConnectionError) => void;
+  readonly onClose: (close: WebSocketCloseEvent, error: VeloError) => void;
 }
 
 export interface WebSocketSessionOptions {
@@ -256,7 +256,7 @@ export class WebSocketSession {
    *
    * @param error - The rejection for the pending `open()` promise.
    */
-  #abandon(error: VeloConnectionError): void {
+  #abandon(error: VeloError): void {
     this.#state = "closed";
     this.#detach();
     this.#hooks.fail(error);
@@ -269,7 +269,7 @@ export class WebSocketSession {
    * @param error - The failure delivered to `onClose` and, when the
    * handshake was still pending, rejecting the `open()` promise.
    */
-  #terminate(close: WebSocketCloseEvent, error: VeloConnectionError): void {
+  #terminate(close: WebSocketCloseEvent, error: VeloError): void {
     const opening = this.#state === "opening";
     this.#state = "closed";
     this.#detach();

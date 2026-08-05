@@ -6,14 +6,35 @@ import type { WebSocketConnection, WebSocketRuntime, WebSocketTarget } from "./w
 
 const wsMock = vi.hoisted(() => ({
   calls: [] as { url: string; options: { headers?: Record<string, string> } }[],
+  terminated: 0,
 }));
 
 vi.mock("ws", () => ({
   default: class MockNodeWebSocket {
     readonly readyState = 0;
+    readonly #listeners = new Map<string, ((...args: never[]) => void)[]>();
 
     constructor(url: string, options: { headers?: Record<string, string> }) {
       wsMock.calls.push({ url, options });
+    }
+
+    on(type: string, listener: (...args: never[]) => void): this {
+      this.#listeners.set(type, [...(this.#listeners.get(type) ?? []), listener]);
+      return this;
+    }
+
+    listenerCount(type: string): number {
+      return (this.#listeners.get(type) ?? []).length;
+    }
+
+    emit(type: string, ...args: never[]): boolean {
+      const listeners = this.#listeners.get(type) ?? [];
+      for (const listener of listeners) listener(...args);
+      return listeners.length > 0;
+    }
+
+    terminate() {
+      wsMock.terminated++;
     }
 
     send() {}

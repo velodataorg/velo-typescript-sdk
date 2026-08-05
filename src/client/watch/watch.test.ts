@@ -8,6 +8,7 @@ import {
   story,
   STORY,
 } from "../../test-support/news-socket.ts";
+import { DEFAULT_RETRY } from "../../transport/retry.ts";
 import type { NewsStory } from "../api/news/validation.ts";
 
 afterEach(() => {
@@ -16,6 +17,176 @@ afterEach(() => {
 });
 
 describe("Velo.watch", () => {
+  it("keeps the initial execution pending through retries, then rejects at the limit", async () => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    const { client } = harness(() => {
+      attempts++;
+      throw new Error("server unavailable");
+    });
+
+    let settled = false;
+    const outcome = client
+      .watch(client.news.feed(), {
+        reconnect: { retries: 2, baseDelayMs: 100, maxDelayMs: 100 },
+      })
+      .then(
+        () => {
+          settled = true;
+          return undefined;
+        },
+        (error: unknown) => {
+          settled = true;
+          return error;
+        },
+      );
+
+    await flushConnection();
+    expect(attempts).toBe(1);
+    expect(settled).toBe(false);
+
+    await vi.runAllTimersAsync();
+
+    expect(await outcome).toMatchObject({ message: expect.stringContaining("server unavailable") });
+    expect(settled).toBe(true);
+    expect(attempts).toBe(3);
+
+    /* Once watch() rejects, its unreachable watcher has stopped for good. */
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(attempts).toBe(3);
+  });
+
+  it("settles rather than retrying an initial connection forever", async () => {
+    vi.useFakeTimers();
+    let dials = 0;
+    const { client } = harness(() => {
+      dials++;
+      throw new Error("connection refused");
+    });
+
+    let settled = false;
+    void client.watch(client.news.feed()).then(
+      () => (settled = true),
+      () => (settled = true),
+    );
+
+    /* Five minutes is far longer than any transient outage a caller would
+     * wait through before wanting an error they can act on.
+     */
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+
+    expect(settled).toBe(true);
+    /* One dial plus the default redials, so a change to that default is a
+     * change to this test rather than a silent loosening.
+     */
+    expect(dials).toBe(DEFAULT_RETRY.retries + 1);
+  });
+
+  it("resolves with the watcher when an initial retry connects", async () => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    const { client } = harness(() => {
+      attempts++;
+      if (attempts < 3) throw new Error("temporarily unavailable");
+
+      const socket = new FakeSocket();
+      socket.readyState = 1;
+      return socket;
+    });
+
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 2, baseDelayMs: 100, maxDelayMs: 100 },
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    const watcher = await pending;
+
+    expect(attempts).toBe(3);
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("gives a later drop a fresh retry budget after an initial retry succeeds", async () => {
+    vi.useFakeTimers();
+    const sockets: FakeSocket[] = [];
+    let attempts = 0;
+    const { client } = harness(() => {
+      attempts++;
+      if (attempts === 1) throw new Error("temporarily unavailable");
+
+      const socket = new FakeSocket();
+      sockets.push(socket);
+      return socket;
+    });
+
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const firstConnection = sockets[0] as FakeSocket;
+    firstConnection.open();
+    const watcher = await pending;
+
+    firstConnection.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(attempts).toBe(3);
+    const secondConnection = sockets[1] as FakeSocket;
+    secondConnection.open();
+    await flushConnection();
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("recovers a drop that occurs as the first connection settles", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    await flushConnection();
+
+    /* The socket opens, but a buffered malformed frame drops it before the
+     * successful connect() continuation gets to run.
+     */
+    (sockets[0] as FakeSocket).openWithMessages("{not json");
+    const watcher = await pending;
+    expect(watcher.state).toBe("disconnected");
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sockets).toHaveLength(2);
+
+    (sockets[1] as FakeSocket).open();
+    await flushConnection();
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("aborts an initial retry sequence without another connection attempt", async () => {
+    vi.useFakeTimers();
+    const reason = new Error("stop waiting");
+    const controller = new AbortController();
+    let attempts = 0;
+    const { client } = harness(() => {
+      attempts++;
+      throw new Error("server unavailable");
+    });
+
+    const pending = client.watch(client.news.feed(), {
+      signal: controller.signal,
+      reconnect: { baseDelayMs: 1_000, maxDelayMs: 1_000 },
+    });
+
+    await flushConnection();
+    expect(attempts).toBe(1);
+
+    controller.abort(reason);
+
+    await expect(pending).rejects.toBe(reason);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(attempts).toBe(1);
+  });
+
   it("describes a feed without connecting, then executes it with listeners attached", async () => {
     const { client, sockets } = harness();
 
@@ -153,6 +324,22 @@ describe("News feed reconnection", () => {
     expect(watcher.state).toBe("disconnected");
   });
 
+  it("releases every abort listener when a disconnected watcher is closed", async () => {
+    const controller = new AbortController();
+    const addAbortListener = vi.spyOn(controller.signal, "addEventListener");
+    const removeAbortListener = vi.spyOn(controller.signal, "removeEventListener");
+    const { client, sockets } = harness();
+    const { watcher, socket } = await openFeed(client, sockets, {
+      signal: controller.signal,
+      reconnect: false,
+    });
+
+    socket.remoteClose(1006, "gone");
+    watcher.close();
+
+    expect(removeAbortListener.mock.calls).toHaveLength(addAbortListener.mock.calls.length);
+  });
+
   it("backs off between attempts and resumes when the socket comes back", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
@@ -184,6 +371,20 @@ describe("News feed reconnection", () => {
     watcher.close();
   });
 
+  it("keeps retrying past any bounded budget once a connection has succeeded", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const { socket } = await openFeed(client, sockets, {
+      connectTimeout: 100,
+      reconnect: { baseDelayMs: 100, maxDelayMs: 100 },
+    });
+
+    socket.remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(sockets.length).toBeGreaterThan(10);
+  });
+
   it("stops reconnecting once the attempt budget is spent", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
@@ -198,6 +399,47 @@ describe("News feed reconnection", () => {
 
     /* The original socket plus exactly two retries, then it gives up. */
     expect(sockets).toHaveLength(3);
+  });
+
+  it("starts a fresh budget after an explicit connection recovers an exhausted watcher", async () => {
+    vi.useFakeTimers();
+    const sockets: FakeSocket[] = [];
+    let attempts = 0;
+    const { client } = harness(() => {
+      attempts++;
+      if (attempts === 2) throw new Error("still down");
+
+      const socket = new FakeSocket();
+      sockets.push(socket);
+      return socket;
+    });
+
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    await flushConnection();
+    (sockets[0] as FakeSocket).open();
+    const watcher = await pending;
+
+    (sockets[0] as FakeSocket).remoteClose(1006, "gone");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(attempts).toBe(2);
+    expect(watcher.state).toBe("disconnected");
+
+    const explicit = watcher.connect();
+    await flushConnection();
+    (sockets[1] as FakeSocket).open();
+    await explicit;
+
+    (sockets[1] as FakeSocket).remoteClose(1006, "gone again");
+    await vi.advanceTimersByTimeAsync(0);
+
+    /* Initial + exhausted retry + explicit recovery + automatic retry. */
+    expect(attempts).toBe(4);
+    (sockets[2] as FakeSocket).open();
+    await flushConnection();
+    expect(watcher.state).toBe("open");
+    watcher.close();
   });
 
   it("does not reconnect after an intentional close or disconnect", async () => {

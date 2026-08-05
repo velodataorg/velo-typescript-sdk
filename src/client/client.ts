@@ -24,6 +24,7 @@ import {
 } from "./query/plan.ts";
 import { Query } from "./query/query.ts";
 import { toRequest } from "./query/request.ts";
+import { maintainConnection, prepareReconnect } from "./watch/connection.ts";
 import {
   WATCHERS,
   type WatchableKind,
@@ -32,7 +33,6 @@ import {
   type WatchOptions,
   type WatchParams,
 } from "./watch/registry.ts";
-import { prepareReconnect, resumeOnDrop } from "./watch/resume.ts";
 import { attachWatchListeners } from "./watch/watcher.ts";
 
 export interface VeloConfig extends HttpConfig {
@@ -120,6 +120,10 @@ export class Velo {
    * resolves once the subscription is live. Listeners supplied through
    * `options.on` are attached first, so no event can arrive unobserved.
    *
+   * Connection failures follow the configured reconnect policy from the first
+   * attempt, so the promise remains pending while an initial connection is
+   * retried. Passing `reconnect: false` makes the initial attempt one-shot.
+   *
    * The resolved watcher stays reusable — `connect()` reopens it after an
    * unexpected disconnect.
    *
@@ -147,12 +151,11 @@ export class Velo {
     const watcher = definition.create(this.#webSocket, options);
 
     if (options?.on) attachWatchListeners(watcher, definition.events, options.on);
-    if (retry) resumeOnDrop(watcher, retry);
 
     /* Not an async method: options are validated synchronously, so a bad
      * call throws where it is written rather than on await.
      */
-    return watcher.connect().then(() => watcher);
+    return maintainConnection(watcher, retry, { signal: options?.signal }).then(() => watcher);
   }
 
   /** Lowers a request or builder into a transport-bound query. */

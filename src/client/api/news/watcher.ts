@@ -341,6 +341,12 @@ export class NewsWatcherController implements NewsWatcher {
   #cancel(reason: unknown): void {
     if (this.#state === "closed") return;
 
+    /* Emit only when this call actually ends a connection or attempt. An idle
+     * watcher was already cleanly disconnected, and a disconnected watcher
+     * already received its remote close; disposing either must not report the
+     * same connection ending twice.
+     */
+    const emitClose = this.#state === "connecting" || this.#state === "open";
     const reject = this.#rejectConnect;
     this.#state = "closed";
     this.#connectPromise = undefined;
@@ -350,7 +356,7 @@ export class NewsWatcherController implements NewsWatcher {
     this.#stopListeningForAbort();
     reject?.(reason);
 
-    this.#emitter.emit("close", cleanClose());
+    if (emitClose) this.#emitter.emit("close", cleanClose());
     this.#emitter.clear();
   }
 
