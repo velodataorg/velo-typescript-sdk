@@ -4,12 +4,12 @@
   "description": "TypeScript and JavaScript SDK for the Velo API",
   "keywords": [
     "api",
-    "sdk",
-    "orderbook",
-    "markets",
     "crypto",
-    "trading",
+    "markets",
     "ohlcv",
+    "orderbook",
+    "sdk",
+    "trading",
     "typescript",
     "velo"
   ],
