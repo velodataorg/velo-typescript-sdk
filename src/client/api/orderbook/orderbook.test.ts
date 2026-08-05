@@ -78,7 +78,7 @@ describe("Velo.orderbook", () => {
     expect(urls).toHaveLength(1);
 
     const url = new URL(urls[0] as string);
-    expect(url.pathname).toBe("/api/l/levels");
+    expect(url.pathname).toBe("/api/v1/heatmap");
     expect(url.searchParams.get("exchange")).toBe("binance-futures");
     expect(url.searchParams.get("product")).toBe("BTCUSDT");
     expect(url.searchParams.get("coin")).toBeNull();
@@ -265,7 +265,7 @@ describe("Velo.orderbook", () => {
     const { velo } = client(["not a levels response\n"]);
 
     await expect(orderbookQuery(velo, SCOPE)).rejects.toThrow(
-      /Unexpected \/api\/l\/levels response/,
+      /Unexpected \/api\/v1\/heatmap response/,
     );
   });
 

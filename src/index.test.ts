@@ -70,7 +70,7 @@ describe("status public exports", () => {
 
 describe("orderbook public exports", () => {
   it("exports the endpoint contract and data view", () => {
-    expect(ORDERBOOK_PATH).toBe("/api/l/levels");
+    expect(ORDERBOOK_PATH).toBe("/api/v1/heatmap");
     expect(new OrderbookData([]).snapshots()).toEqual([]);
   });
 });

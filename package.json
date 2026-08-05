@@ -1,7 +1,7 @@
 {
   "name": "velo-sdk",
-  "version": "0.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "TypeScript and JavaScript SDK for the Velo market data API",
   "keywords": [
     "api",
     "crypto",
@@ -38,8 +38,9 @@
   },
   "scripts": {
     "build": "tsdown",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test",
     "check:package": "publint && attw --pack . --profile esm-only",
-    "prepublishOnly": "bun run build && bun run check:package",
+    "prepublishOnly": "bun run check && bun run build && bun run check:package",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
