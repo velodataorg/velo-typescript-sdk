@@ -115,24 +115,34 @@ for (const story of stories) {
 It is possible to watch new, edited, and deleted stories in real time:
 
 ```ts
-const watcher = velo.news
-  .watch()
-  .on("story", (story) => console.log("new", story))
-  .on("edit", (story) => console.log("edit", story))
-  .on("delete", ({ id }) => console.log("delete", id))
-  .on("error", (error) => console.error(error))
-  .on("close", ({ code, reason }) => console.log("closed", code, reason));
-
-await watcher.connect();
+const watcher = await velo.watch(velo.news.feed(), {
+  on: {
+    story: (story) => console.log("new", story),
+    edit: (story) => console.log("edit", story),
+    delete: ({ id }) => console.log("delete", id),
+    error: (error) => console.error(error),
+    close: ({ code, reason }) => console.log("closed", code, reason),
+  },
+});
 ```
 
-`watch()` accepts a few options:
+`velo.watch()` starts connecting immediately and resolves once the first
+connection is live. Listeners in `on` are attached before that connection, so
+they cannot miss an early event. Connection failures and unexpected later
+drops retry automatically by default.
+
+`velo.watch()` also accepts connection and retry options:
 
 ```ts
-const watcher = velo.news.watch({
+const watcher = await velo.watch(velo.news.feed(), {
   signal: controller.signal, // Closes the watcher when aborted
-  connectTimeout: 30_000, // Fail `connect()` if not subscribed in time (default 30s)
+  connectTimeout: 30_000, // Limit each connection attempt (default 30s)
   heartbeatTimeout: 300_000, // Fail when the feed goes silent (default 5m)
+  reconnect: { retries: 5, baseDelayMs: 500, maxDelayMs: 30_000 },
   onListenerError: (error) => log.error(error), // Receives errors your listeners throw
 });
 ```
+
+Pass `reconnect: false` for one initial connection attempt and no automatic
+recovery. The resolved watcher can be paused with `disconnect()`, manually
+reopened with `connect()`, or permanently disposed with `close()`.
