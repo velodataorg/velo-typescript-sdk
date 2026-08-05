@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 import type { Equals, Expect } from "../../../util/types.ts";
-import type { Row } from "../../common/data/row.ts";
-import { SPOT_COLUMNS, type SpotColumn } from "../../common/market/columns.ts";
-import { SPOT_EXCHANGES, type SpotExchange } from "../../common/market/exchanges.ts";
-import { RowsParams } from "../../common/rows/params.ts";
-import { invalidParamsError } from "../../common/validation.ts";
+import type { Row } from "../../data/row.ts";
+import { SPOT_COLUMNS, type SpotColumn } from "../../market/columns.ts";
+import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
+import { RowsParams } from "../../rows/params.ts";
+import { invalidParamsError } from "../../validation.ts";
 
 export type SpotParams<
   C extends SpotColumn = SpotColumn,

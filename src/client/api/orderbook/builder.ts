@@ -1,4 +1,4 @@
-import type { QueryBuilder, QueryRequest } from "../../plan.ts";
+import type { QueryBuilder, QueryRequest } from "../../query/plan.ts";
 import { toOrderbookParams, type OrderbookScope } from "./scope.ts";
 
 /** An immutable orderbook-levels request builder. */

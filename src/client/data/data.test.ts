@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.ts";
+import { VeloError } from "../../errors.ts";
 import { Data } from "./data.ts";
 import type { Row } from "./row.ts";
 

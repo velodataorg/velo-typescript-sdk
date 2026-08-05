@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../errors.ts";
-import { Velo } from "./client.ts";
+import { VeloError } from "../../errors.ts";
+import { Velo } from "../client.ts";
 
 function client(): Velo {
   return new Velo({

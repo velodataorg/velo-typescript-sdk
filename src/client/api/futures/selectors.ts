@@ -1,4 +1,4 @@
-import type { FuturesStandardColumn } from "../../common/market/columns.ts";
+import type { FuturesStandardColumn } from "../../market/columns.ts";
 
 type FuturesSelectorColumnTree =
   | FuturesStandardColumn

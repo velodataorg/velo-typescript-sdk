@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import { TERMS_COLUMNS, type TermPoint, type TermsCoin, type TermsParams } from "./terms.ts";
 
 const TERMS_CSV =

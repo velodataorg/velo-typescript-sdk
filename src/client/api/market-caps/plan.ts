@@ -1,7 +1,7 @@
 import { CAPS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { decode, decodeLines } from "../../common/decode/csv.ts";
-import type { QueryPlan } from "../../common/query.ts";
+import { decode, decodeLines } from "../../decode/csv.ts";
+import type { QueryPlan } from "../../query/query.ts";
 import { MarketCapsParams } from "./params.ts";
 import { marketCapSchema, type MarketCap } from "./validation.ts";
 

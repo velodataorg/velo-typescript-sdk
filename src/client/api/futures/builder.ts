@@ -7,12 +7,12 @@ import {
   snapshotBuilderWindow,
   type TargetScope,
   type WindowScope,
-} from "../../common/builder/scope.ts";
-import type { ScopeBuilderStep, ScopedBuilder } from "../../common/builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../common/builder/selection.ts";
-import type { FuturesStandardColumn } from "../../common/market/columns.ts";
-import { FUTURES_EXCHANGES, type FuturesExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+} from "../../builder/scope.ts";
+import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
+import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import type { FuturesStandardColumn } from "../../market/columns.ts";
+import { FUTURES_EXCHANGES, type FuturesExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import {
   FuturesStandardParams,
   type FuturesStandardParams as FuturesStandardParamsType,
@@ -51,7 +51,7 @@ export type {
   FuturesVolumeMetric,
   FuturesVolumePart,
 } from "./selectors.ts";
-export type { LastDuration } from "../../common/builder/time.ts";
+export type { LastDuration } from "../../builder/time.ts";
 export type {
   MarketScope,
   MarketRowsScope,
@@ -59,7 +59,7 @@ export type {
   TargetScope,
   TimeScope,
   WindowScope,
-} from "../../common/builder/scope.ts";
+} from "../../builder/scope.ts";
 
 /** Instruments and optional exchanges configured by a futures builder's `for()` step. */
 export type FuturesMarketScope = MarketScope<FuturesExchange>;

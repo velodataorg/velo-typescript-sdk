@@ -2,10 +2,10 @@ import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { DataResult } from "../../common/data/data.ts";
-import { BASIS_COLUMN } from "../../common/market/columns.ts";
-import type { FuturesExchange } from "../../common/market/exchanges.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { DataResult } from "../../data/data.ts";
+import { BASIS_COLUMN } from "../../market/columns.ts";
+import type { FuturesExchange } from "../../market/exchanges.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { FuturesBasisBuilder } from "./basis.ts";
 import type { LastDuration } from "./builder.ts";
 import type { BasisCoin, FuturesRow } from "./params.ts";

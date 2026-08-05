@@ -1,4 +1,4 @@
-import { assert } from "../../../util/assert.ts";
+import { assert } from "../../util/assert.ts";
 import type { Resolution } from "../time/resolution.ts";
 import { durationMilliseconds, type LastDuration, timestamp } from "./time.ts";
 

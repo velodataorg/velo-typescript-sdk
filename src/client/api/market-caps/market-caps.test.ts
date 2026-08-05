@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { MarketCapsParams } from "./params.ts";
 import { MARKET_CAPS_COLUMNS, type MarketCap } from "./validation.ts";
 

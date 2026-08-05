@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../../util/assert.ts";
-import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { assert } from "../../util/assert.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query/query.ts";
 import { MAX_TIMESTAMP_MS } from "../validation.ts";
 import type { Resolution } from "./resolution.ts";
 import { toResolutionValue } from "./resolution.ts";

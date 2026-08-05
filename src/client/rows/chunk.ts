@@ -1,8 +1,8 @@
 import { DateTime } from "luxon";
 
-import { assert } from "../../../util/assert.ts";
+import { assert } from "../../util/assert.ts";
 import { BASIS_COLUMN } from "../market/columns.ts";
-import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query/query.ts";
 import { chunkByStep, type TimeRange } from "../time/range.ts";
 import { toResolutionValue } from "../time/resolution.ts";
 import type { RowsQueryParams } from "./params.ts";

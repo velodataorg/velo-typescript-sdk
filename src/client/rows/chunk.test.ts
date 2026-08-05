@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { VeloError } from "../../../errors.ts";
-import { MAX_REQUESTS_PER_QUERY } from "../query.ts";
+import { VeloError } from "../../errors.ts";
+import { MAX_REQUESTS_PER_QUERY } from "../query/query.ts";
 import { MAX_TIMESTAMP_MS } from "../validation.ts";
 import { chunkRange, MAX_CELLS_PER_REQUEST } from "./chunk.ts";
 import type { RowsQueryParams } from "./params.ts";

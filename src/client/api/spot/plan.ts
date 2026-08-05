@@ -1,8 +1,8 @@
-import type { DataResult } from "../../common/data/data.ts";
-import type { SpotColumn } from "../../common/market/columns.ts";
-import type { SpotExchange } from "../../common/market/exchanges.ts";
-import type { QueryPlan } from "../../common/query.ts";
-import { planRows } from "../../common/rows/plan.ts";
+import type { DataResult } from "../../data/data.ts";
+import type { SpotColumn } from "../../market/columns.ts";
+import type { SpotExchange } from "../../market/exchanges.ts";
+import type { QueryPlan } from "../../query/query.ts";
+import { planRows } from "../../rows/plan.ts";
 import { SpotParams, type SpotRow } from "./params.ts";
 
 /** Plans a spot rows query. */

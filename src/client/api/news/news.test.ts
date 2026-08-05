@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 
 import { VeloError, VeloRateLimitError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { NewsStoriesBuilder } from "./builder.ts";
 import type { NewsStoriesParams } from "./params.ts";
 import type { NewsStory } from "./validation.ts";

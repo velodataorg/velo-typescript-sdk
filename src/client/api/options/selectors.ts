@@ -1,4 +1,4 @@
-import type { OptionsColumn } from "../../common/market/columns.ts";
+import type { OptionsColumn } from "../../market/columns.ts";
 
 type OptionsSelectorColumnTree =
   | OptionsColumn

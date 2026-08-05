@@ -1,4 +1,4 @@
-import type { SpotColumn } from "../../common/market/columns.ts";
+import type { SpotColumn } from "../../market/columns.ts";
 
 type SpotSelectorColumnTree = SpotColumn | { readonly [key: string]: SpotSelectorColumnTree };
 

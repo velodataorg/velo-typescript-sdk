@@ -3,7 +3,7 @@ import {
   OPTIONS_CATALOG_PATH,
   SPOT_CATALOG_PATH,
 } from "../../../constants/endpoints.ts";
-import type { QueryPlan } from "../../common/query.ts";
+import type { QueryPlan } from "../../query/query.ts";
 import {
   decodeFuturesCatalog,
   type FutureProduct,

@@ -6,6 +6,7 @@ import type { WebSocketSessionHandlers } from "../../../transport/session.ts";
 import type { WebSocketTransport } from "../../../transport/websocket.ts";
 import { assert } from "../../../util/assert.ts";
 import { SafeEmitter } from "../../../util/emitter.ts";
+import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
 import { decodeNewsMessage, frameText } from "./decode.ts";
 import type { DecodedNewsMessage } from "./decode.ts";
 import type { NewsStory } from "./validation.ts";
@@ -35,7 +36,7 @@ export interface NewsWatchOptions {
   readonly onListenerError?: (error: unknown) => unknown;
 }
 
-export type NewsWatcherState = "idle" | "connecting" | "open" | "disconnected" | "closed";
+export type NewsWatcherState = WatchState;
 
 export interface NewsDelete {
   readonly id: number;
@@ -59,38 +60,13 @@ export type NewsWatcherListener<K extends keyof NewsWatcherEvents> = (
   event: NewsWatcherEvents[K],
 ) => void;
 
-export interface NewsWatcher {
-  readonly state: NewsWatcherState;
-
-  /**
-   * Adds a listener for one decoded News or watcher-lifecycle event.
-   *
-   * Adding the same listener more than once has no additional effect.
-   */
-  on<K extends keyof NewsWatcherEvents>(type: K, listener: NewsWatcherListener<K>): this;
-
-  /* Removes a previously registered listener. */
-  off<K extends keyof NewsWatcherEvents>(type: K, listener: NewsWatcherListener<K>): this;
-
-  /**
-   * Opens a socket and subscribes to live News.
-   *
-   * Concurrent calls share one connection attempt. An attempt that has not
-   * subscribed within `connectTimeout` milliseconds fails. After an
-   * unexpected connection loss, call `connect()` again to reconnect this
-   * watcher.
-   */
-  connect(): Promise<void>;
-
-  /**
-   * Intentionally closes the current connection while keeping this watcher
-   * and its listeners reusable.
-   */
-  disconnect(): void;
-
-  /* Permanently closes this watcher. Safe to call more than once. */
-  close(): void;
-}
+/**
+ * A live News subscription.
+ *
+ * The shared watcher contract over the News event map — the lifecycle is
+ * identical for every kind, so it is declared once rather than restated here.
+ */
+export type NewsWatcher = WatcherOf<NewsWatcherEvents>;
 
 interface PreparedNewsWatchOptions {
   readonly signal: AbortSignal | undefined;
@@ -102,8 +78,14 @@ interface PreparedNewsWatchOptions {
 /**
  * A disconnected controller for the live News WebSocket.
  *
- * Reconnection is always explicit: without a server cursor, automatically
- * reconnecting could conceal stories, edits, or deletions missed while offline.
+ * The controller itself never reconnects on its own — it reports an
+ * unexpected loss by entering `disconnected` and emitting `close`, and
+ * `connect()` reopens it. Resuming automatically is the watch layer's job,
+ * so every subscription kind gets it from one place.
+ *
+ * Nothing published while disconnected is replayed: `begin` filters news on
+ * publication time, so a reconnect recovers new stories only, never edits or
+ * deletions applied to older ones.
  */
 export class NewsWatcherController implements NewsWatcher {
   readonly #connectTimeout: number;
@@ -122,7 +104,7 @@ export class NewsWatcherController implements NewsWatcher {
   #session: WebSocketSession | undefined;
   #state: NewsWatcherState = "idle";
 
-  constructor(transport: WebSocketTransport, options: NewsWatchOptions = {}) {
+  constructor(transport: WebSocketTransport, options?: NewsWatchOptions) {
     const prepared = prepareNewsWatchOptions(options);
     this.#transport = transport;
     this.#signal = prepared.signal;
@@ -409,20 +391,22 @@ export class NewsWatcherController implements NewsWatcher {
   }
 }
 
-export function prepareNewsWatchOptions(options: NewsWatchOptions): PreparedNewsWatchOptions {
+export function prepareNewsWatchOptions(options?: NewsWatchOptions): PreparedNewsWatchOptions {
+  /* Omitted is valid; null or a non-object is not. */
   assert(
-    options !== null && typeof options === "object" && !Array.isArray(options),
+    options === undefined ||
+      (options !== null && typeof options === "object" && !Array.isArray(options)),
     "news watch options must be an object",
   );
 
-  const { signal, onListenerError } = options;
+  const { signal, onListenerError } = options ?? {};
   assert(signal === undefined || isAbortSignal(signal), "signal must be an AbortSignal");
   assert(
     onListenerError === undefined || typeof onListenerError === "function",
     "onListenerError must be a function",
   );
 
-  const heartbeatTimeout = options.heartbeatTimeout ?? DEFAULT_NEWS_HEARTBEAT_TIMEOUT;
+  const heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_NEWS_HEARTBEAT_TIMEOUT;
   assert(
     Number.isSafeInteger(heartbeatTimeout) &&
       heartbeatTimeout > 0 &&
@@ -431,7 +415,7 @@ export function prepareNewsWatchOptions(options: NewsWatchOptions): PreparedNews
       `heartbeatTimeout must be a positive integer of at most ${MAX_TIMER_MS} milliseconds (got ${String(heartbeatTimeout)})`,
   );
 
-  const connectTimeout = options.connectTimeout ?? DEFAULT_NEWS_CONNECT_TIMEOUT;
+  const connectTimeout = options?.connectTimeout ?? DEFAULT_NEWS_CONNECT_TIMEOUT;
   assert(
     Number.isSafeInteger(connectTimeout) && connectTimeout > 0 && connectTimeout <= MAX_TIMER_MS,
     () =>

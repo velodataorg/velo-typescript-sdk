@@ -2,7 +2,7 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { VeloError, VeloHttpError } from "../../../errors.ts";
 import { Velo } from "../../client.ts";
-import type { QueryRequest } from "../../plan.ts";
+import type { QueryRequest } from "../../query/plan.ts";
 import type { OrderbookLevelsBuilder } from "./builder.ts";
 import type { OrderbookData } from "./data.ts";
 import type { OrderbookScope } from "./scope.ts";

@@ -63,14 +63,13 @@ export class Query<T, D = T[]> {
   readonly #http: Http;
   readonly #options: QueryOptions<T, D>;
   readonly #requestOptions: HttpRequestOptions;
-  #result: Promise<D> | undefined;
 
   /**
    * @param http - The transport used to send the query's requests.
    * @param options - The requests and endpoint-specific response decoder.
    * @param requestOptions - Default transport options for awaiting or streaming the query.
    */
-  constructor(http: Http, options: QueryOptions<T, D>, requestOptions: HttpRequestOptions = {}) {
+  constructor(http: Http, options: QueryOptions<T, D>, requestOptions?: HttpRequestOptions) {
     assert(
       options.requests.length <= MAX_REQUESTS_PER_QUERY,
       () =>
@@ -79,7 +78,7 @@ export class Query<T, D = T[]> {
     );
     this.#http = http;
     this.#options = Query.#snapshot(options);
-    this.#requestOptions = Query.#snapshotRequestOptions(requestOptions);
+    this.#requestOptions = Query.#snapshotRequestOptions(requestOptions ?? {});
   }
 
   /**
@@ -92,12 +91,9 @@ export class Query<T, D = T[]> {
   /**
    * Executes the query, collecting every decoded row.
    *
-   * The collected promise is memoized, so executing one query more than once
-   * returns the same result without repeating its requests.
    */
   execute(): Promise<D> {
-    this.#result ??= this.#collect();
-    return this.#result;
+    return this.#collect();
   }
 
   /** Executes every request and collects its decoded rows. */
