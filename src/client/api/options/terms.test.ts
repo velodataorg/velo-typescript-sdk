@@ -144,13 +144,10 @@ describe("Velo.options.terms", () => {
     }
   });
 
-  it("streams term points through the central query pipeline", async () => {
+  it("decodes term points through the central query pipeline", async () => {
     const { velo, urls } = client(TERMS_CSV);
-    const rows: TermPoint[] = [];
 
-    for await (const row of velo.stream(velo.options.terms({ coins: ["BTC", "ETH"] }))) {
-      rows.push(row);
-    }
+    const rows = await velo.query(velo.options.terms({ coins: ["BTC", "ETH"] }));
 
     expect(rows).toHaveLength(2);
     expect(rows[0]?.coin).toBe("BTC");

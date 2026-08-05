@@ -6,7 +6,7 @@ import { alignRange, clampEnd, type TimeRange } from "../../common/time/range.ts
 import { toResolutionValue } from "../../common/time/resolution.ts";
 import { chunkBuckets } from "./chunk.ts";
 import { OrderbookData, type OrderbookRow } from "./data.ts";
-import { decodeOrderbook } from "./decode.ts";
+import { decodeOrderbook, decodeOrderbookLines } from "./decode.ts";
 import { OrderbookParams } from "./params.ts";
 
 /** Plans an orderbook query from raw endpoint parameters. */
@@ -25,6 +25,13 @@ export function planOrderbook(params: OrderbookParams): QueryPlan<OrderbookRow, 
     decode(body): OrderbookRow[] {
       try {
         return decodeOrderbook(body);
+      } catch (cause) {
+        throw new VeloError(`Unexpected ${ORDERBOOK_PATH} response`, { cause });
+      }
+    },
+    async *decodeLines(lines): AsyncIterable<OrderbookRow> {
+      try {
+        yield* decodeOrderbookLines(lines);
       } catch (cause) {
         throw new VeloError(`Unexpected ${ORDERBOOK_PATH} response`, { cause });
       }

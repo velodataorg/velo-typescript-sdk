@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { TERMS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvNumberOrNull, csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { csvNumberOrNull, csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
 import { invalidParamsError } from "../../common/validation.ts";
 import type { QueryBuilder, QueryRequest } from "../../plan.ts";
 
@@ -55,6 +55,15 @@ export class OptionsTermsBuilder implements QueryBuilder<"options.terms"> {
   /** Returns the immutable transport-independent endpoint request. */
   build(): QueryRequest<"options.terms"> {
     return this.#request;
+  }
+}
+
+/** Decodes a term-structure response from its lines, with endpoint context. */
+export async function* decodeTermsLines(lines: AsyncIterable<string>): AsyncGenerator<TermPoint> {
+  try {
+    yield* decodeLines(lines, termPointSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${TERMS_PATH} response`, { cause });
   }
 }
 

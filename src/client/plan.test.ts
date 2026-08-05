@@ -85,4 +85,40 @@ describe("Velo.stream", () => {
     await stream[Symbol.asyncIterator]().next();
     expect(calls()).toBe(1);
   });
+
+  it("accepts only streamable kinds", () => {
+    const velo = client();
+    const window = { between: [new Date(0), new Date(1)], resolution: "1h" } as const;
+
+    /* Line-oriented endpoints stream; the calls are typed, not executed. */
+    void velo.stream(
+      velo.futures
+        .price(["close"])
+        .for({ coins: ["BTC"] })
+        .over(window),
+    );
+    void velo.stream(
+      velo.spot
+        .price(["close"])
+        .for({ coins: ["BTC"] })
+        .over(window),
+    );
+    void velo.stream(
+      velo.options
+        .iv(["1m"])
+        .for({ coins: ["BTC"] })
+        .over(window),
+    );
+    void velo.stream(velo.futures.basis().over(window));
+    void velo.stream(velo.orderbook.levels({ coin: "BTC", between: [0, 1], resolution: "1m" }));
+
+    void velo.stream(velo.catalog.futures());
+    void velo.stream(velo.catalog.spot());
+    void velo.stream(velo.catalog.options());
+    void velo.stream(velo.marketCaps.history({ coins: ["BTC"] }));
+    void velo.stream(velo.options.terms({ coins: ["BTC"] }));
+
+    // @ts-expect-error news is a JSON document and cannot be decoded line by line
+    void velo.stream(velo.news.stories());
+  });
 });

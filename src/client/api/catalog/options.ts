@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { OPTIONS_CATALOG_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode } from "../../common/decode/csv.ts";
+import { csvTimestamp, decode, decodeLines } from "../../common/decode/csv.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -22,6 +22,16 @@ export function prepareOptionsCatalogParams(params: OptionsCatalogParams): Prepa
     delisted: false,
     depth: false,
   });
+}
+
+export async function* decodeOptionsCatalogLines(
+  lines: AsyncIterable<string>,
+): AsyncGenerator<OptionProduct> {
+  try {
+    yield* decodeLines(lines, optionProductSchema);
+  } catch (cause) {
+    throw new VeloError(`Unexpected ${OPTIONS_CATALOG_PATH} response`, { cause });
+  }
 }
 
 /** Decodes an options catalog response. */

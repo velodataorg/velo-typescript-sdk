@@ -85,6 +85,17 @@ export const CatalogParams = Object.freeze({
     };
   },
 
+  /** Tests one row against the selectors the catalog HTTP endpoints ignore. */
+  matches<T extends CatalogProduct>(row: T, params: PreparedCatalogParams): boolean {
+    const { coin, product, exchange, depth } = params;
+    return (
+      (coin === undefined || row.coin.toLowerCase() === coin.toLowerCase()) &&
+      (product === undefined || row.product.toLowerCase() === product.toLowerCase()) &&
+      (exchange === undefined || row.exchange.toLowerCase() === exchange.toLowerCase()) &&
+      (depth === undefined || row.depth === depth)
+    );
+  },
+
   /** Applies the selectors the catalog HTTP endpoints ignore. */
   filter<T extends CatalogProduct>(rows: T[], params: PreparedCatalogParams): T[] {
     const { coin, product, exchange, depth } = params;
@@ -96,16 +107,6 @@ export const CatalogParams = Object.freeze({
     ) {
       return rows;
     }
-
-    const normalizedCoin = coin?.toLowerCase();
-    const normalizedProduct = product?.toLowerCase();
-
-    return rows.filter(
-      (row) =>
-        (normalizedCoin === undefined || row.coin.toLowerCase() === normalizedCoin) &&
-        (normalizedProduct === undefined || row.product.toLowerCase() === normalizedProduct) &&
-        (exchange === undefined || row.exchange.toLowerCase() === exchange) &&
-        (depth === undefined || row.depth === depth),
-    );
+    return rows.filter((row) => CatalogParams.matches(row, params));
   },
 });

@@ -129,7 +129,40 @@ export class Http {
     params: HttpParams = {},
     options: HttpRequestOptions = {},
   ): Promise<string> {
-    const url = this.url(path, params);
+    const response = await this.#send(this.url(path, params), options);
+    return response.text();
+  }
+
+  /**
+   * GETs a path and yields its response body one line at a time.
+   *
+   * @remarks
+   * The returned promise settles once the response headers arrive, so callers
+   * can start a request without consuming it; the body is then read as it
+   * streams in. Retries apply to establishing the response — once lines have
+   * been yielded a mid-body failure surfaces to the caller instead.
+   *
+   * @param path - The endpoint path, starting with `/`.
+   * @param params - Query params for the request.
+   * @param options - Per-request signal, timeout, and retry overrides.
+   * @returns Lines of the body, without their trailing newline.
+   */
+  async openLines(
+    path: string,
+    params: HttpParams = {},
+    options: HttpRequestOptions = {},
+  ): Promise<AsyncIterable<string>> {
+    const response = await this.#send(this.url(path, params), options);
+    return toLines(response.body);
+  }
+
+  /**
+   * Sends one request, retrying until it succeeds or the budget is spent.
+   *
+   * The body is read here only to build an error: a successful response is
+   * returned unread so the caller decides whether to buffer or stream it.
+   */
+  async #send(url: string, options: HttpRequestOptions): Promise<Response> {
     // Validate the merged values: an override can corrupt a valid config,
     // e.g. an explicit `retries: undefined` would spread over the default.
     const retry = { ...this.retry, ...options.retry };
@@ -151,21 +184,19 @@ export class Http {
           headers: { authorization: this.authHeader, "user-agent": USER_AGENT },
           signal: AbortSignal.any(signals),
         });
-        const body = await response.text();
 
-        if (response.ok) {
-          return body;
-        } else {
-          if (response.status === 429) this.rateLimiter?.penalize();
-          retryAfter = retryAfterMs(response);
-          failure = toError(
-            response.status,
-            body.trim(),
-            url,
-            Object.fromEntries(response.headers),
-            retryAfter,
-          );
-        }
+        if (response.ok) return response;
+
+        const body = await response.text();
+        if (response.status === 429) this.rateLimiter?.penalize();
+        retryAfter = retryAfterMs(response);
+        failure = toError(
+          response.status,
+          body.trim(),
+          url,
+          Object.fromEntries(response.headers),
+          retryAfter,
+        );
       } catch (thrown) {
         failure = toConnectionError(thrown, url, timeout, options.signal, (value) =>
           this.#redact(value),
@@ -211,5 +242,35 @@ export class Http {
     let safe = value;
     for (const secret of this.secrets) safe = safe.split(secret).join("[REDACTED]");
     return safe;
+  }
+}
+
+/**
+ * Splits a response body into lines as its chunks arrive.
+ *
+ * A trailing fragment without a newline is yielded when the body ends, so a
+ * response whose last line is unterminated is not dropped.
+ */
+async function* toLines(body: ReadableStream<Uint8Array> | null): AsyncGenerator<string> {
+  if (!body) return;
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffered = "";
+
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffered += decoder.decode(value, { stream: true });
+
+      for (let newline = buffered.indexOf("\n"); newline >= 0; newline = buffered.indexOf("\n")) {
+        yield buffered.slice(0, newline);
+        buffered = buffered.slice(newline + 1);
+      }
+    }
+    buffered += decoder.decode();
+    if (buffered.length > 0) yield buffered;
+  } finally {
+    await reader.cancel().catch(() => {});
   }
 }

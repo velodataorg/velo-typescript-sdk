@@ -5,7 +5,7 @@ import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../common/market/exc
 import type { QueryPlan } from "../../common/query.ts";
 import { planRows } from "../../common/rows/plan.ts";
 import { OptionsParams, type OptionsRow } from "./params.ts";
-import { decodeTerms, type TermPoint, TermsParams } from "./terms.ts";
+import { decodeTerms, decodeTermsLines, type TermPoint, TermsParams } from "./terms.ts";
 
 /** Plans an options rows query. */
 export function planOptionsRows<C extends OptionsColumn>(
@@ -21,5 +21,6 @@ export function planOptionsTerms(params: TermsParams): QueryPlan<TermPoint> {
   return {
     requests: [{ path: TERMS_PATH, params: { coins: parsed.coins } }],
     decode: decodeTerms,
+    decodeLines: decodeTermsLines,
   };
 }

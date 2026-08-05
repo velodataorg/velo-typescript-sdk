@@ -35,6 +35,18 @@ function http(fetch: typeof globalThis.fetch): Http {
   });
 }
 
+async function* decodePointLines(lines: AsyncIterable<string>): AsyncIterable<Point> {
+  let header = true;
+  for await (const line of lines) {
+    if (header) {
+      header = false;
+      continue;
+    }
+    const [step, value] = line.split(",");
+    yield { step: Number(step), value: Number(value) };
+  }
+}
+
 function stepFrom(input: string | URL | Request): number {
   return Number(new URL(String(input)).searchParams.get("step"));
 }
@@ -348,5 +360,46 @@ describe("Query.stream", () => {
     );
 
     await expect(query.execute()).rejects.toBeInstanceOf(SyntaxError);
+  });
+
+  it("yields rows from a response body before it has finished arriving", async () => {
+    /* The server writes the CSV row by row over a chunked response, so a
+     * streaming query must surface early rows without waiting for the last
+     * byte. The second chunk is withheld until the first row is observed.
+     */
+    let releaseTail: () => void;
+    const tail = new Promise<void>((resolve) => {
+      releaseTail = resolve;
+    });
+
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(encoder.encode("step,value\n1,10\n"));
+        await tail;
+        controller.enqueue(encoder.encode("2,20\n"));
+        controller.close();
+      },
+    });
+
+    const options: QueryOptions<Point> = {
+      requests: [{ path: "/api/v1/test", params: { step: 1 } }],
+      decode: () => [],
+      decodeLines: decodePointLines,
+    };
+    const query = new Query(
+      http(async () => new Response(body)),
+      options,
+    );
+
+    const iterator = query.stream()[Symbol.asyncIterator]();
+    const first = await iterator.next();
+
+    expect(first.value).toEqual({ step: 1, value: 10 });
+
+    releaseTail!();
+    await expect(collect({ [Symbol.asyncIterator]: () => iterator })).resolves.toEqual([
+      { step: 2, value: 20 },
+    ]);
   });
 });

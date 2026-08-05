@@ -34,6 +34,39 @@ export function decodeOrderbook(body: string): OrderbookRow[] {
 }
 
 /**
+ * Decodes an orderbook levels response from its lines as they arrive.
+ *
+ * Applies the same step, cell-count, and cell checks as
+ * {@link decodeOrderbook}, but yields each bucket as soon as its line lands.
+ * Bodies here reach several megabytes, so buffering one costs the most.
+ *
+ * @param lines - The response body's lines, without trailing newlines.
+ * @returns One row per bucket, each carrying the response's grid step.
+ * @throws If the step line, a row's cell count, or any cell is malformed.
+ */
+export async function* decodeOrderbookLines(
+  lines: AsyncIterable<string>,
+): AsyncGenerator<OrderbookRow> {
+  let step: number | undefined;
+  let lineNumber = 0;
+
+  for await (const raw of lines) {
+    const line = stripReturn(raw);
+    lineNumber++;
+    if (line === "") continue;
+
+    if (step === undefined) {
+      step = parseFiniteNumber(line);
+      if (step === undefined || step <= 0) {
+        throw new Error(`Line 1 ${JSON.stringify(raw)} is not a positive price-grid step`);
+      }
+      continue;
+    }
+    yield decodeRow(line, lineNumber, step);
+  }
+}
+
+/**
  * Decodes one bucket line into a columnar row.
  *
  * @param line - The raw line without its newline.

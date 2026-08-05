@@ -22,6 +22,7 @@ export type {
   QueryKind,
   QueryRequest,
   QueryResult,
+  StreamableKind,
 } from "./client/plan.ts";
 export type { FuturesBasisBuilder, FuturesBasisScope } from "./client/api/futures/basis.ts";
 export type { FuturesBuilder } from "./client/api/futures/builder.ts";

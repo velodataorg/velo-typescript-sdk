@@ -311,4 +311,42 @@ describe("Velo.futures", () => {
     expect(FUTURES_COLUMNS).toContain("funding_rate");
     expect(FUTURES_COLUMNS).toContain("3m_basis_ann");
   });
+
+  it("yields rows while the response is still arriving", async () => {
+    /* The API writes rows into a chunked response, so streaming a query must
+     * surface the first row without waiting for the last one.
+     */
+    let releaseTail: () => void;
+    const tail = new Promise<void>((resolve) => {
+      releaseTail = resolve;
+    });
+    const body = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        controller.enqueue(
+          encoder.encode(
+            "exchange,coin,product,time,close_price\nbybit,BTC,BTCUSDT,1750000000000,1\n",
+          ),
+        );
+        await tail;
+        controller.enqueue(encoder.encode("bybit,BTC,BTCUSDT,1750000060000,2\n"));
+        controller.close();
+      },
+    });
+    const velo = new Velo({ apiKey: "test_key", fetch: async () => new Response(body) });
+
+    const rows = velo
+      .stream(
+        velo.futures
+          .price(["close"])
+          .for({ coins: ["BTC"] })
+          .over({ between: [new Date(0), new Date(3_600_000)], resolution: "1h" }),
+      )
+      [Symbol.asyncIterator]();
+
+    await expect(rows.next().then((r) => r.value?.close_price)).resolves.toBe(1);
+
+    releaseTail!();
+    await expect(rows.next().then((r) => r.value?.close_price)).resolves.toBe(2);
+  });
 });

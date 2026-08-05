@@ -1,6 +1,6 @@
 import { CAPS_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { decode } from "../../common/decode/csv.ts";
+import { decode, decodeLines } from "../../common/decode/csv.ts";
 import type { QueryPlan } from "../../common/query.ts";
 import { MarketCapsParams } from "./params.ts";
 import { marketCapSchema, type MarketCap } from "./validation.ts";
@@ -11,6 +11,13 @@ export function planMarketCapsHistory(params: MarketCapsParams): QueryPlan<Marke
   return {
     requests: [{ path: CAPS_PATH, params: { coins: parsed.coins } }],
     decode: decodeMarketCaps,
+    async *decodeLines(lines) {
+      try {
+        yield* decodeLines(lines, marketCapSchema);
+      } catch (cause) {
+        throw new VeloError(`Unexpected ${CAPS_PATH} response`, { cause });
+      }
+    },
   };
 }
 

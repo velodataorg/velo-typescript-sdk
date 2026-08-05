@@ -200,13 +200,10 @@ describe("Velo.news.stories", () => {
     expect((error as Error).cause).toBeInstanceOf(SyntaxError);
   });
 
-  it("streams stories individually through the builder", async () => {
+  it("decodes stories through the builder", async () => {
     const { velo: client } = velo(JSON.stringify({ stories: [STORY] }));
-    const stories: NewsStory[] = [];
 
-    for await (const story of client.stream(client.news.stories())) {
-      stories.push(story);
-    }
+    const stories = await client.query(client.news.stories());
 
     expect(stories).toEqual([STORY]);
   });
