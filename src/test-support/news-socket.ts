@@ -2,6 +2,7 @@ import { NewsWatcherController } from "../client/api/news/watcher.ts";
 import type { NewsWatcher, NewsWatchOptions } from "../client/api/news/watcher.ts";
 import { Velo } from "../client/client.ts";
 import type { WatchOptions } from "../client/watch/registry.ts";
+import { NEWS_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
 import type {
   WebSocketConnection,
@@ -147,7 +148,7 @@ export function harness(factory?: WebSocketFactory) {
    * longer exposes now that watch() connects. Those drive the controller
    * directly; everything else goes through the client.
    */
-  const transport = new WebSocketTransport(config, webSocketFactory);
+  const transport = new WebSocketTransport(config, NEWS_WEBSOCKET_PATH, webSocketFactory);
   const newsWatcher = (options?: NewsWatchOptions): NewsWatcher =>
     new NewsWatcherController(transport, options);
   return { client, sockets, targets, newsWatcher };

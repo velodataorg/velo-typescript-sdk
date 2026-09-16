@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
+import { REALTIME_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import {
   channel,
   channels,
+  DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
   Velo,
   VeloError,
   type ChannelDescriptor,
@@ -555,12 +557,15 @@ describe("raw channel subscriptions", () => {
 
   it("shares concurrent connect attempts and stops malformed early frames", async () => {
     const sockets: FakeSocket[] = [];
-    const transport = new WebSocketTransport({ apiKey: "key" }, () => {
+    const transport = new WebSocketTransport({ apiKey: "key" }, REALTIME_WEBSOCKET_PATH, () => {
       const socket = new FakeSocket();
       sockets.push(socket);
       return socket;
     });
-    const watcher = new ChannelsWatcherController(transport, { channels: [PRICE] });
+    const watcher = new ChannelsWatcherController(
+      { realtime: transport, ondemand: transport },
+      { channels: [PRICE] },
+    );
     const pending = watcher.connect();
     expect(watcher.connect()).toBe(pending);
     const rejection = expect(pending).rejects.toThrow(/JSON/);
@@ -570,11 +575,58 @@ describe("raw channel subscriptions", () => {
     expect(watcher.state).toBe("disconnected");
     watcher.close();
   });
+
+  it("fails a socket whose heartbeats stop, whatever its channels send", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const data = vi.fn();
+    const errors = vi.fn();
+    const pending = client.watch(channels.subscribe([PRICE]), {
+      reconnect: false,
+      on: { data, error: errors },
+    });
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_WATCH_HEARTBEAT_TIMEOUT - 1);
+    sockets[0]!.message(JSON.stringify({ hb: 1 }));
+    await vi.advanceTimersByTimeAsync(DEFAULT_WATCH_HEARTBEAT_TIMEOUT - 1);
+    sockets[0]!.message(JSON.stringify(message()));
+    expect(data).toHaveBeenCalledTimes(1);
+    expect(watcher.state).toBe("open");
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(watcher.state).toBe("disconnected");
+    expect(errors).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("heartbeat timed out") }),
+    );
+    expect(sockets[0]!.readyState).toBe(3);
+  });
+
+  it("tracks the heartbeat deadline per socket", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const pending = client.watch(channels.subscribe([PRICE, ONDEMAND]), {
+      reconnect: false,
+      heartbeatTimeout: 100,
+    });
+    await flushConnection();
+    sockets.forEach((socket) => socket.open());
+    const watcher = await pending;
+
+    await vi.advanceTimersByTimeAsync(99);
+    sockets[0]!.message(JSON.stringify({ hb: 1 }));
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(watcher.state).toBe("disconnected");
+    expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
+  });
 });
 
 describe("raw channel frames", () => {
   it("handles the live server hb heartbeat without consuming channel data with extra fields", () => {
-    expect(decodeChannelFrame('{"hb":1}')).toEqual({ type: "control" });
+    expect(decodeChannelFrame('{"hb":1}')).toEqual({ type: "heartbeat" });
     const raw = { ...message(), hb: 1, heartbeat: true };
     expect(decodeChannelFrame(JSON.stringify(raw))).toEqual({ type: "data", message: raw });
   });

@@ -15,8 +15,6 @@ const EditSchema = newsStorySchema.extend({
   edit: z.literal(true),
 });
 
-export { frameText } from "../../../transport/frame.ts";
-
 export type DecodedNewsMessage =
   | { readonly type: "heartbeat" }
   | { readonly type: "story"; readonly story: NewsStory }

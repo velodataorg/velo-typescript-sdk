@@ -1,4 +1,4 @@
-import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.ts";
+import { BASE_URL } from "../constants/endpoints.ts";
 import { VeloConnectionError, VeloError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
 import { toError } from "./error-mapping.ts";
@@ -16,6 +16,28 @@ export interface WebSocketCloseEvent {
   readonly code: number;
   readonly reason: string;
   readonly wasClean: boolean;
+}
+
+/* Close codes per RFC 6455: a normal closure, and one the socket never reported. */
+export const CLEAN_CLOSE_CODE = 1000;
+export const ABNORMAL_CLOSE_CODE = 1006;
+
+/**
+ * Builds the close an intentional shutdown reports.
+ *
+ * @returns A normal-closure event (code 1000).
+ */
+export function cleanCloseEvent(): WebSocketCloseEvent {
+  return { code: CLEAN_CLOSE_CODE, reason: "", wasClean: true };
+}
+
+/**
+ * Builds the close reported when a connection ends without a close frame.
+ *
+ * @returns An abnormal-closure event (code 1006).
+ */
+export function abnormalCloseEvent(): WebSocketCloseEvent {
+  return { code: ABNORMAL_CLOSE_CODE, reason: "", wasClean: false };
 }
 
 export interface WebSocketEvents {
@@ -161,24 +183,31 @@ export async function defaultWebSocketFactory(
 }
 
 /**
- * Shared WebSocket connection configuration. Every `connect()` call creates
- * a fresh socket; the transport never reconnects implicitly.
+ * Connection configuration for one socket endpoint. Every `connect()` call
+ * creates a fresh socket; the transport never reconnects implicitly.
  */
 export class WebSocketTransport {
   readonly #apiKey: string;
   readonly #baseUrl: string;
   readonly #encodedKeyPattern: RegExp | undefined;
   readonly #factory: WebSocketFactory;
-  readonly #endpoint: { readonly path: string; readonly name: string };
+  readonly #path: string;
   readonly #secrets: readonly string[];
   #target: WebSocketTarget | undefined;
 
+  /**
+   * @param config - The credential and the HTTP(S) origin sockets upgrade from.
+   * @param path - The endpoint path appended to the origin, starting with `/`.
+   * @param factory - Creates the runtime socket; the default adapts Node and
+   * native runtimes.
+   */
   constructor(
     config: { readonly apiKey: string; readonly baseUrl?: string },
+    path: string,
     factory: WebSocketFactory = defaultWebSocketFactory,
-    endpoint = { path: NEWS_WEBSOCKET_PATH, name: "News" },
   ) {
     assert(config.apiKey, "apiKey is required");
+    assert(typeof path === "string" && path.startsWith("/"), "path must start with /");
 
     const encodedKey = encodeURIComponent(config.apiKey);
     const authToken = btoa(`api:${config.apiKey}`);
@@ -186,22 +215,14 @@ export class WebSocketTransport {
     this.#baseUrl = config.baseUrl ?? BASE_URL;
     this.#encodedKeyPattern = percentEncodedSecretPattern(encodedKey);
     this.#factory = factory;
-    this.#endpoint = endpoint;
+    this.#path = path;
     this.#secrets = [encodedKey, config.apiKey, authToken]
       .filter((secret, index, all) => secret.length > 0 && all.indexOf(secret) === index)
       .sort((a, b) => b.length - a.length);
   }
 
   get url(): string {
-    return this.#target?.url ?? this.#endpoint.path;
-  }
-
-  /** Shares credentials and runtime configuration with a different socket endpoint. */
-  forPath(path: string): WebSocketTransport {
-    return new WebSocketTransport({ apiKey: this.#apiKey, baseUrl: this.#baseUrl }, this.#factory, {
-      ...this.#endpoint,
-      path,
-    });
+    return this.#target?.url ?? this.#path;
   }
 
   async connect(): Promise<WebSocketConnection> {
@@ -250,13 +271,10 @@ export class WebSocketTransport {
       cause === undefined
         ? undefined
         : new Error(this.redact(reasonOf(cause)), { cause: undefined });
-    return new VeloConnectionError(
-      `Velo ${this.#endpoint.name} WebSocket ${safeMessage}${reason}`,
-      {
-        url: this.url,
-        cause: safeCause,
-      },
-    );
+    return new VeloConnectionError(`Velo WebSocket ${safeMessage}${reason}`, {
+      url: this.url,
+      cause: safeCause,
+    });
   }
 
   redact(value: string): string {
@@ -273,7 +291,7 @@ export class WebSocketTransport {
   #connectionTarget(): WebSocketTarget {
     if (this.#target) return this.#target;
 
-    const url = websocketUrl(this.#baseUrl, this.#endpoint.path);
+    const url = websocketUrl(this.#baseUrl, this.#path);
     const encodedKey = encodeURIComponent(this.#apiKey);
     const authToken = btoa(`api:${this.#apiKey}`);
     this.#target = Object.freeze({

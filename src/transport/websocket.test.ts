@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { REALTIME_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { VeloConnectionError, VeloError } from "../errors.ts";
 import { defaultWebSocketFactory, isNodeRuntime, WebSocketTransport } from "./websocket.ts";
 import type { WebSocketConnection, WebSocketRuntime, WebSocketTarget } from "./websocket.ts";
@@ -68,6 +69,7 @@ describe("WebSocket runtime adapters", () => {
     let target: WebSocketTarget | undefined;
     const transport = new WebSocketTransport(
       { apiKey: "test/key", baseUrl: "https://example.test" },
+      REALTIME_WEBSOCKET_PATH,
       (value) => {
         target = value;
         return SOCKET;
@@ -98,6 +100,7 @@ describe("WebSocket runtime adapters", () => {
     let target: WebSocketTarget | undefined;
     const transport = new WebSocketTransport(
       { apiKey: "a/b +?", baseUrl: "http://localhost:3000/" },
+      REALTIME_WEBSOCKET_PATH,
       (value) => {
         target = value;
         return SOCKET;
@@ -141,8 +144,10 @@ describe("WebSocket runtime adapters", () => {
   });
 
   it("fails clearly when neither Node nor a native WebSocket is available", async () => {
-    const transport = new WebSocketTransport({ apiKey: "key" }, async (target) =>
-      defaultWebSocketFactory(target, {}),
+    const transport = new WebSocketTransport(
+      { apiKey: "key" },
+      REALTIME_WEBSOCKET_PATH,
+      async (target) => defaultWebSocketFactory(target, {}),
     );
 
     await expect(transport.connect()).rejects.toThrow(VeloConnectionError);
@@ -157,6 +162,7 @@ describe("WebSocket runtime adapters", () => {
     let target: WebSocketTarget | undefined;
     const transport = new WebSocketTransport(
       { apiKey, baseUrl: "https://example.test" },
+      REALTIME_WEBSOCKET_PATH,
       (value) => {
         target = value;
         throw new Error(
@@ -185,15 +191,21 @@ describe("WebSocket runtime adapters", () => {
   });
 
   it("rejects base URLs whose protocol cannot be upgraded when streaming starts", async () => {
-    const transport = new WebSocketTransport({
-      apiKey: "key",
-      baseUrl: "ftp://example.test",
-    });
+    const transport = new WebSocketTransport(
+      {
+        apiKey: "key",
+        baseUrl: "ftp://example.test",
+      },
+      REALTIME_WEBSOCKET_PATH,
+    );
     await expect(transport.connect()).rejects.toBeInstanceOf(VeloError);
   });
 
   it("rejects an unparseable baseUrl with a configuration error, not a socket failure", async () => {
-    const transport = new WebSocketTransport({ apiKey: "key", baseUrl: "not a url" });
+    const transport = new WebSocketTransport(
+      { apiKey: "key", baseUrl: "not a url" },
+      REALTIME_WEBSOCKET_PATH,
+    );
     const error = await transport.connect().catch((cause: unknown) => cause);
 
     expect(error).toBeInstanceOf(VeloError);
@@ -204,6 +216,7 @@ describe("WebSocket runtime adapters", () => {
   it("surfaces the text of a non-Error connection failure", async () => {
     const transport = new WebSocketTransport(
       { apiKey: "key", baseUrl: "https://example.test" },
+      REALTIME_WEBSOCKET_PATH,
       () => {
         throw "handshake refused";
       },

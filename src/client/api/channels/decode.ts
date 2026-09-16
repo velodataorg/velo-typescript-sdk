@@ -7,11 +7,26 @@ export interface ChannelError {
   readonly reason: "rejected" | "unsubscribed";
 }
 
-type ChannelFrame =
-  | { type: "data"; message: ChannelEnvelope }
-  | { type: "channelError"; error: ChannelError }
-  | { type: "control" };
+export type ChannelFrame =
+  | { readonly type: "data"; readonly message: ChannelEnvelope }
+  | { readonly type: "channelError"; readonly error: ChannelError }
+  | { readonly type: "heartbeat" }
+  | { readonly type: "control" };
 
+/**
+ * Decodes one channel-socket frame into its typed message.
+ *
+ * @remarks
+ * Frames are disambiguated by their marker field. `err` and `u2` report one
+ * channel the server dropped; `s2` acknowledges a subscription; `hb` or
+ * `heartbeat` without a channel is the liveness signal. Anything else must
+ * carry a channel name in `c` to be data.
+ *
+ * @param data - The frame's raw data from the session.
+ * @returns The decoded frame.
+ * @throws A VeloError when the frame is not JSON text, not an object, or a
+ * data envelope with malformed fields.
+ */
 export function decodeChannelFrame(data: unknown): ChannelFrame {
   let value: unknown;
   try {
@@ -29,11 +44,10 @@ export function decodeChannelFrame(data: unknown): ChannelFrame {
   if (typeof message.u2 === "string") {
     return { type: "channelError", error: { channel: message.u2, reason: "unsubscribed" } };
   }
-  if (
-    typeof message.s2 === "string" ||
-    (message.c === undefined && (message.heartbeat === true || message.hb === 1))
-  )
-    return { type: "control" };
+  if (typeof message.s2 === "string") return { type: "control" };
+  if (message.c === undefined && (message.heartbeat === true || message.hb === 1)) {
+    return { type: "heartbeat" };
+  }
   if (
     typeof message.c !== "string" ||
     (message.tt !== undefined &&

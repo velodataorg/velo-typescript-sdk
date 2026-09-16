@@ -1,15 +1,11 @@
 import type { DescriptorOf } from "../../channel/channel.ts";
-import type { WebSocketTransport } from "../../transport/websocket.ts";
-import type { ChannelsParams } from "../api/channels/channels.ts";
+import type { ChannelsParams } from "../api/channels/params.ts";
 import { ChannelsWatcherController } from "../api/channels/watcher.ts";
-import type {
-  ChannelsWatcher,
-  ChannelsWatcherEvents,
-  ChannelsWatchOptions,
-} from "../api/channels/watcher.ts";
+import type { ChannelsWatcherEvents, ChannelsWatchOptions } from "../api/channels/watcher.ts";
 import { NewsWatcherController } from "../api/news/watcher.ts";
-import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
+import type { NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
 import type { ResumeOptions } from "./connection.ts";
+import type { WatchTransports } from "./transports.ts";
 import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
 
 /**
@@ -26,14 +22,12 @@ export interface WatchDefinitions {
     params: ChannelsParams;
     options: ChannelsWatchOptions;
     events: ChannelsWatcherEvents;
-    watcher: ChannelsWatcher;
   };
   "news.feed": {
     /* The live feed takes no parameters: it delivers every published story. */
     params: Record<string, never>;
     options: NewsWatchOptions;
     events: NewsWatcherEvents;
-    watcher: NewsWatcher;
   };
 }
 
@@ -137,19 +131,18 @@ export type WatchInput<
 > = WatchRequest<K, P> | WatchBuilder<K, P>;
 
 interface WatcherDefinition<K extends WatchableKind> {
-  readonly transport: "news" | "channels";
   /**
    * Builds this kind's watcher.
    *
-   * The `WatcherOf` half of the return type is what lets the client attach
-   * listeners and resume drops generically: without it, `Watcher<K>` is an
-   * opaque indexed access and every call would need a cast.
+   * Takes every transport the client owns and picks the ones this kind
+   * needs, so a kind that spans endpoints is built the same way as one that
+   * uses a single socket.
    */
   create(
-    transport: WebSocketTransport,
+    transports: WatchTransports,
     params: WatchParams<K>,
     options: WatchDefinitions[K]["options"] | undefined,
-  ): Watcher<K> & WatcherOf<WatchEvents<K>>;
+  ): WatcherOf<WatchEvents<K>>;
 
   /**
    * Every event type this kind delivers.
@@ -168,14 +161,12 @@ type WatcherRegistry = {
 /** Builds the live watcher for one subscription kind. */
 export const WATCHERS: WatcherRegistry = Object.freeze({
   "news.feed": {
-    transport: "news",
-    create: (transport, _params, options) => new NewsWatcherController(transport, options),
+    create: (transports, _params, options) => new NewsWatcherController(transports.news, options),
     events: { story: true, edit: true, delete: true, error: true, close: true },
   },
   "channels.subscribe": {
-    transport: "channels",
-    create: (transport, params, options) =>
-      new ChannelsWatcherController(transport, params, options),
+    create: (transports, params, options) =>
+      new ChannelsWatcherController(transports, params, options),
     events: { data: true, channelError: true, error: true, close: true },
   },
 });

@@ -146,10 +146,13 @@ describe("Velo.watch", () => {
     });
     await flushConnection();
 
-    /* The socket opens, but a buffered malformed frame drops it before the
-     * successful connect() continuation gets to run.
+    /* One microtask lets the controller subscribe and settle connect(), but
+     * not the supervisor's continuation: the socket then drops in between.
      */
-    (sockets[0] as FakeSocket).openWithMessages("{not json");
+    const firstConnection = sockets[0] as FakeSocket;
+    firstConnection.open();
+    await Promise.resolve();
+    firstConnection.remoteClose(1006, "gone");
     const watcher = await pending;
     expect(watcher.state).toBe("disconnected");
 

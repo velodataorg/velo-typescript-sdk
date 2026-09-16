@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { REALTIME_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { VeloError } from "../errors.ts";
 import { WebSocketSession } from "./session.ts";
 import { WebSocketTransport } from "./websocket.ts";
@@ -91,6 +92,7 @@ function sessionHarness(factory?: WebSocketFactory) {
   const sockets: FakeSocket[] = [];
   const transport = new WebSocketTransport(
     { apiKey: "test/key", baseUrl: "https://example.test" },
+    REALTIME_WEBSOCKET_PATH,
     factory ??
       (() => {
         const socket = new FakeSocket();

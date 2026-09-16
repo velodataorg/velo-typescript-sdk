@@ -1,25 +1,27 @@
-import type { ChannelDescriptor, ChannelMessage } from "../../../channel/channel.ts";
-import { CHANNELS_WEBSOCKET_PATH, ONDEMAND_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import {
+  channelEndpoint,
+  type ChannelDescriptor,
+  type ChannelEndpoint,
+  type ChannelMessage,
+} from "../../../channel/channel.ts";
 import { VeloError } from "../../../errors.ts";
-import { MAX_TIMER_MS } from "../../../transport/retry.ts";
 import { WebSocketSession } from "../../../transport/session.ts";
+import { abnormalCloseEvent, cleanCloseEvent } from "../../../transport/websocket.ts";
 import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
+import { abortReason } from "../../../util/abort.ts";
 import { assert } from "../../../util/assert.ts";
 import { SafeEmitter } from "../../../util/emitter.ts";
+import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
+import { prepareWatcherOptions } from "../../watch/options.ts";
+import type { WatcherOptions } from "../../watch/options.ts";
+import type { WatchTransports } from "../../watch/transports.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
-import { Channels, type ChannelsParams } from "./channels.ts";
-import { decodeChannelFrame, type ChannelError } from "./decode.ts";
+import { decodeChannelFrame } from "./decode.ts";
+import type { ChannelError } from "./decode.ts";
+import { ChannelsParams } from "./params.ts";
 
-export const DEFAULT_CHANNELS_CONNECT_TIMEOUT = 30_000;
-
-export interface ChannelsWatchOptions {
-  /** Closes every socket belonging to this watcher when aborted. */
-  readonly signal?: AbortSignal;
-  /** Deadline for each socket handshake, in milliseconds. */
-  readonly connectTimeout?: number;
-  /** Receives exceptions and promise rejections from event listeners. */
-  readonly onListenerError?: (error: unknown) => unknown;
-}
+/** Options for a channel subscription: the contract every watcher shares. */
+export type ChannelsWatchOptions = WatcherOptions;
 
 export interface ChannelsWatcherEvents<Descriptor extends ChannelDescriptor = ChannelDescriptor> {
   readonly data: ChannelMessage<Descriptor>;
@@ -29,57 +31,86 @@ export interface ChannelsWatcherEvents<Descriptor extends ChannelDescriptor = Ch
   readonly close: WebSocketCloseEvent;
 }
 
+/**
+ * A live channel subscription.
+ *
+ * The shared watcher contract over the channel event map, which carries the
+ * union of the subscribed descriptors so `kind` narrows `data`.
+ */
 export type ChannelsWatcher<Descriptor extends ChannelDescriptor = ChannelDescriptor> = WatcherOf<
   ChannelsWatcherEvents<Descriptor>
 >;
 
+/* One socket's share of the subscription: its endpoint and the channels it carries. */
 interface ChannelGroup {
   readonly transport: WebSocketTransport;
   readonly channels: readonly string[];
+  readonly heartbeat: HeartbeatDeadline;
 }
 
-/** Owns one socket per endpoint for a fixed set of channels. Recovery is supervised by watch(). */
+/**
+ * A disconnected controller for a fixed set of channels.
+ *
+ * Opens one socket per endpoint the channels need and subscribes each
+ * channel on its socket; `connect()` resolves once every socket is open and
+ * subscribed. The controller never reconnects on its own — an unexpected
+ * loss on any socket enters `disconnected` and emits `close`, and the watch
+ * layer resumes it.
+ *
+ * Nothing published while disconnected is replayed, and a reconnect
+ * resubscribes the original set, including channels the server rejected.
+ */
 export class ChannelsWatcherController implements ChannelsWatcher {
-  readonly #groups: readonly ChannelGroup[];
-  readonly #emitter: SafeEmitter<ChannelsWatcherEvents>;
-  readonly #signal: AbortSignal | undefined;
-  readonly #connectTimeout: number;
-  readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
   readonly #active = new Set<string>();
+  readonly #connectTimeout: number;
   readonly #descriptors = new Map<string, ChannelDescriptor>();
+  readonly #emitter: SafeEmitter<ChannelsWatcherEvents>;
+  readonly #groups: readonly ChannelGroup[];
+  readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
+  readonly #signal: AbortSignal | undefined;
+
   #attempt: AbortController | undefined;
-  #state: WatchState = "idle";
   #connectPromise: Promise<void> | undefined;
-  #resolveConnect: (() => void) | undefined;
-  #rejectConnect: ((reason: unknown) => void) | undefined;
   #listeningForAbort = false;
+  #rejectConnect: ((reason?: unknown) => void) | undefined;
+  #resolveConnect: (() => void) | undefined;
+  #state: WatchState = "idle";
 
   constructor(
-    transport: WebSocketTransport,
+    transports: Pick<WatchTransports, ChannelEndpoint>,
     params: ChannelsParams,
     options?: ChannelsWatchOptions,
   ) {
-    assert(params !== null && typeof params === "object", "channels params must be an object");
-    const { channels } = new Channels().subscribe(params.channels).build().params;
-    const prepared = prepareOptions(options);
+    const { channels } = ChannelsParams.parse(params);
+    const prepared = prepareWatcherOptions(options);
     this.#signal = prepared.signal;
     this.#connectTimeout = prepared.connectTimeout;
     this.#emitter = new SafeEmitter(prepared.onListenerError);
-    const groups = new Map<string, string[]>();
+
+    const byEndpoint = new Map<ChannelEndpoint, string[]>();
     for (const descriptor of channels) {
-      const channel = descriptor.channel();
-      this.#descriptors.set(channel, descriptor);
-      const path = channel.startsWith("ondemand_")
-        ? ONDEMAND_WEBSOCKET_PATH
-        : CHANNELS_WEBSOCKET_PATH;
-      const names = groups.get(path) ?? [];
-      names.push(channel);
-      groups.set(path, names);
+      const name = descriptor.channel();
+      this.#descriptors.set(name, descriptor);
+      const endpoint = channelEndpoint(name);
+      const names = byEndpoint.get(endpoint) ?? [];
+      names.push(name);
+      byEndpoint.set(endpoint, names);
     }
-    this.#groups = Array.from(groups, ([path, names]) => ({
-      transport: transport.forPath(path),
-      channels: names,
-    }));
+    this.#groups = Array.from(byEndpoint, ([endpoint, names]) => {
+      const transport = transports[endpoint];
+      return {
+        transport,
+        channels: names,
+        heartbeat: new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
+          this.#fail(
+            transport.connectionError(
+              `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
+            ),
+            abnormalCloseEvent(),
+          );
+        }),
+      };
+    });
   }
 
   get state(): WatchState {
@@ -103,24 +134,26 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   }
 
   connect(): Promise<void> {
-    if (this.#state === "connecting" || this.#state === "open")
+    if (this.#state === "connecting" || this.#state === "open") {
       return this.#connectPromise as Promise<void>;
-    if (this.#state === "closed")
+    }
+    if (this.#state === "closed") {
       return Promise.reject(new VeloError("Channels watcher is closed"));
+    }
+
     this.#state = "connecting";
-    const promise = new Promise<void>((resolve, reject) => {
+    const connectPromise = new Promise<void>((resolve, reject) => {
       this.#resolveConnect = resolve;
       this.#rejectConnect = reject;
     });
-    this.#connectPromise = promise;
+    this.#connectPromise = connectPromise;
+
     if (this.#signal?.aborted) {
       this.#end("closed", abortReason(this.#signal));
-      return promise;
+      return connectPromise;
     }
-    if (this.#signal && !this.#listeningForAbort) {
-      this.#signal.addEventListener("abort", this.#onAbort, { once: true });
-      this.#listeningForAbort = true;
-    }
+    this.#listenForAbort();
+
     const attempt = new AbortController();
     this.#attempt = attempt;
     for (const group of this.#groups) {
@@ -138,12 +171,15 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       (cause: unknown) => {
         if (this.#attempt !== attempt) return;
         this.#fail(
-          cause instanceof VeloError ? cause : new VeloError("channel connection failed"),
-          abnormalClose(),
+          cause instanceof VeloError
+            ? cause
+            : new VeloError("channel connection failed", { cause }),
+          abnormalCloseEvent(),
         );
       },
     );
-    return promise;
+
+    return connectPromise;
   }
 
   disconnect(): void {
@@ -160,6 +196,19 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#end("closed", abortReason(this.#signal as AbortSignal));
   };
 
+  /**
+   * Opens one group's socket and subscribes its channels.
+   *
+   * @remarks
+   * Frames are handled from the moment the socket opens, before `connect()`
+   * resolves, so nothing the server sends early is lost. Each step checks
+   * that `attempt` is still current: a sibling socket may have failed and
+   * torn this attempt down while the handshake was in flight.
+   *
+   * @param group - The endpoint and channels to open.
+   * @param attempt - The connection attempt this socket belongs to.
+   * @throws When the handshake fails or a subscription cannot be sent.
+   */
   async #openGroup(group: ChannelGroup, attempt: AbortController): Promise<void> {
     const session = await WebSocketSession.open(
       group.transport,
@@ -178,7 +227,10 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       return;
     }
     this.#sessions.set(group, session);
+    group.heartbeat.reset();
+
     for (const channel of group.channels) {
+      /* A custom socket may emit a terminal event synchronously from send(). */
       if (this.#attempt !== attempt) return;
       try {
         session.send(`s2 ${channel}`);
@@ -188,80 +240,103 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     }
   }
 
+  /**
+   * Decodes one frame and emits its domain event.
+   *
+   * @param group - The socket the frame arrived on.
+   * @param data - The frame's raw data from the session.
+   */
   #handleMessage(group: ChannelGroup, data: unknown): void {
     let frame: ReturnType<typeof decodeChannelFrame>;
     try {
       frame = decodeChannelFrame(data);
     } catch (cause) {
-      this.#fail(cause as VeloError, abnormalClose());
+      this.#fail(cause as VeloError, abnormalCloseEvent());
+      return;
+    }
+
+    if (frame.type === "heartbeat") {
+      group.heartbeat.reset();
       return;
     }
     if (frame.type === "control") return;
+
     const channel = frame.type === "data" ? frame.message.c : frame.error.channel;
     if (!this.#active.has(channel) || !group.channels.includes(channel)) return;
     if (frame.type === "channelError") {
       this.#active.delete(channel);
       this.#emitter.emit("channelError", frame.error);
-    } else {
-      const descriptor = this.#descriptors.get(channel)!;
-      let decoded: unknown;
-      try {
-        decoded = descriptor.decode(frame.message);
-        if (
-          decoded !== null &&
-          (typeof decoded === "object" || typeof decoded === "function") &&
-          typeof (decoded as { then?: unknown }).then === "function"
-        ) {
-          // A mistaken async decoder must not leave an unhandled rejection behind.
-          void Promise.resolve(decoded).catch(() => {});
-          throw new VeloError("channel decoders must return synchronously");
-        }
-      } catch {
-        this.#fail(new VeloError(`failed to decode channel ${channel}`), abnormalClose());
-        return;
-      }
-      this.#emitter.emit("data", {
-        kind: descriptor.kind,
-        channel,
-        ...(frame.message.tt === undefined ? {} : { timestamp: frame.message.tt }),
-        data: decoded,
-        raw: frame.message,
-      });
+      return;
     }
+
+    const descriptor = this.#descriptors.get(channel);
+    assert(descriptor !== undefined, () => `no descriptor for active channel ${channel}`);
+    let decoded: unknown;
+    try {
+      decoded = descriptor.decode(frame.message);
+      if (isThenable(decoded)) {
+        /* A mistaken async decoder must not leave an unhandled rejection behind. */
+        void Promise.resolve(decoded).catch(() => {});
+        throw new VeloError("channel decoders must return synchronously");
+      }
+    } catch {
+      this.#fail(new VeloError(`failed to decode channel ${channel}`), abnormalCloseEvent());
+      return;
+    }
+    this.#emitter.emit("data", {
+      kind: descriptor.kind,
+      channel,
+      ...(frame.message.tt === undefined ? {} : { timestamp: frame.message.tt }),
+      data: decoded,
+      raw: frame.message,
+    });
   }
 
   #fail(error: VeloError, close: WebSocketCloseEvent): void {
     if (this.#state !== "connecting" && this.#state !== "open") return;
     const emitError = this.#state === "open";
+
     const reject = this.#rejectConnect;
     this.#state = "disconnected";
     this.#teardown(false);
     reject?.(error);
+
     if (emitError) this.#emitter.emit("error", error);
     this.#emitter.emit("close", close);
   }
 
   #end(state: "idle" | "closed", reason: unknown): void {
+    /* Emit only when this call actually ends a connection or attempt: an
+     * idle watcher was already cleanly disconnected, and a disconnected one
+     * already received its remote close.
+     */
     const emitClose = this.#state === "connecting" || this.#state === "open";
     const reject = this.#rejectConnect;
     this.#state = state;
     this.#teardown(true);
+    if (state === "closed") this.#stopListeningForAbort();
     reject?.(reason);
-    if (state === "closed" && this.#listeningForAbort) {
-      this.#signal?.removeEventListener("abort", this.#onAbort);
-      this.#listeningForAbort = false;
-    }
-    if (emitClose) this.#emitter.emit("close", { code: 1000, reason: "", wasClean: true });
+
+    if (emitClose) this.#emitter.emit("close", cleanCloseEvent());
     if (state === "closed") this.#emitter.clear();
   }
 
+  /**
+   * Releases the connection resources: heartbeat deadlines, a pending
+   * attempt, and every session.
+   *
+   * @param unsubscribe - Whether to tell the server which channels are being
+   * released first. True for an intentional end; a lost connection has no
+   * server to tell.
+   */
   #teardown(unsubscribe: boolean): void {
-    const attempt = this.#attempt;
+    this.#attempt?.abort();
     this.#attempt = undefined;
     this.#connectPromise = undefined;
     this.#resolveConnect = undefined;
     this.#rejectConnect = undefined;
-    attempt?.abort();
+
+    for (const group of this.#groups) group.heartbeat.clear();
     for (const [group, session] of this.#sessions) {
       if (unsubscribe && session.state === "open") {
         for (const channel of group.channels) {
@@ -278,40 +353,34 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#sessions.clear();
     this.#active.clear();
   }
+
+  #listenForAbort(): void {
+    if (this.#signal === undefined || this.#listeningForAbort) return;
+    this.#signal.addEventListener("abort", this.#onAbort, { once: true });
+    this.#listeningForAbort = true;
+  }
+
+  #stopListeningForAbort(): void {
+    if (this.#signal === undefined || !this.#listeningForAbort) return;
+    try {
+      this.#signal.removeEventListener("abort", this.#onAbort);
+    } catch {
+      // Cleanup cannot change the watcher's terminal state.
+    }
+    this.#listeningForAbort = false;
+  }
 }
 
-function prepareOptions(options?: ChannelsWatchOptions) {
-  assert(
-    options === undefined ||
-      (options !== null && typeof options === "object" && !Array.isArray(options)),
-    "channels watch options must be an object",
+/**
+ * Detects a promise-like decoder result without awaiting it.
+ *
+ * @param value - A decoder's return value.
+ * @returns Whether `value` exposes a `then` method.
+ */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { readonly then?: unknown }).then === "function"
   );
-  const { signal, onListenerError } = options ?? {};
-  assert(
-    signal === undefined ||
-      (signal !== null &&
-        typeof signal === "object" &&
-        typeof signal.aborted === "boolean" &&
-        typeof signal.addEventListener === "function" &&
-        typeof signal.removeEventListener === "function"),
-    "signal must be an AbortSignal",
-  );
-  assert(
-    onListenerError === undefined || typeof onListenerError === "function",
-    "onListenerError must be a function",
-  );
-  const connectTimeout = options?.connectTimeout ?? DEFAULT_CHANNELS_CONNECT_TIMEOUT;
-  assert(
-    Number.isSafeInteger(connectTimeout) && connectTimeout > 0 && connectTimeout <= MAX_TIMER_MS,
-    "connectTimeout must be a positive integer within the timer range",
-  );
-  return { signal, onListenerError, connectTimeout };
-}
-
-function abortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
-}
-
-function abnormalClose(): WebSocketCloseEvent {
-  return { code: 1006, reason: "", wasClean: false };
 }

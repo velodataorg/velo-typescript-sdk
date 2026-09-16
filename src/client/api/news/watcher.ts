@@ -1,40 +1,32 @@
 import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
-import { MAX_TIMER_MS } from "../../../transport/retry.ts";
+import { frameText } from "../../../transport/frame.ts";
 import { WebSocketSession } from "../../../transport/session.ts";
 import type { WebSocketSessionHandlers } from "../../../transport/session.ts";
-import type { WebSocketTransport } from "../../../transport/websocket.ts";
-import { assert } from "../../../util/assert.ts";
+import { abnormalCloseEvent, cleanCloseEvent } from "../../../transport/websocket.ts";
+import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
+import { abortReason } from "../../../util/abort.ts";
 import { SafeEmitter } from "../../../util/emitter.ts";
+import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
+import {
+  DEFAULT_WATCH_CONNECT_TIMEOUT,
+  DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
+  prepareWatcherOptions,
+} from "../../watch/options.ts";
+import type { WatcherOptions } from "../../watch/options.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
-import { decodeNewsMessage, frameText } from "./decode.ts";
+import { decodeNewsMessage } from "./decode.ts";
 import type { DecodedNewsMessage } from "./decode.ts";
 import type { NewsStory } from "./validation.ts";
 
 const SUBSCRIBE_NEWS = "subscribe news_priority";
-const CLEAN_CLOSE_CODE = 1000;
-const ABNORMAL_CLOSE_CODE = 1006;
 
-export const DEFAULT_NEWS_HEARTBEAT_TIMEOUT = 5 * 60 * 1000;
-export const DEFAULT_NEWS_CONNECT_TIMEOUT = 30 * 1000;
+/* The shared watcher defaults, under the names 0.1 published them as. */
+export const DEFAULT_NEWS_HEARTBEAT_TIMEOUT = DEFAULT_WATCH_HEARTBEAT_TIMEOUT;
+export const DEFAULT_NEWS_CONNECT_TIMEOUT = DEFAULT_WATCH_CONNECT_TIMEOUT;
 
-export interface NewsWatchOptions {
-  /* Closes the watcher when aborted. */
-  readonly signal?: AbortSignal;
-  /* Maximum milliseconds between application heartbeat messages. */
-  readonly heartbeatTimeout?: number;
-  /* Maximum milliseconds for connect() to reach an open subscription. */
-  readonly connectTimeout?: number;
-  /**
-   * Replaces the default reporting for event-listener failures.
-   *
-   * Receives every error thrown — or promise rejection returned — by a
-   * listener. Without it, failures go to `reportError` where the runtime
-   * provides it and `console.error` otherwise. Should not throw or reject;
-   * if it does, both errors fall back to the default reporting.
-   */
-  readonly onListenerError?: (error: unknown) => unknown;
-}
+/** Options for the news feed: the contract every watcher shares. */
+export type NewsWatchOptions = WatcherOptions;
 
 export type NewsWatcherState = WatchState;
 
@@ -42,11 +34,8 @@ export interface NewsDelete {
   readonly id: number;
 }
 
-export interface NewsClose {
-  readonly code: number;
-  readonly reason: string;
-  readonly wasClean: boolean;
-}
+/** The close event a news watcher emits: the transport's, unchanged. */
+export type NewsClose = WebSocketCloseEvent;
 
 export interface NewsWatcherEvents {
   readonly story: NewsStory;
@@ -68,13 +57,6 @@ export type NewsWatcherListener<K extends keyof NewsWatcherEvents> = (
  */
 export type NewsWatcher = WatcherOf<NewsWatcherEvents>;
 
-interface PreparedNewsWatchOptions {
-  readonly signal: AbortSignal | undefined;
-  readonly heartbeatTimeout: number;
-  readonly connectTimeout: number;
-  readonly onListenerError: ((error: unknown) => unknown) | undefined;
-}
-
 /**
  * A disconnected controller for the live News WebSocket.
  *
@@ -90,27 +72,32 @@ interface PreparedNewsWatchOptions {
 export class NewsWatcherController implements NewsWatcher {
   readonly #connectTimeout: number;
   readonly #emitter: SafeEmitter<NewsWatcherEvents>;
-  readonly #heartbeatTimeout: number;
+  readonly #heartbeat: HeartbeatDeadline;
   readonly #signal: AbortSignal | undefined;
   readonly #transport: WebSocketTransport;
 
   #attempt: AbortController | undefined;
   #connectPromise: Promise<void> | undefined;
-  #heartbeatTimer: ReturnType<typeof setTimeout> | undefined;
   #listeningForAbort = false;
-  #pendingFrames: unknown[] = [];
   #rejectConnect: ((reason?: unknown) => void) | undefined;
   #resolveConnect: (() => void) | undefined;
   #session: WebSocketSession | undefined;
   #state: NewsWatcherState = "idle";
 
   constructor(transport: WebSocketTransport, options?: NewsWatchOptions) {
-    const prepared = prepareNewsWatchOptions(options);
+    const prepared = prepareWatcherOptions(options);
     this.#transport = transport;
     this.#signal = prepared.signal;
-    this.#heartbeatTimeout = prepared.heartbeatTimeout;
     this.#connectTimeout = prepared.connectTimeout;
     this.#emitter = new SafeEmitter(prepared.onListenerError);
+    this.#heartbeat = new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
+      this.#fail(
+        transport.connectionError(
+          `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
+        ),
+        abnormalCloseEvent(),
+      );
+    });
   }
 
   get state(): NewsWatcherState {
@@ -163,7 +150,7 @@ export class NewsWatcherController implements NewsWatcher {
           cause instanceof VeloError
             ? cause
             : this.#transport.connectionError("connection failed", cause);
-        this.#fail(error, abnormalClose());
+        this.#fail(error, abnormalCloseEvent());
       },
     );
 
@@ -193,9 +180,11 @@ export class NewsWatcherController implements NewsWatcher {
    * Builds the session callbacks for one connection attempt.
    *
    * @remarks
-   * Each callback ignores events once `attempt` is no longer current, so a
-   * session outliving its attempt — however briefly — cannot corrupt a
-   * newer connection's state.
+   * Frames are handled from the moment the socket opens, before `connect()`
+   * resolves, so nothing the server sends early is lost. Each callback
+   * ignores events once `attempt` is no longer current, so a session
+   * outliving its attempt — however briefly — cannot corrupt a newer
+   * connection's state.
    *
    * @param attempt - The attempt the returned handlers belong to.
    * @returns Handlers wired to this watcher.
@@ -204,10 +193,6 @@ export class NewsWatcherController implements NewsWatcher {
     return {
       onMessage: (data) => {
         if (this.#attempt !== attempt) return;
-        if (this.#state === "connecting") {
-          this.#pendingFrames.push(data);
-          return;
-        }
         this.#handleMessage(data);
       },
       onClose: (close, error) => {
@@ -229,11 +214,15 @@ export class NewsWatcherController implements NewsWatcher {
       return;
     }
     this.#session = session;
+    this.#heartbeat.reset();
 
     try {
       session.send(SUBSCRIBE_NEWS);
     } catch (cause) {
-      this.#fail(this.#transport.connectionError("subscription failed", cause), abnormalClose());
+      this.#fail(
+        this.#transport.connectionError("subscription failed", cause),
+        abnormalCloseEvent(),
+      );
       return;
     }
 
@@ -242,30 +231,10 @@ export class NewsWatcherController implements NewsWatcher {
     if (this.#state !== "connecting" || this.#session !== session) return;
 
     this.#state = "open";
-    this.#resetHeartbeat();
     const resolve = this.#resolveConnect;
     this.#resolveConnect = undefined;
     this.#rejectConnect = undefined;
     resolve?.();
-    this.#drainPendingFrames();
-  }
-
-  /**
-   * Replays frames received between session attachment and subscription.
-   *
-   * @remarks
-   * A frame can fail or synchronously disconnect the watcher through a
-   * listener, so stop as soon as the watcher is no longer open. Taking the
-   * current array before dispatch also keeps a newer attempt's queue isolated
-   * if a listener reconnects during the drain.
-   */
-  #drainPendingFrames(): void {
-    const pending = this.#pendingFrames;
-    this.#pendingFrames = [];
-    for (const frame of pending) {
-      if (this.#state !== "open") break;
-      this.#handleMessage(frame);
-    }
   }
 
   /**
@@ -274,8 +243,6 @@ export class NewsWatcherController implements NewsWatcher {
    * @param data - The frame's raw data from the session.
    */
   #handleMessage(data: unknown): void {
-    if (this.#state !== "open") return;
-
     let message: DecodedNewsMessage;
     try {
       message = decodeNewsMessage(frameText(data));
@@ -284,30 +251,17 @@ export class NewsWatcherController implements NewsWatcher {
         cause instanceof VeloError
           ? cause
           : new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message`, { cause });
-      this.#fail(error, abnormalClose());
+      this.#fail(error, abnormalCloseEvent());
       return;
     }
 
     if (message.type === "heartbeat") {
-      this.#resetHeartbeat();
+      this.#heartbeat.reset();
     } else if (message.type === "delete") {
       this.#emitter.emit("delete", { id: message.id });
     } else {
       this.#emitter.emit(message.type, message.story);
     }
-  }
-
-  #resetHeartbeat(): void {
-    if (this.#state !== "open") return;
-    if (this.#heartbeatTimer !== undefined) clearTimeout(this.#heartbeatTimer);
-    this.#heartbeatTimer = setTimeout(() => {
-      this.#fail(
-        this.#transport.connectionError(
-          `heartbeat timed out after ${this.#heartbeatTimeout} milliseconds`,
-        ),
-        abnormalClose(),
-      );
-    }, this.#heartbeatTimeout);
   }
 
   #fail(error: VeloError, close: NewsClose): void {
@@ -335,7 +289,7 @@ export class NewsWatcherController implements NewsWatcher {
     this.#teardown();
     reject?.(reason);
 
-    this.#emitter.emit("close", cleanClose());
+    this.#emitter.emit("close", cleanCloseEvent());
   }
 
   #cancel(reason: unknown): void {
@@ -356,20 +310,16 @@ export class NewsWatcherController implements NewsWatcher {
     this.#stopListeningForAbort();
     reject?.(reason);
 
-    if (emitClose) this.#emitter.emit("close", cleanClose());
+    if (emitClose) this.#emitter.emit("close", cleanCloseEvent());
     this.#emitter.clear();
   }
 
   /**
-   * Releases the connection resources: the heartbeat timer, a pending
+   * Releases the connection resources: the heartbeat deadline, a pending
    * attempt, and the current session.
    */
   #teardown(): void {
-    if (this.#heartbeatTimer !== undefined) {
-      clearTimeout(this.#heartbeatTimer);
-      this.#heartbeatTimer = undefined;
-    }
-    this.#pendingFrames = [];
+    this.#heartbeat.clear();
 
     const attempt = this.#attempt;
     this.#attempt = undefined;
@@ -395,60 +345,4 @@ export class NewsWatcherController implements NewsWatcher {
     }
     this.#listeningForAbort = false;
   }
-}
-
-export function prepareNewsWatchOptions(options?: NewsWatchOptions): PreparedNewsWatchOptions {
-  /* Omitted is valid; null or a non-object is not. */
-  assert(
-    options === undefined ||
-      (options !== null && typeof options === "object" && !Array.isArray(options)),
-    "news watch options must be an object",
-  );
-
-  const { signal, onListenerError } = options ?? {};
-  assert(signal === undefined || isAbortSignal(signal), "signal must be an AbortSignal");
-  assert(
-    onListenerError === undefined || typeof onListenerError === "function",
-    "onListenerError must be a function",
-  );
-
-  const heartbeatTimeout = options?.heartbeatTimeout ?? DEFAULT_NEWS_HEARTBEAT_TIMEOUT;
-  assert(
-    Number.isSafeInteger(heartbeatTimeout) &&
-      heartbeatTimeout > 0 &&
-      heartbeatTimeout <= MAX_TIMER_MS,
-    () =>
-      `heartbeatTimeout must be a positive integer of at most ${MAX_TIMER_MS} milliseconds (got ${String(heartbeatTimeout)})`,
-  );
-
-  const connectTimeout = options?.connectTimeout ?? DEFAULT_NEWS_CONNECT_TIMEOUT;
-  assert(
-    Number.isSafeInteger(connectTimeout) && connectTimeout > 0 && connectTimeout <= MAX_TIMER_MS,
-    () =>
-      `connectTimeout must be a positive integer of at most ${MAX_TIMER_MS} milliseconds (got ${String(connectTimeout)})`,
-  );
-
-  return { signal, heartbeatTimeout, connectTimeout, onListenerError };
-}
-
-function cleanClose(): NewsClose {
-  return { code: CLEAN_CLOSE_CODE, reason: "", wasClean: true };
-}
-
-function abnormalClose(): NewsClose {
-  return { code: ABNORMAL_CLOSE_CODE, reason: "", wasClean: false };
-}
-
-function abortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
-}
-
-function isAbortSignal(value: unknown): value is AbortSignal {
-  if (value === null || typeof value !== "object") return false;
-  const candidate = value as Partial<AbortSignal>;
-  return (
-    typeof candidate.aborted === "boolean" &&
-    typeof candidate.addEventListener === "function" &&
-    typeof candidate.removeEventListener === "function"
-  );
 }
