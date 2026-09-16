@@ -62,7 +62,7 @@ describe("raw channel subscriptions", () => {
     expect(price.channel()).toBe(PRICE);
     expect(Object.isFrozen(price)).toBe(true);
     const seen: RawChannelMessage[] = [];
-    const pending = client.watch(channels.subscribe([price, PRICE, channel.raw(PRICE), OI]), {
+    const pending = client.watch(channels.feed([price, PRICE, channel.raw(PRICE), OI]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"raw">();
@@ -82,12 +82,12 @@ describe("raw channel subscriptions", () => {
 
   it("requires arrays at runtime and in TypeScript", () => {
     expect(() => {
-      // @ts-expect-error subscribe takes one array, not a single string
-      channels.subscribe(PRICE);
+      // @ts-expect-error feed takes one array, not a single string
+      channels.feed(PRICE);
     }).toThrow(/array/);
     const rejected = () => {
-      // @ts-expect-error subscribe does not take variadic channel arguments
-      channels.subscribe(channel.raw(PRICE), channel.raw(OI));
+      // @ts-expect-error feed does not take variadic channel arguments
+      channels.feed(channel.raw(PRICE), channel.raw(OI));
     };
     expect(rejected).toBeTypeOf("function");
   });
@@ -112,7 +112,7 @@ describe("raw channel subscriptions", () => {
       },
     };
     const seen: unknown[] = [];
-    const pending = client.watch(channels.subscribe([numeric, label, PRICE]), {
+    const pending = client.watch(channels.feed([numeric, label, PRICE]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"numeric" | "label" | "raw">();
@@ -162,7 +162,7 @@ describe("raw channel subscriptions", () => {
     };
     const seen = vi.fn();
     const pending = client.watch(
-      { kind: "channels.subscribe", params: { channels: [descriptor] } },
+      { kind: "channels.feed", params: { channels: [descriptor] } },
       {
         on: (event) => {
           if (event.type === "data") {
@@ -189,12 +189,12 @@ describe("raw channel subscriptions", () => {
   it("snapshots descriptor identity and decoder, and rejects conflicting interpretations", async () => {
     const { client, sockets } = harness();
     const descriptor = { kind: "count", channel: () => PRICE, decode: (): number => 1 };
-    const request = channels.subscribe([descriptor, descriptor]);
+    const request = channels.feed([descriptor, descriptor]);
     expect(request.build().params.channels).toHaveLength(1);
-    expect(() => channels.subscribe([descriptor, PRICE])).toThrow(/conflicting descriptors/);
-    expect(() =>
-      channels.subscribe([descriptor, { ...descriptor, decode: (): number => 2 }]),
-    ).toThrow(/conflicting descriptors/);
+    expect(() => channels.feed([descriptor, PRICE])).toThrow(/conflicting descriptors/);
+    expect(() => channels.feed([descriptor, { ...descriptor, decode: (): number => 2 }])).toThrow(
+      /conflicting descriptors/,
+    );
     descriptor.kind = "changed";
     descriptor.channel = () => OI;
     descriptor.decode = () => 2;
@@ -224,7 +224,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     expect(() =>
       client.watch({
-        kind: "channels.subscribe",
+        kind: "channels.feed",
         params: { channels: [value as unknown as ChannelDescriptor] },
       }),
     ).toThrow(VeloError);
@@ -234,7 +234,7 @@ describe("raw channel subscriptions", () => {
   it("keeps envelope-only raw messages intact without fabricating a timestamp", async () => {
     const { client, sockets } = harness();
     const seen = vi.fn();
-    const pending = client.watch(channels.subscribe(["news_priority"]), { on: { data: seen } });
+    const pending = client.watch(channels.feed(["news_priority"]), { on: { data: seen } });
     await flushConnection();
     sockets[0]!.open();
     const watcher = await pending;
@@ -258,13 +258,10 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const data = vi.fn();
     const error = vi.fn();
-    const pending = client.watch(
-      channels.subscribe([{ kind: "test", channel: () => PRICE, decode }]),
-      {
-        reconnect: false,
-        on: { data, error },
-      },
-    );
+    const pending = client.watch(channels.feed([{ kind: "test", channel: () => PRICE, decode }]), {
+      reconnect: false,
+      on: { data, error },
+    });
     await flushConnection();
     sockets[0]!.open();
     const watcher = await pending;
@@ -282,29 +279,29 @@ describe("raw channel subscriptions", () => {
   it("snapshots and deduplicates names without translating them or opening a socket", () => {
     const { client, sockets } = harness();
     const names = [PRICE, PRICE, "realtime_hyperliquid:BTC-USD#funding_rate#Rate (%)"];
-    const builder = channels.subscribe(names);
+    const builder = channels.feed(names);
     names.push(OI);
     expect(client.channels).toBe(channels);
     expect(sockets).toHaveLength(0);
-    expect(builder.build().kind).toBe("channels.subscribe");
+    expect(builder.build().kind).toBe("channels.feed");
     expect(builder.build().params.channels.map((item) => item.channel())).toEqual(
       names.slice(1, 3),
     );
     expect(builder.build().params.channels.every((item) => item.kind === "raw")).toBe(true);
     expect(Object.isFrozen(builder.build().params.channels)).toBe(true);
-    expect(channels.subscribe([PRICE]).build().params.channels[0]!.channel()).toBe(PRICE);
+    expect(channels.feed([PRICE]).build().params.channels[0]!.channel()).toBe(PRICE);
   });
 
   it.each([[], [""], [" channel"], ["channel "], ["a\ns2 b"], ["a\r"], ["a\0"], [42], null])(
     "rejects invalid channel names: %j",
     (value) => {
-      expect(() => channels.subscribe(value as string[])).toThrow(VeloError);
+      expect(() => channels.feed(value as string[])).toThrow(VeloError);
     },
   );
 
   it("validates direct requests before creating a socket", () => {
     const { client, sockets } = harness();
-    expect(() => client.watch({ kind: "channels.subscribe", params: { channels: [] } })).toThrow(
+    expect(() => client.watch({ kind: "channels.feed", params: { channels: [] } })).toThrow(
       /non-empty/,
     );
     expect(sockets).toHaveLength(0);
@@ -313,7 +310,7 @@ describe("raw channel subscriptions", () => {
   it("multiplexes data on one authenticated socket and preserves unknown payloads", async () => {
     const { client, sockets, targets } = harness();
     const seen: RawChannelMessage[] = [];
-    const pending = client.watch(channels.subscribe([PRICE, OI, PRICE]), {
+    const pending = client.watch(channels.feed([PRICE, OI, PRICE]), {
       on: {
         data: (event) => {
           expectTypeOf(event.data).toEqualTypeOf<unknown>();
@@ -355,7 +352,7 @@ describe("raw channel subscriptions", () => {
     const seen = vi.fn();
     let ready = false;
     const pending = client
-      .watch(channels.subscribe([PRICE, ONDEMAND]), { on: { data: seen } })
+      .watch(channels.feed([PRICE, ONDEMAND]), { on: { data: seen } })
       .then((watcher) => {
         ready = true;
         return watcher;
@@ -392,7 +389,7 @@ describe("raw channel subscriptions", () => {
         return socket;
       },
     });
-    const raw = await client.watch(channels.subscribe([PRICE]));
+    const raw = await client.watch(channels.feed([PRICE]));
     const news = await client.watch(client.news.feed());
     expect(targets.map((target) => target.url)).toEqual([
       "wss://data.example.test/api/w/connect",
@@ -407,7 +404,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const errors = vi.fn();
     const data = vi.fn();
-    const pending = client.watch(channels.subscribe([PRICE, OI, ONDEMAND]), {
+    const pending = client.watch(channels.feed([PRICE, OI, ONDEMAND]), {
       on: { channelError: errors, data },
     });
     await flushConnection();
@@ -432,7 +429,7 @@ describe("raw channel subscriptions", () => {
     const thrown = new Error("listener failed");
     const onListenerError = vi.fn();
     const seen: string[] = [];
-    const pending = client.watch(channels.subscribe([PRICE]), {
+    const pending = client.watch(channels.feed([PRICE]), {
       onListenerError,
       on: (event) => {
         seen.push(event.type);
@@ -455,7 +452,7 @@ describe("raw channel subscriptions", () => {
   it("resubscribes all channels after a drop and stops after intentional disconnect", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
-    const pending = client.watch(channels.subscribe([PRICE, OI]), {
+    const pending = client.watch(channels.feed([PRICE, OI]), {
       reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
     });
     await flushConnection();
@@ -480,7 +477,7 @@ describe("raw channel subscriptions", () => {
 
   it("closes sibling sockets when one endpoint fails", async () => {
     const { client, sockets } = harness();
-    const pending = client.watch(channels.subscribe([PRICE, ONDEMAND]), { reconnect: false });
+    const pending = client.watch(channels.feed([PRICE, ONDEMAND]), { reconnect: false });
     const rejection = expect(pending).rejects.toThrow(/gone/);
     await flushConnection();
     sockets[0]!.open();
@@ -496,7 +493,7 @@ describe("raw channel subscriptions", () => {
     const controller = new AbortController();
     const add = vi.spyOn(controller.signal, "addEventListener");
     const remove = vi.spyOn(controller.signal, "removeEventListener");
-    const pending = client.watch(channels.subscribe([PRICE, ONDEMAND]), {
+    const pending = client.watch(channels.feed([PRICE, ONDEMAND]), {
       signal: controller.signal,
     });
     const rejection = expect(pending).rejects.toThrow("stop");
@@ -512,7 +509,7 @@ describe("raw channel subscriptions", () => {
   it("does not dial when already aborted", async () => {
     const { client, sockets } = harness();
     await expect(
-      client.watch(channels.subscribe([PRICE]), {
+      client.watch(channels.feed([PRICE]), {
         signal: AbortSignal.abort(new Error("cancelled")),
       }),
     ).rejects.toThrow("cancelled");
@@ -525,9 +522,9 @@ describe("raw channel subscriptions", () => {
       const socket = new Socket();
       socket.readyState = 1;
       const { client } = harness(() => socket);
-      await expect(
-        client.watch(channels.subscribe([PRICE, OI]), { reconnect: false }),
-      ).rejects.toThrow(/fail|subscribe/);
+      await expect(client.watch(channels.feed([PRICE, OI]), { reconnect: false })).rejects.toThrow(
+        /fail|subscribe/,
+      );
       expect(socket.readyState).toBe(3);
       expect(socket.sent).not.toContain(`s2 ${OI}`);
     },
@@ -542,7 +539,7 @@ describe("raw channel subscriptions", () => {
           deliver = resolve;
         }),
     );
-    const pending = client.watch(channels.subscribe([PRICE]), {
+    const pending = client.watch(channels.feed([PRICE]), {
       reconnect: false,
       connectTimeout: 10,
     });
@@ -583,7 +580,7 @@ describe("raw channel subscriptions", () => {
       (_, index) => `realtime_test:${String(index)}`,
     );
     const seen: string[] = [];
-    const pending = client.watch(channels.subscribe([...names, ONDEMAND]), {
+    const pending = client.watch(channels.feed([...names, ONDEMAND]), {
       on: { data: (event) => seen.push(event.channel) },
     });
     await flushConnection();
@@ -621,7 +618,7 @@ describe("raw channel subscriptions", () => {
       { length: MAX_CHANNELS_PER_SOCKET },
       (_, index) => `realtime_test:${String(index)}`,
     );
-    const pending = client.watch(channels.subscribe(names));
+    const pending = client.watch(channels.feed(names));
     await flushConnection();
     expect(sockets).toHaveLength(1);
     sockets[0]!.open();
@@ -635,7 +632,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const data = vi.fn();
     const errors = vi.fn();
-    const pending = client.watch(channels.subscribe([PRICE]), {
+    const pending = client.watch(channels.feed([PRICE]), {
       reconnect: false,
       on: { data, error: errors },
     });
@@ -661,7 +658,7 @@ describe("raw channel subscriptions", () => {
   it("tracks the heartbeat deadline per socket", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
-    const pending = client.watch(channels.subscribe([PRICE, ONDEMAND]), {
+    const pending = client.watch(channels.feed([PRICE, ONDEMAND]), {
       reconnect: false,
       heartbeatTimeout: 100,
     });

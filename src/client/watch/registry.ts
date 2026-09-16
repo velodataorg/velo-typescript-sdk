@@ -18,7 +18,7 @@ import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
  * fetched over HTTP.
  */
 export interface WatchDefinitions {
-  "channels.subscribe": {
+  "channels.feed": {
     params: ChannelsParams;
     options: ChannelsWatchOptions;
     events: ChannelsWatcherEvents;
@@ -45,7 +45,7 @@ export type Watcher<K extends WatchableKind, P extends WatchParams<K> = WatchPar
 export type WatchEvents<
   K extends WatchableKind,
   P extends WatchParams<K> = WatchParams<K>,
-> = K extends "channels.subscribe"
+> = K extends "channels.feed"
   ? P extends ChannelsParams<infer Input>
     ? ChannelsWatcherEvents<DescriptorOf<Input>>
     : never
@@ -164,7 +164,7 @@ export const WATCHERS: WatcherRegistry = Object.freeze({
     create: (transports, _params, options) => new NewsWatcherController(transports.news, options),
     events: { story: true, edit: true, delete: true, error: true, close: true },
   },
-  "channels.subscribe": {
+  "channels.feed": {
     create: (transports, params, options) =>
       new ChannelsWatcherController(transports, params, options),
     events: { data: true, channelError: true, error: true, close: true },

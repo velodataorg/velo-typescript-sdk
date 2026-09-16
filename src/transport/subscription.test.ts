@@ -121,7 +121,7 @@ describe("a live subscription", () => {
     ];
     const velo = new Velo({ apiKey: "test/key", baseUrl: feed.baseUrl });
     const seen: RawChannelMessage[] = [];
-    const watcher = await velo.watch(velo.channels.subscribe(names), {
+    const watcher = await velo.watch(velo.channels.feed(names), {
       on: { data: (value) => seen.push(value) },
     });
     try {
@@ -154,7 +154,7 @@ describe("a live subscription", () => {
         defaultWebSocketFactory(target, { WebSocket: globalThis.WebSocket }),
     });
     const seen: RawChannelMessage[] = [];
-    const watcher = await velo.watch(velo.channels.subscribe([channel]), {
+    const watcher = await velo.watch(velo.channels.feed([channel]), {
       on: { data: (value) => seen.push(value) },
     });
     try {
@@ -175,7 +175,7 @@ describe("a live subscription", () => {
   it("does not retry raw channels rejected by API-key authentication", async ({ refusing }) => {
     const velo = new Velo({ apiKey: "test/key", baseUrl: refusing.baseUrl });
     await expect(
-      velo.watch(velo.channels.subscribe(["realtime_binance-futures:BTCUSDT"])),
+      velo.watch(velo.channels.feed(["realtime_binance-futures:BTCUSDT"])),
     ).rejects.toBeInstanceOf(VeloAuthError);
     expect(refusing.attempts()).toBe(1);
   });
