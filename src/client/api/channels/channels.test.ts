@@ -23,7 +23,7 @@ import {
   type WebSocketTarget,
 } from "../../../transport/websocket.ts";
 import { decodeChannelFrame } from "./decode.ts";
-import { ChannelsWatcherController } from "./watcher.ts";
+import { ChannelsWatcherController, MAX_CHANNELS_PER_SOCKET } from "./watcher.ts";
 
 const PRICE = "realtime_binance-futures:BTCUSDT";
 const OI = "realtime_BTC#open_interest#Coins#Aggregated";
@@ -573,6 +573,60 @@ describe("raw channel subscriptions", () => {
     sockets[0]!.openWithMessages("{broken");
     await rejection;
     expect(watcher.state).toBe("disconnected");
+    watcher.close();
+  });
+
+  it("shards an endpoint's channels across sockets at the server's per-socket limit", async () => {
+    const { client, sockets, targets } = harness();
+    const names = Array.from(
+      { length: MAX_CHANNELS_PER_SOCKET * 2 + 1 },
+      (_, index) => `realtime_test:${String(index)}`,
+    );
+    const seen: string[] = [];
+    const pending = client.watch(channels.subscribe([...names, ONDEMAND]), {
+      on: { data: (event) => seen.push(event.channel) },
+    });
+    await flushConnection();
+
+    expect(targets.map((target) => target.url)).toEqual([
+      "wss://api.velo.xyz/api/w/connect",
+      "wss://api.velo.xyz/api/w/connect",
+      "wss://api.velo.xyz/api/w/connect",
+      "wss://api.velo.xyz/api/o/connect",
+    ]);
+    sockets.forEach((socket) => socket.open());
+    const watcher = await pending;
+    expect(sockets.map((socket) => socket.sent.length)).toEqual([
+      MAX_CHANNELS_PER_SOCKET,
+      MAX_CHANNELS_PER_SOCKET,
+      1,
+      1,
+    ]);
+    expect(sockets[2]!.sent).toEqual([`s2 ${names[MAX_CHANNELS_PER_SOCKET * 2]}`]);
+
+    /* Each shard delivers only its own channels; a frame on the wrong socket is dropped. */
+    sockets[0]!.message(JSON.stringify(message(names[0])));
+    sockets[0]!.message(JSON.stringify(message(names[MAX_CHANNELS_PER_SOCKET])));
+    sockets[1]!.message(JSON.stringify(message(names[MAX_CHANNELS_PER_SOCKET])));
+    expect(seen).toEqual([names[0], names[MAX_CHANNELS_PER_SOCKET]]);
+
+    watcher.close();
+    expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
+    expect(sockets[2]!.sent.at(-1)).toBe(`u2 ${names[MAX_CHANNELS_PER_SOCKET * 2]}`);
+  });
+
+  it("keeps exactly the per-socket limit on one socket", async () => {
+    const { client, sockets } = harness();
+    const names = Array.from(
+      { length: MAX_CHANNELS_PER_SOCKET },
+      (_, index) => `realtime_test:${String(index)}`,
+    );
+    const pending = client.watch(channels.subscribe(names));
+    await flushConnection();
+    expect(sockets).toHaveLength(1);
+    sockets[0]!.open();
+    const watcher = await pending;
+    expect(sockets[0]!.sent).toHaveLength(MAX_CHANNELS_PER_SOCKET);
     watcher.close();
   });
 

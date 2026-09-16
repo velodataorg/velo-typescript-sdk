@@ -23,6 +23,9 @@ import { ChannelsParams } from "./params.ts";
 /** Options for a channel subscription: the contract every watcher shares. */
 export type ChannelsWatchOptions = WatcherOptions;
 
+/* The server terminates a socket on its eleventh subscription. */
+export const MAX_CHANNELS_PER_SOCKET = 10;
+
 export interface ChannelsWatcherEvents<Descriptor extends ChannelDescriptor = ChannelDescriptor> {
   readonly data: ChannelMessage<Descriptor>;
   /** A server rejection or unsolicited unsubscription; other channels continue. */
@@ -41,7 +44,10 @@ export type ChannelsWatcher<Descriptor extends ChannelDescriptor = ChannelDescri
   ChannelsWatcherEvents<Descriptor>
 >;
 
-/* One socket's share of the subscription: its endpoint and the channels it carries. */
+/*
+ * One socket's share of the subscription: its endpoint and the channels it
+ * carries. An endpoint gets as many groups as the per-socket limit requires.
+ */
 interface ChannelGroup {
   readonly transport: WebSocketTransport;
   readonly channels: readonly string[];
@@ -51,7 +57,8 @@ interface ChannelGroup {
 /**
  * A disconnected controller for a fixed set of channels.
  *
- * Owns one socket per endpoint the channels need and the v2 `s2`/`u2`
+ * Owns the sockets the channels need — one per endpoint, or more when an
+ * endpoint's channels exceed the per-socket limit — and the v2 `s2`/`u2`
  * commands; the connection lifecycle itself is the shared one. `connect()`
  * resolves once every socket is open and subscribed. The controller never
  * reconnects on its own — an unexpected loss on any socket enters
@@ -90,21 +97,25 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       names.push(name);
       byEndpoint.set(endpoint, names);
     }
-    this.#groups = Array.from(byEndpoint, ([endpoint, names]) => {
+    const groups: ChannelGroup[] = [];
+    for (const [endpoint, names] of byEndpoint) {
       const transport = transports[endpoint];
-      return {
-        transport,
-        channels: names,
-        heartbeat: new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
-          this.#lifecycle.fail(
-            transport.connectionError(
-              `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
-            ),
-            abnormalCloseEvent(),
-          );
-        }),
-      };
-    });
+      for (const shard of chunk(names, MAX_CHANNELS_PER_SOCKET)) {
+        groups.push({
+          transport,
+          channels: shard,
+          heartbeat: new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
+            this.#lifecycle.fail(
+              transport.connectionError(
+                `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
+              ),
+              abnormalCloseEvent(),
+            );
+          }),
+        });
+      }
+    }
+    this.#groups = groups;
   }
 
   get state(): WatchState {
@@ -290,6 +301,21 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#sessions.clear();
     this.#active.clear();
   }
+}
+
+/**
+ * Splits a list into consecutive runs of at most `size` items.
+ *
+ * @param items - The list to split; order is preserved.
+ * @param size - The maximum run length.
+ * @returns The runs, the last possibly shorter.
+ */
+function chunk<T>(items: readonly T[], size: number): T[][] {
+  const runs: T[][] = [];
+  for (let start = 0; start < items.length; start += size) {
+    runs.push(items.slice(start, start + size));
+  }
+  return runs;
 }
 
 /**
