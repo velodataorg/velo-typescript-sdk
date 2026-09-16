@@ -15,7 +15,34 @@ export type { CatalogParams } from "./client/api/catalog/params.ts";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
 export type { VeloConfig } from "./client/client.ts";
 export { Velo } from "./client/client.ts";
-export { catalog, futures, marketCaps, news, options, orderbook, spot } from "./client/builders.ts";
+export {
+  catalog,
+  channels,
+  futures,
+  marketCaps,
+  news,
+  options,
+  orderbook,
+  spot,
+} from "./client/builders.ts";
+export type { Channels, ChannelsParams } from "./client/api/channels/channels.ts";
+export { channel } from "./channel/channel.ts";
+export type {
+  ChannelDescriptor,
+  ChannelEnvelope,
+  ChannelInput,
+  ChannelMessage,
+  DescriptorOf,
+  RawChannel,
+  RawChannelMessage,
+} from "./channel/channel.ts";
+export type { ChannelError } from "./client/api/channels/decode.ts";
+export type {
+  ChannelsWatcher,
+  ChannelsWatcherEvents,
+  ChannelsWatchOptions,
+} from "./client/api/channels/watcher.ts";
+export { DEFAULT_CHANNELS_CONNECT_TIMEOUT } from "./client/api/channels/watcher.ts";
 export type {
   QueryBuilder,
   QueryInput,
@@ -141,9 +168,11 @@ export type { Status, StatusResponse } from "./client/api/status/status.ts";
 export {
   BASE_URL,
   CAPS_PATH,
+  CHANNELS_WEBSOCKET_PATH,
   FUTURES_CATALOG_PATH,
   NEWS_PATH,
   NEWS_WEBSOCKET_PATH,
+  ONDEMAND_WEBSOCKET_PATH,
   OPTIONS_CATALOG_PATH,
   ORDERBOOK_PATH,
   ROWS_PATH,

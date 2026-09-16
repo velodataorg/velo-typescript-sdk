@@ -15,7 +15,7 @@ const EditSchema = newsStorySchema.extend({
   edit: z.literal(true),
 });
 
-const TEXT_DECODER = new TextDecoder();
+export { frameText } from "../../../transport/frame.ts";
 
 export type DecodedNewsMessage =
   | { readonly type: "heartbeat" }
@@ -83,25 +83,6 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
   const result = newsStorySchema.safeParse(value);
   if (!result.success) throw unexpectedMessage(result.error);
   return { type: "story", story: result.data };
-}
-
-/**
- * Extracts the text of one WebSocket frame.
- *
- * @param data - A frame's `data` in any shape the socket layer may deliver:
- * a string, an ArrayBuffer, or an ArrayBuffer view such as a Node Buffer.
- * @returns The frame payload as text.
- * @throws A VeloError when `data` is not a recognized text carrier.
- */
-export function frameText(data: unknown): string {
-  if (typeof data === "string") return data;
-  if (data instanceof ArrayBuffer) return TEXT_DECODER.decode(data);
-  if (ArrayBuffer.isView(data)) {
-    return TEXT_DECODER.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
-  }
-  throw new VeloError(
-    `unexpected ${NEWS_WEBSOCKET_PATH} message data: expected text, got ${Object.prototype.toString.call(data)}`,
-  );
 }
 
 /**

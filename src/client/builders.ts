@@ -1,4 +1,5 @@
 import { Catalog } from "./api/catalog/catalog.ts";
+import { Channels } from "./api/channels/channels.ts";
 import { Futures } from "./api/futures/futures.ts";
 import { MarketCaps } from "./api/market-caps/market-caps.ts";
 import { News } from "./api/news/news.ts";
@@ -23,4 +24,5 @@ export const spot = new Spot();
 export const orderbook = new Orderbook();
 export const catalog = new Catalog();
 export const news = new News();
+export const channels = new Channels();
 export const marketCaps = new MarketCaps();

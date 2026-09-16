@@ -1,4 +1,12 @@
+import type { DescriptorOf } from "../../channel/channel.ts";
 import type { WebSocketTransport } from "../../transport/websocket.ts";
+import type { ChannelsParams } from "../api/channels/channels.ts";
+import { ChannelsWatcherController } from "../api/channels/watcher.ts";
+import type {
+  ChannelsWatcher,
+  ChannelsWatcherEvents,
+  ChannelsWatchOptions,
+} from "../api/channels/watcher.ts";
 import { NewsWatcherController } from "../api/news/watcher.ts";
 import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
 import type { ResumeOptions } from "./connection.ts";
@@ -14,6 +22,12 @@ import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
  * fetched over HTTP.
  */
 export interface WatchDefinitions {
+  "channels.subscribe": {
+    params: ChannelsParams;
+    options: ChannelsWatchOptions;
+    events: ChannelsWatcherEvents;
+    watcher: ChannelsWatcher;
+  };
   "news.feed": {
     /* The live feed takes no parameters: it delivers every published story. */
     params: Record<string, never>;
@@ -30,18 +44,36 @@ export type WatchableKind = keyof WatchDefinitions;
 export type WatchParams<K extends WatchableKind> = WatchDefinitions[K]["params"];
 
 /** The live subscription handle associated with a watchable kind. */
-export type Watcher<K extends WatchableKind> = WatchDefinitions[K]["watcher"];
+export type Watcher<K extends WatchableKind, P extends WatchParams<K> = WatchParams<K>> = WatcherOf<
+  WatchEvents<K, P>
+>;
 
-type WatchEvents<K extends WatchableKind> = WatchDefinitions[K]["events"];
+export type WatchEvents<
+  K extends WatchableKind,
+  P extends WatchParams<K> = WatchParams<K>,
+> = K extends "channels.subscribe"
+  ? P extends ChannelsParams<infer Input>
+    ? ChannelsWatcherEvents<DescriptorOf<Input>>
+    : never
+  : WatchDefinitions[K]["events"];
 
 /** One event delivered by a watchable kind, tagged with its type. */
-export type WatchEvent<K extends WatchableKind> = TaggedEvent<WatchEvents<K>>;
+export type WatchEvent<
+  K extends WatchableKind,
+  P extends WatchParams<K> = WatchParams<K>,
+> = TaggedEvent<WatchEvents<K, P>>;
 
 /** Listeners for individual event types, keyed by type. */
-export type WatchEventListeners<K extends WatchableKind> = EventListeners<WatchEvents<K>>;
+export type WatchEventListeners<
+  K extends WatchableKind,
+  P extends WatchParams<K> = WatchParams<K>,
+> = EventListeners<WatchEvents<K, P>>;
 
 /** A single listener receiving every event the subscription delivers. */
-export type WatchEventListener<K extends WatchableKind> = (event: WatchEvent<K>) => void;
+export type WatchEventListener<
+  K extends WatchableKind,
+  P extends WatchParams<K> = WatchParams<K>,
+> = (event: WatchEvent<K, P>) => void;
 
 /**
  * Event listeners registered before the subscription opens.
@@ -50,13 +82,16 @@ export type WatchEventListener<K extends WatchableKind> = (event: WatchEvent<K>)
  * them here rather than through `watcher.on()` removes the gap between
  * constructing a watcher and attaching to it, so no event can be missed.
  */
-export type WatchListeners<K extends WatchableKind> =
-  | WatchEventListeners<K>
-  | WatchEventListener<K>;
+export type WatchListeners<K extends WatchableKind, P extends WatchParams<K> = WatchParams<K>> =
+  | WatchEventListeners<K, P>
+  | WatchEventListener<K, P>;
 
 /** Subscription options, plus the listeners to attach before connecting. */
-export type WatchOptions<K extends WatchableKind> = WatchDefinitions[K]["options"] & {
-  readonly on?: WatchListeners<K>;
+export type WatchOptions<
+  K extends WatchableKind,
+  P extends WatchParams<K> = WatchParams<K>,
+> = WatchDefinitions[K]["options"] & {
+  readonly on?: WatchListeners<K, P>;
 
   /**
    * Keeps the subscription connected from its initial attempt onward.
@@ -102,6 +137,7 @@ export type WatchInput<
 > = WatchRequest<K, P> | WatchBuilder<K, P>;
 
 interface WatcherDefinition<K extends WatchableKind> {
+  readonly transport: "news" | "channels";
   /**
    * Builds this kind's watcher.
    *
@@ -111,6 +147,7 @@ interface WatcherDefinition<K extends WatchableKind> {
    */
   create(
     transport: WebSocketTransport,
+    params: WatchParams<K>,
     options: WatchDefinitions[K]["options"] | undefined,
   ): Watcher<K> & WatcherOf<WatchEvents<K>>;
 
@@ -131,7 +168,14 @@ type WatcherRegistry = {
 /** Builds the live watcher for one subscription kind. */
 export const WATCHERS: WatcherRegistry = Object.freeze({
   "news.feed": {
-    create: (transport, options) => new NewsWatcherController(transport, options),
+    transport: "news",
+    create: (transport, _params, options) => new NewsWatcherController(transport, options),
     events: { story: true, edit: true, delete: true, error: true, close: true },
+  },
+  "channels.subscribe": {
+    transport: "channels",
+    create: (transport, params, options) =>
+      new ChannelsWatcherController(transport, params, options),
+    events: { data: true, channelError: true, error: true, close: true },
   },
 });

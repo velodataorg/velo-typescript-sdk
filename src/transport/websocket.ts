@@ -169,12 +169,14 @@ export class WebSocketTransport {
   readonly #baseUrl: string;
   readonly #encodedKeyPattern: RegExp | undefined;
   readonly #factory: WebSocketFactory;
+  readonly #endpoint: { readonly path: string; readonly name: string };
   readonly #secrets: readonly string[];
   #target: WebSocketTarget | undefined;
 
   constructor(
     config: { readonly apiKey: string; readonly baseUrl?: string },
     factory: WebSocketFactory = defaultWebSocketFactory,
+    endpoint = { path: NEWS_WEBSOCKET_PATH, name: "News" },
   ) {
     assert(config.apiKey, "apiKey is required");
 
@@ -184,13 +186,22 @@ export class WebSocketTransport {
     this.#baseUrl = config.baseUrl ?? BASE_URL;
     this.#encodedKeyPattern = percentEncodedSecretPattern(encodedKey);
     this.#factory = factory;
+    this.#endpoint = endpoint;
     this.#secrets = [encodedKey, config.apiKey, authToken]
       .filter((secret, index, all) => secret.length > 0 && all.indexOf(secret) === index)
       .sort((a, b) => b.length - a.length);
   }
 
   get url(): string {
-    return this.#target?.url ?? NEWS_WEBSOCKET_PATH;
+    return this.#target?.url ?? this.#endpoint.path;
+  }
+
+  /** Shares credentials and runtime configuration with a different socket endpoint. */
+  forPath(path: string): WebSocketTransport {
+    return new WebSocketTransport({ apiKey: this.#apiKey, baseUrl: this.#baseUrl }, this.#factory, {
+      ...this.#endpoint,
+      path,
+    });
   }
 
   async connect(): Promise<WebSocketConnection> {
@@ -239,10 +250,13 @@ export class WebSocketTransport {
       cause === undefined
         ? undefined
         : new Error(this.redact(reasonOf(cause)), { cause: undefined });
-    return new VeloConnectionError(`Velo News WebSocket ${safeMessage}${reason}`, {
-      url: this.url,
-      cause: safeCause,
-    });
+    return new VeloConnectionError(
+      `Velo ${this.#endpoint.name} WebSocket ${safeMessage}${reason}`,
+      {
+        url: this.url,
+        cause: safeCause,
+      },
+    );
   }
 
   redact(value: string): string {
@@ -259,7 +273,7 @@ export class WebSocketTransport {
   #connectionTarget(): WebSocketTarget {
     if (this.#target) return this.#target;
 
-    const url = websocketUrl(this.#baseUrl);
+    const url = websocketUrl(this.#baseUrl, this.#endpoint.path);
     const encodedKey = encodeURIComponent(this.#apiKey);
     const authToken = btoa(`api:${this.#apiKey}`);
     this.#target = Object.freeze({
@@ -271,10 +285,10 @@ export class WebSocketTransport {
   }
 }
 
-function websocketUrl(baseUrl: string): string {
+function websocketUrl(baseUrl: string, path: string): string {
   let url: URL;
   try {
-    url = new URL(`${baseUrl.replace(/\/+$/, "")}${NEWS_WEBSOCKET_PATH}`);
+    url = new URL(`${baseUrl.replace(/\/+$/, "")}${path}`);
   } catch (cause) {
     throw new VeloError(`invalid baseUrl ${baseUrl}`, { cause });
   }

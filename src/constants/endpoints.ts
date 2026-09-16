@@ -9,4 +9,6 @@ export const TERMS_PATH = "/api/v1/terms";
 export const CAPS_PATH = "/api/v1/caps";
 export const NEWS_PATH = "/api/n/news";
 export const NEWS_WEBSOCKET_PATH = "/api/w/connect";
+export const CHANNELS_WEBSOCKET_PATH = "/api/w/connect";
+export const ONDEMAND_WEBSOCKET_PATH = "/api/o/connect";
 export const ORDERBOOK_PATH = "/api/v1/heatmap";
