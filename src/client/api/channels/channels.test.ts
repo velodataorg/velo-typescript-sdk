@@ -7,7 +7,7 @@ import {
   DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
   Velo,
   VeloError,
-  type ChannelDescriptor,
+  type Channel,
   type ChannelEnvelope,
   type RawChannelMessage,
 } from "../../../index.ts";
@@ -55,18 +55,18 @@ function harness(factory?: WebSocketFactory) {
 afterEach(() => vi.useRealTimers());
 
 describe("raw channel subscriptions", () => {
-  it("accepts an array of raw descriptors and names without inferring a market kind", async () => {
+  it("accepts an array of raw channels and names without inferring a market kind", async () => {
     const { client, sockets } = harness();
     const price = channel.raw(PRICE);
     expect(price.kind).toBe("raw");
-    expect(price.channel()).toBe(PRICE);
+    expect(price.channel).toBe(PRICE);
     expect(Object.isFrozen(price)).toBe(true);
     const seen: RawChannelMessage[] = [];
     const pending = client.watch(channels.feed([price, PRICE, channel.raw(PRICE), OI]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"raw">();
-          if (event.channel === price.channel()) seen.push(event);
+          if (event.channel === price.channel) seen.push(event);
         },
       },
     });
@@ -92,20 +92,20 @@ describe("raw channel subscriptions", () => {
     expect(rejected).toBeTypeOf("function");
   });
 
-  it("routes descriptors through their decoders and narrows mixed data by kind", async () => {
+  it("routes channels through their decoders and narrows mixed data by kind", async () => {
     const { client, sockets } = harness();
-    // Synthetic descriptors exercise the contract without implementing market builders.
-    const numeric: ChannelDescriptor<"numeric", { value: number }> = {
+    // Synthetic channels exercise the contract without implementing market builders.
+    const numeric: Channel<"numeric", { value: number }> = {
       kind: "numeric",
-      channel: () => "test_numbers",
+      channel: "test_numbers",
       decode: (frame) => {
         if (typeof frame.d !== "number") throw new Error("expected a number");
         return { value: frame.d };
       },
     };
-    const label: ChannelDescriptor<"label", string> = {
+    const label: Channel<"label", string> = {
       kind: "label",
-      channel: () => "test_labels",
+      channel: "test_labels",
       decode: (frame) => {
         if (typeof frame.d !== "string") throw new Error("expected a label");
         return frame.d;
@@ -118,7 +118,7 @@ describe("raw channel subscriptions", () => {
           expectTypeOf(event.kind).toEqualTypeOf<"numeric" | "label" | "raw">();
           if (event.kind === "numeric") {
             expectTypeOf(event.data).toEqualTypeOf<{ value: number }>();
-            expect(event.channel).toBe(numeric.channel());
+            expect(event.channel).toBe(numeric.channel);
           } else if (event.kind === "label") {
             expectTypeOf(event.data).toEqualTypeOf<string>();
           } else {
@@ -134,30 +134,30 @@ describe("raw channel subscriptions", () => {
     watcher.on("data", (event) => {
       if (event.kind === "numeric") expectTypeOf(event.data.value).toEqualTypeOf<number>();
     });
-    const numberFrame = message(numeric.channel(), 42);
-    const labelFrame = message(label.channel(), "BTC");
+    const numberFrame = message(numeric.channel, 42);
+    const labelFrame = message(label.channel, "BTC");
     sockets[0]!.message(JSON.stringify(numberFrame));
     sockets[0]!.message(JSON.stringify(labelFrame));
     sockets[0]!.message(JSON.stringify(message()));
     expect(seen).toEqual([
       {
         kind: "numeric",
-        channel: numeric.channel(),
+        channel: numeric.channel,
         timestamp: 123,
         data: { value: 42 },
         raw: numberFrame,
       },
-      { kind: "label", channel: label.channel(), timestamp: 123, data: "BTC", raw: labelFrame },
+      { kind: "label", channel: label.channel, timestamp: 123, data: "BTC", raw: labelFrame },
       rawMessage(message()),
     ]);
     watcher.close();
   });
 
-  it("preserves descriptor types in direct requests and tagged listeners", async () => {
+  it("preserves channel types in direct requests and tagged listeners", async () => {
     const { client, sockets } = harness();
-    const descriptor: ChannelDescriptor<"count", number> = {
+    const descriptor: Channel<"count", number> = {
       kind: "count",
-      channel: () => "test_count",
+      channel: "test_count",
       decode: (): number => 1,
     };
     const seen = vi.fn();
@@ -186,17 +186,18 @@ describe("raw channel subscriptions", () => {
     watcher.close();
   });
 
-  it("snapshots descriptor identity and decoder, and rejects conflicting interpretations", async () => {
+  it("snapshots kind and decoder, dedupes by kind, and rejects conflicting kinds", async () => {
     const { client, sockets } = harness();
-    const descriptor = { kind: "count", channel: () => PRICE, decode: (): number => 1 };
+    const descriptor = { kind: "count", channel: PRICE, decode: (): number => 1 };
     const request = channels.feed([descriptor, descriptor]);
     expect(request.build().params.channels).toHaveLength(1);
-    expect(() => channels.feed([descriptor, PRICE])).toThrow(/conflicting descriptors/);
-    expect(() => channels.feed([descriptor, { ...descriptor, decode: (): number => 2 }])).toThrow(
-      /conflicting descriptors/,
-    );
+    expect(() => channels.feed([descriptor, PRICE])).toThrow(/conflicting channels/);
+    expect(
+      channels.feed([descriptor, { ...descriptor, decode: (): number => 2 }]).build().params
+        .channels,
+    ).toHaveLength(1);
     descriptor.kind = "changed";
-    descriptor.channel = () => OI;
+    descriptor.channel = OI;
     descriptor.decode = () => 2;
     const data = vi.fn();
     const pending = client.watch(request, { on: { data } });
@@ -216,16 +217,16 @@ describe("raw channel subscriptions", () => {
   });
 
   it.each([
-    { kind: "test", channel: () => PRICE },
-    { kind: "", channel: () => PRICE, decode: (): number => 1 },
-    { kind: "test", channel: PRICE, decode: (): number => 1 },
-    { kind: "test", channel: () => "bad\nchannel", decode: (): number => 1 },
-  ])("validates descriptor contracts before connecting", (value) => {
+    { kind: "test", channel: PRICE },
+    { kind: "", channel: PRICE, decode: (): number => 1 },
+    { kind: "test", channel: () => PRICE, decode: (): number => 1 },
+    { kind: "test", channel: "bad\nchannel", decode: (): number => 1 },
+  ])("validates channel contracts before connecting", (value) => {
     const { client, sockets } = harness();
     expect(() =>
       client.watch({
         kind: "channels.feed",
-        params: { channels: [value as unknown as ChannelDescriptor] },
+        params: { channels: [value as unknown as Channel] },
       }),
     ).toThrow(VeloError);
     expect(sockets).toHaveLength(0);
@@ -258,7 +259,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const data = vi.fn();
     const error = vi.fn();
-    const pending = client.watch(channels.feed([{ kind: "test", channel: () => PRICE, decode }]), {
+    const pending = client.watch(channels.feed([{ kind: "test", channel: PRICE, decode }]), {
       reconnect: false,
       on: { data, error },
     });
@@ -284,12 +285,10 @@ describe("raw channel subscriptions", () => {
     expect(client.channels).toBe(channels);
     expect(sockets).toHaveLength(0);
     expect(builder.build().kind).toBe("channels.feed");
-    expect(builder.build().params.channels.map((item) => item.channel())).toEqual(
-      names.slice(1, 3),
-    );
+    expect(builder.build().params.channels.map((item) => item.channel)).toEqual(names.slice(1, 3));
     expect(builder.build().params.channels.every((item) => item.kind === "raw")).toBe(true);
     expect(Object.isFrozen(builder.build().params.channels)).toBe(true);
-    expect(channels.feed([PRICE]).build().params.channels[0]!.channel()).toBe(PRICE);
+    expect(channels.feed([PRICE]).build().params.channels[0]!.channel).toBe(PRICE);
   });
 
   it.each([[], [""], [" channel"], ["channel "], ["a\ns2 b"], ["a\r"], ["a\0"], [42], null])(

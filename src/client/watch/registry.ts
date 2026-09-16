@@ -1,4 +1,4 @@
-import type { DescriptorOf } from "../../channel/channel.ts";
+import type { ChannelOf } from "../../channel/channel.ts";
 import type { ChannelsParams } from "../api/channels/params.ts";
 import { ChannelsWatcherController } from "../api/channels/watcher.ts";
 import type { ChannelsWatcherEvents, ChannelsWatchOptions } from "../api/channels/watcher.ts";
@@ -47,7 +47,7 @@ export type WatchEvents<
   P extends WatchParams<K> = WatchParams<K>,
 > = K extends "channels.feed"
   ? P extends ChannelsParams<infer Input>
-    ? ChannelsWatcherEvents<DescriptorOf<Input>>
+    ? ChannelsWatcherEvents<ChannelOf<Input>>
     : never
   : WatchDefinitions[K]["events"];
 

@@ -1,38 +1,38 @@
 import {
   channel,
   validateChannelName,
-  type ChannelDescriptor,
+  type Channel,
   type ChannelEnvelope,
   type ChannelInput,
-  type DescriptorOf,
+  type ChannelOf,
 } from "../../../channel/channel.ts";
 import { assert } from "../../../util/assert.ts";
 
-/** Parameters for a channel subscription. */
+/** Parameters for a channel feed. */
 export interface ChannelsParams<Input extends ChannelInput = ChannelInput> {
-  /* Wire names and/or descriptors; a bare name subscribes as a raw channel. */
+  /* Wire names and/or channels; a bare name subscribes as a raw channel. */
   readonly channels: readonly Input[];
 }
 
 export const ChannelsParams = Object.freeze({
   /**
-   * Validates and snapshots channel-subscription parameters.
+   * Validates and snapshots channel-feed parameters.
    *
    * @remarks
-   * Each input becomes a frozen descriptor whose kind, name, and decoder are
-   * captured now, so later mutation of a caller's descriptor cannot change
-   * what a subscription does. Repeats of one wire name collapse when they
-   * agree on kind and decoder and are rejected when they do not, since the
-   * subscription would otherwise have to pick one silently.
+   * Each input becomes a frozen channel whose kind, wire name, and decoder
+   * are captured now, so later mutation of a caller's object cannot change
+   * what a feed does. One wire name appears once: repeats with the same kind
+   * collapse to the first, since a kind means one decoder, and repeats with
+   * a different kind are rejected rather than picking one silently.
    *
    * @param params - The caller's parameters.
-   * @returns Frozen parameters with every input as a descriptor.
+   * @returns Frozen parameters with every input as a channel.
    * @throws A VeloError when the inputs are not a non-empty array of valid
-   * names or descriptors, or when two of them conflict.
+   * names or channels, or when two of them disagree on a kind.
    */
   parse<Input extends ChannelInput>(
     params: ChannelsParams<Input>,
-  ): ChannelsParams<DescriptorOf<Input>> {
+  ): ChannelsParams<ChannelOf<Input>> {
     assert(
       params !== null && typeof params === "object" && !Array.isArray(params),
       "channels params must be an object",
@@ -40,43 +40,41 @@ export const ChannelsParams = Object.freeze({
     const { channels: inputs } = params;
     assert(Array.isArray(inputs) && inputs.length > 0, "channels must be a non-empty array");
 
-    const originals = new Map<string, ChannelDescriptor>();
-    const descriptors: ChannelDescriptor[] = [];
+    const kinds = new Map<string, string>();
+    const channels: Channel[] = [];
     for (const input of inputs) {
-      const descriptor = typeof input === "string" ? channel.raw(input) : input;
+      const candidate = typeof input === "string" ? channel.raw(input) : input;
       assert(
-        descriptor !== null &&
-          typeof descriptor === "object" &&
-          typeof descriptor.kind === "string" &&
-          descriptor.kind.length > 0 &&
-          typeof descriptor.channel === "function" &&
-          typeof descriptor.decode === "function",
-        "channels must contain strings or channel descriptors",
+        candidate !== null &&
+          typeof candidate === "object" &&
+          typeof candidate.kind === "string" &&
+          candidate.kind.length > 0 &&
+          typeof candidate.channel === "string" &&
+          typeof candidate.decode === "function",
+        "channels must contain strings or channels",
       );
-      const name = descriptor.channel();
+      const name = candidate.channel;
       validateChannelName(name);
-      const previous = originals.get(name);
-      if (previous) {
+      const previous = kinds.get(name);
+      if (previous !== undefined) {
         assert(
-          previous.kind === descriptor.kind && previous.decode === descriptor.decode,
-          `conflicting descriptors for channel ${name}`,
+          previous === candidate.kind,
+          `conflicting channels for ${name}: ${previous} and ${candidate.kind}`,
         );
         continue;
       }
-      originals.set(name, descriptor);
-      const decode = descriptor.decode;
-      descriptors.push(
+      kinds.set(name, candidate.kind);
+      const decode = candidate.decode;
+      channels.push(
         Object.freeze({
-          kind: descriptor.kind,
-          channel: () => name,
-          decode: (message: ChannelEnvelope) => decode.call(descriptor, message),
+          kind: candidate.kind,
+          channel: name,
+          decode: (message: ChannelEnvelope) => decode.call(candidate, message),
         }),
       );
     }
 
-    /* Normalization keeps each descriptor's kind/data pair; strings became RawChannel. */
-    return Object.freeze({ channels: Object.freeze(descriptors) }) as ChannelsParams<
-      DescriptorOf<Input>
-    >;
+    /* Normalization keeps each channel's kind/data pair; strings became RawChannel. */
+    return Object.freeze({ channels: Object.freeze(channels) }) as ChannelsParams<ChannelOf<Input>>;
   },
 });

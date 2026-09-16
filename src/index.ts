@@ -30,11 +30,11 @@ export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
 export type { ChannelsParams } from "./client/api/channels/params.ts";
 export { channel } from "./channel/channel.ts";
 export type {
-  ChannelDescriptor,
+  Channel,
   ChannelEnvelope,
   ChannelInput,
   ChannelMessage,
-  DescriptorOf,
+  ChannelOf,
   RawChannel,
   RawChannelMessage,
 } from "./channel/channel.ts";

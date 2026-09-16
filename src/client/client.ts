@@ -178,7 +178,7 @@ export class Velo {
     const watcher = definition.create(this.#transports, request.params, options) as Watcher<K, P>;
 
     // The factory dispatches using these same params. The registry erases the
-    // descriptor union internally; restore it at this execution boundary.
+    // channel union internally; restore it at this execution boundary.
     if (options?.on)
       attachWatchListeners(
         watcher,

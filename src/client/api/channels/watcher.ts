@@ -1,6 +1,6 @@
 import {
   channelEndpoint,
-  type ChannelDescriptor,
+  type Channel,
   type ChannelEndpoint,
   type ChannelMessage,
 } from "../../../channel/channel.ts";
@@ -26,8 +26,8 @@ export type ChannelsWatchOptions = WatcherOptions;
 /* The server terminates a socket on its eleventh subscription. */
 export const MAX_CHANNELS_PER_SOCKET = 10;
 
-export interface ChannelsWatcherEvents<Descriptor extends ChannelDescriptor = ChannelDescriptor> {
-  readonly data: ChannelMessage<Descriptor>;
+export interface ChannelsWatcherEvents<C extends Channel = Channel> {
+  readonly data: ChannelMessage<C>;
   /** A server rejection or unsolicited unsubscription; other channels continue. */
   readonly channelError: ChannelError;
   readonly error: VeloError;
@@ -38,11 +38,9 @@ export interface ChannelsWatcherEvents<Descriptor extends ChannelDescriptor = Ch
  * A live channel subscription.
  *
  * The shared watcher contract over the channel event map, which carries the
- * union of the subscribed descriptors so `kind` narrows `data`.
+ * union of the subscribed channels so `kind` narrows `data`.
  */
-export type ChannelsWatcher<Descriptor extends ChannelDescriptor = ChannelDescriptor> = WatcherOf<
-  ChannelsWatcherEvents<Descriptor>
->;
+export type ChannelsWatcher<C extends Channel = Channel> = WatcherOf<ChannelsWatcherEvents<C>>;
 
 /*
  * One socket's share of the subscription: its endpoint and the channels it
@@ -70,7 +68,7 @@ interface ChannelGroup {
 export class ChannelsWatcherController implements ChannelsWatcher {
   readonly #active = new Set<string>();
   readonly #connectTimeout: number;
-  readonly #descriptors = new Map<string, ChannelDescriptor>();
+  readonly #channels = new Map<string, Channel>();
   readonly #groups: readonly ChannelGroup[];
   readonly #lifecycle: WatchLifecycle<ChannelsWatcherEvents>;
   readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
@@ -89,9 +87,9 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     });
 
     const byEndpoint = new Map<ChannelEndpoint, string[]>();
-    for (const descriptor of channels) {
-      const name = descriptor.channel();
-      this.#descriptors.set(name, descriptor);
+    for (const entry of channels) {
+      const name = entry.channel;
+      this.#channels.set(name, entry);
       const endpoint = channelEndpoint(name);
       const names = byEndpoint.get(endpoint) ?? [];
       names.push(name);
@@ -249,11 +247,11 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       return;
     }
 
-    const descriptor = this.#descriptors.get(channel);
-    assert(descriptor !== undefined, () => `no descriptor for active channel ${channel}`);
+    const entry = this.#channels.get(channel);
+    assert(entry !== undefined, () => `no channel registered for active ${channel}`);
     let decoded: unknown;
     try {
-      decoded = descriptor.decode(frame.message);
+      decoded = entry.decode(frame.message);
       if (isThenable(decoded)) {
         /* A mistaken async decoder must not leave an unhandled rejection behind. */
         void Promise.resolve(decoded).catch(() => {});
@@ -267,7 +265,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       return;
     }
     this.#lifecycle.emitter.emit("data", {
-      kind: descriptor.kind,
+      kind: entry.kind,
       channel,
       ...(frame.message.tt === undefined ? {} : { timestamp: frame.message.tt }),
       data: decoded,
