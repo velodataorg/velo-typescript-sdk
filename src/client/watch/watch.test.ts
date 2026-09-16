@@ -165,6 +165,27 @@ describe("Velo.watch", () => {
     watcher.close();
   });
 
+  it("retries a malformed handshake frame instead of failing the watch", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    await flushConnection();
+
+    /* Garbage with the handshake is not a refusal, so the attempt is retried
+     * like any other transient failure rather than ending the watch.
+     */
+    (sockets[0] as FakeSocket).openWithMessages("{not json");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sockets).toHaveLength(2);
+
+    (sockets[1] as FakeSocket).open();
+    const watcher = await pending;
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
   it("aborts an initial retry sequence without another connection attempt", async () => {
     vi.useFakeTimers();
     const reason = new Error("stop waiting");
