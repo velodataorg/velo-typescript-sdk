@@ -6,12 +6,12 @@ import {
 } from "../../../channel/channel.ts";
 import { VeloError } from "../../../errors.ts";
 import { WebSocketSession } from "../../../transport/session.ts";
-import { abnormalCloseEvent, cleanCloseEvent } from "../../../transport/websocket.ts";
+import { abnormalCloseEvent } from "../../../transport/websocket.ts";
 import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
-import { abortReason } from "../../../util/abort.ts";
 import { assert } from "../../../util/assert.ts";
-import { SafeEmitter } from "../../../util/emitter.ts";
 import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
+import { WatchLifecycle } from "../../watch/lifecycle.ts";
+import type { TeardownReason } from "../../watch/lifecycle.ts";
 import { prepareWatcherOptions } from "../../watch/options.ts";
 import type { WatcherOptions } from "../../watch/options.ts";
 import type { WatchTransports } from "../../watch/transports.ts";
@@ -51,11 +51,11 @@ interface ChannelGroup {
 /**
  * A disconnected controller for a fixed set of channels.
  *
- * Opens one socket per endpoint the channels need and subscribes each
- * channel on its socket; `connect()` resolves once every socket is open and
- * subscribed. The controller never reconnects on its own — an unexpected
- * loss on any socket enters `disconnected` and emits `close`, and the watch
- * layer resumes it.
+ * Owns one socket per endpoint the channels need and the v2 `s2`/`u2`
+ * commands; the connection lifecycle itself is the shared one. `connect()`
+ * resolves once every socket is open and subscribed. The controller never
+ * reconnects on its own — an unexpected loss on any socket enters
+ * `disconnected` and emits `close`, and the watch layer resumes it.
  *
  * Nothing published while disconnected is replayed, and a reconnect
  * resubscribes the original set, including channels the server rejected.
@@ -64,17 +64,9 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   readonly #active = new Set<string>();
   readonly #connectTimeout: number;
   readonly #descriptors = new Map<string, ChannelDescriptor>();
-  readonly #emitter: SafeEmitter<ChannelsWatcherEvents>;
   readonly #groups: readonly ChannelGroup[];
+  readonly #lifecycle: WatchLifecycle<ChannelsWatcherEvents>;
   readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
-  readonly #signal: AbortSignal | undefined;
-
-  #attempt: AbortController | undefined;
-  #connectPromise: Promise<void> | undefined;
-  #listeningForAbort = false;
-  #rejectConnect: ((reason?: unknown) => void) | undefined;
-  #resolveConnect: (() => void) | undefined;
-  #state: WatchState = "idle";
 
   constructor(
     transports: Pick<WatchTransports, ChannelEndpoint>,
@@ -83,9 +75,11 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   ) {
     const { channels } = ChannelsParams.parse(params);
     const prepared = prepareWatcherOptions(options);
-    this.#signal = prepared.signal;
     this.#connectTimeout = prepared.connectTimeout;
-    this.#emitter = new SafeEmitter(prepared.onListenerError);
+    this.#lifecycle = new WatchLifecycle("Channels", prepared, {
+      start: (attempt) => this.#open(attempt),
+      teardown: (reason) => this.#teardown(reason),
+    });
 
     const byEndpoint = new Map<ChannelEndpoint, string[]>();
     for (const descriptor of channels) {
@@ -102,7 +96,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
         transport,
         channels: names,
         heartbeat: new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
-          this.#fail(
+          this.#lifecycle.fail(
             transport.connectionError(
               `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
             ),
@@ -114,14 +108,14 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   }
 
   get state(): WatchState {
-    return this.#state;
+    return this.#lifecycle.state;
   }
 
   on<K extends keyof ChannelsWatcherEvents>(
     type: K,
     listener: (event: ChannelsWatcherEvents[K]) => void,
   ): this {
-    this.#emitter.on(type, listener);
+    this.#lifecycle.emitter.on(type, listener);
     return this;
   }
 
@@ -129,48 +123,39 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     type: K,
     listener: (event: ChannelsWatcherEvents[K]) => void,
   ): this {
-    this.#emitter.off(type, listener);
+    this.#lifecycle.emitter.off(type, listener);
     return this;
   }
 
   connect(): Promise<void> {
-    if (this.#state === "connecting" || this.#state === "open") {
-      return this.#connectPromise as Promise<void>;
-    }
-    if (this.#state === "closed") {
-      return Promise.reject(new VeloError("Channels watcher is closed"));
-    }
+    return this.#lifecycle.connect();
+  }
 
-    this.#state = "connecting";
-    const connectPromise = new Promise<void>((resolve, reject) => {
-      this.#resolveConnect = resolve;
-      this.#rejectConnect = reject;
-    });
-    this.#connectPromise = connectPromise;
+  disconnect(): void {
+    this.#lifecycle.disconnect();
+  }
 
-    if (this.#signal?.aborted) {
-      this.#end("closed", abortReason(this.#signal));
-      return connectPromise;
-    }
-    this.#listenForAbort();
+  close(): void {
+    this.#lifecycle.close();
+  }
 
-    const attempt = new AbortController();
-    this.#attempt = attempt;
+  /**
+   * Opens every group's socket for one attempt.
+   *
+   * @param attempt - The attempt the sockets belong to; its signal cancels
+   * the handshakes and marks every callback stale once the attempt ends.
+   */
+  #open(attempt: AbortController): void {
     for (const group of this.#groups) {
       for (const channel of group.channels) this.#active.add(channel);
     }
     void Promise.all(this.#groups.map((group) => this.#openGroup(group, attempt))).then(
       () => {
-        if (this.#attempt !== attempt || this.#state !== "connecting") return;
-        this.#state = "open";
-        const resolve = this.#resolveConnect;
-        this.#resolveConnect = undefined;
-        this.#rejectConnect = undefined;
-        resolve?.();
+        this.#lifecycle.ready(attempt);
       },
       (cause: unknown) => {
-        if (this.#attempt !== attempt) return;
-        this.#fail(
+        if (attempt.signal.aborted) return;
+        this.#lifecycle.fail(
           cause instanceof VeloError
             ? cause
             : new VeloError("channel connection failed", { cause }),
@@ -178,23 +163,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
         );
       },
     );
-
-    return connectPromise;
   }
-
-  disconnect(): void {
-    if (this.#state === "idle" || this.#state === "closed") return;
-    this.#end("idle", new DOMException("The channels watcher was disconnected.", "AbortError"));
-  }
-
-  close(): void {
-    if (this.#state === "closed") return;
-    this.#end("closed", new DOMException("The channels watcher was closed.", "AbortError"));
-  }
-
-  readonly #onAbort = (): void => {
-    this.#end("closed", abortReason(this.#signal as AbortSignal));
-  };
 
   /**
    * Opens one group's socket and subscribes its channels.
@@ -202,8 +171,8 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * @remarks
    * Frames are handled from the moment the socket opens, before `connect()`
    * resolves, so nothing the server sends early is lost. Each step checks
-   * that `attempt` is still current: a sibling socket may have failed and
-   * torn this attempt down while the handshake was in flight.
+   * that `attempt` has not ended: a sibling socket may have failed and torn
+   * this attempt down while the handshake was in flight.
    *
    * @param group - The endpoint and channels to open.
    * @param attempt - The connection attempt this socket belongs to.
@@ -214,15 +183,15 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       group.transport,
       {
         onMessage: (data) => {
-          if (this.#attempt === attempt) this.#handleMessage(group, data);
+          if (!attempt.signal.aborted) this.#handleMessage(group, data);
         },
         onClose: (close, error) => {
-          if (this.#attempt === attempt) this.#fail(error, close);
+          if (!attempt.signal.aborted) this.#lifecycle.fail(error, close);
         },
       },
       { timeout: this.#connectTimeout, signal: attempt.signal },
     );
-    if (this.#attempt !== attempt) {
+    if (attempt.signal.aborted) {
       session.close();
       return;
     }
@@ -231,7 +200,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
 
     for (const channel of group.channels) {
       /* A custom socket may emit a terminal event synchronously from send(). */
-      if (this.#attempt !== attempt) return;
+      if (attempt.signal.aborted) return;
       try {
         session.send(`s2 ${channel}`);
       } catch (cause) {
@@ -251,7 +220,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     try {
       frame = decodeChannelFrame(data);
     } catch (cause) {
-      this.#fail(cause as VeloError, abnormalCloseEvent());
+      this.#lifecycle.fail(cause as VeloError, abnormalCloseEvent());
       return;
     }
 
@@ -265,7 +234,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     if (!this.#active.has(channel) || !group.channels.includes(channel)) return;
     if (frame.type === "channelError") {
       this.#active.delete(channel);
-      this.#emitter.emit("channelError", frame.error);
+      this.#lifecycle.emitter.emit("channelError", frame.error);
       return;
     }
 
@@ -280,10 +249,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
         throw new VeloError("channel decoders must return synchronously");
       }
     } catch {
-      this.#fail(new VeloError(`failed to decode channel ${channel}`), abnormalCloseEvent());
+      this.#lifecycle.fail(
+        new VeloError(`failed to decode channel ${channel}`),
+        abnormalCloseEvent(),
+      );
       return;
     }
-    this.#emitter.emit("data", {
+    this.#lifecycle.emitter.emit("data", {
       kind: descriptor.kind,
       channel,
       ...(frame.message.tt === undefined ? {} : { timestamp: frame.message.tt }),
@@ -292,50 +264,15 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     });
   }
 
-  #fail(error: VeloError, close: WebSocketCloseEvent): void {
-    if (this.#state !== "connecting" && this.#state !== "open") return;
-    const emitError = this.#state === "open";
-
-    const reject = this.#rejectConnect;
-    this.#state = "disconnected";
-    this.#teardown(false);
-    reject?.(error);
-
-    if (emitError) this.#emitter.emit("error", error);
-    this.#emitter.emit("close", close);
-  }
-
-  #end(state: "idle" | "closed", reason: unknown): void {
-    /* Emit only when this call actually ends a connection or attempt: an
-     * idle watcher was already cleanly disconnected, and a disconnected one
-     * already received its remote close.
-     */
-    const emitClose = this.#state === "connecting" || this.#state === "open";
-    const reject = this.#rejectConnect;
-    this.#state = state;
-    this.#teardown(true);
-    if (state === "closed") this.#stopListeningForAbort();
-    reject?.(reason);
-
-    if (emitClose) this.#emitter.emit("close", cleanCloseEvent());
-    if (state === "closed") this.#emitter.clear();
-  }
-
   /**
-   * Releases the connection resources: heartbeat deadlines, a pending
-   * attempt, and every session.
+   * Releases the heartbeat deadlines and every session.
    *
-   * @param unsubscribe - Whether to tell the server which channels are being
-   * released first. True for an intentional end; a lost connection has no
-   * server to tell.
+   * @param reason - Why the attempt ended. An intentional end tells the
+   * server which channels are being released first; a lost connection has
+   * no server to tell.
    */
-  #teardown(unsubscribe: boolean): void {
-    this.#attempt?.abort();
-    this.#attempt = undefined;
-    this.#connectPromise = undefined;
-    this.#resolveConnect = undefined;
-    this.#rejectConnect = undefined;
-
+  #teardown(reason: TeardownReason): void {
+    const unsubscribe = reason !== "failed";
     for (const group of this.#groups) group.heartbeat.clear();
     for (const [group, session] of this.#sessions) {
       if (unsubscribe && session.state === "open") {
@@ -352,22 +289,6 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     }
     this.#sessions.clear();
     this.#active.clear();
-  }
-
-  #listenForAbort(): void {
-    if (this.#signal === undefined || this.#listeningForAbort) return;
-    this.#signal.addEventListener("abort", this.#onAbort, { once: true });
-    this.#listeningForAbort = true;
-  }
-
-  #stopListeningForAbort(): void {
-    if (this.#signal === undefined || !this.#listeningForAbort) return;
-    try {
-      this.#signal.removeEventListener("abort", this.#onAbort);
-    } catch {
-      // Cleanup cannot change the watcher's terminal state.
-    }
-    this.#listeningForAbort = false;
   }
 }
 
