@@ -40,8 +40,8 @@ export const price = defineChannel("product", {
   kind: "price",
   exchanges: [...FUTURES_EXCHANGES, ...SPOT_EXCHANGES],
   schema: priceFrameSchema,
-  decode: (frame, params): Row<FuturesExchange | SpotExchange, PriceColumn> => ({
-    ...rowBase(params, frame.tt),
+  decode: (frame, product): Row<FuturesExchange | SpotExchange, PriceColumn> => ({
+    ...rowBase(product, frame.tt),
     open_price: frame.d[0],
     high_price: frame.d[1],
     low_price: frame.d[2],

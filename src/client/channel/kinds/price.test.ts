@@ -4,6 +4,7 @@ import { channel, channels, Velo, VeloError } from "../../../index.ts";
 import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
 import type { FutureProduct } from "../../api/catalog/futures.ts";
 import type { Row } from "../../data/row.ts";
+import type { FuturesExchange, SpotExchange } from "../../market/exchanges.ts";
 import type { PriceColumn } from "./price.ts";
 
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
@@ -104,12 +105,14 @@ describe("channel.price", () => {
         return socket;
       },
     });
-    const rows: Row<"binance-futures", PriceColumn>[] = [];
+    const rows: Row<FuturesExchange | SpotExchange, PriceColumn>[] = [];
     const pending = client.watch(channels.feed([channel.price(BTC), channel.price(BTC)]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"price">();
-          expectTypeOf(event.data).toEqualTypeOf<Row<"binance-futures", PriceColumn>>();
+          expectTypeOf(event.data).toEqualTypeOf<
+            Row<FuturesExchange | SpotExchange, PriceColumn>
+          >();
           rows.push(event.data);
         },
       },

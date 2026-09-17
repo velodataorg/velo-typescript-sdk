@@ -29,7 +29,6 @@ export type { Channels } from "./client/api/channels/channels.ts";
 export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
 export type { ChannelsParams } from "./client/api/channels/params.ts";
 export { channel } from "./client/channel/kinds/index.ts";
-export type { ChannelParams, ChannelScope } from "./client/channel/define.ts";
 export type { Product } from "./client/market/product.ts";
 export { priceFrameSchema } from "./client/channel/kinds/price.ts";
 export type { PriceFrame } from "./client/channel/kinds/price.ts";
