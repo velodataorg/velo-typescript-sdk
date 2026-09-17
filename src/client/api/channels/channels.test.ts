@@ -8,7 +8,7 @@ import {
   Velo,
   VeloError,
   type Channel,
-  type ChannelEnvelope,
+  type ChannelFrame,
   type RawChannelMessage,
 } from "../../../index.ts";
 import {
@@ -29,12 +29,12 @@ const PRICE = "realtime_binance-futures:BTCUSDT";
 const OI = "realtime_BTC#open_interest#Coins#Aggregated";
 const ONDEMAND = "ondemand_hyperliquid_spot_UBTC-USDC_candle_1";
 const message = (c = PRICE, d: unknown = [1, 2, 3]) => ({ c, d, tt: 123, f: false });
-const rawMessage = (raw: ChannelEnvelope): RawChannelMessage => ({
+const rawMessage = (raw: ChannelFrame): RawChannelMessage => ({
   kind: "raw",
   channel: raw.c,
   ...(raw.tt === undefined ? {} : { timestamp: raw.tt }),
   data: raw.d,
-  raw,
+  frame: raw,
 });
 
 function harness(factory?: WebSocketFactory) {
@@ -59,14 +59,14 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const price = channel.raw(PRICE);
     expect(price.kind).toBe("raw");
-    expect(price.channel).toBe(PRICE);
+    expect(price.name).toBe(PRICE);
     expect(Object.isFrozen(price)).toBe(true);
     const seen: RawChannelMessage[] = [];
     const pending = client.watch(channels.feed([price, PRICE, channel.raw(PRICE), OI]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"raw">();
-          if (event.channel === price.channel) seen.push(event);
+          if (event.channel === price.name) seen.push(event);
         },
       },
     });
@@ -97,7 +97,7 @@ describe("raw channel subscriptions", () => {
     // Synthetic channels exercise the contract without implementing market builders.
     const numeric: Channel<"numeric", { value: number }> = {
       kind: "numeric",
-      channel: "test_numbers",
+      name: "test_numbers",
       decode: (frame) => {
         if (typeof frame.d !== "number") throw new Error("expected a number");
         return { value: frame.d };
@@ -105,7 +105,7 @@ describe("raw channel subscriptions", () => {
     };
     const label: Channel<"label", string> = {
       kind: "label",
-      channel: "test_labels",
+      name: "test_labels",
       decode: (frame) => {
         if (typeof frame.d !== "string") throw new Error("expected a label");
         return frame.d;
@@ -118,7 +118,7 @@ describe("raw channel subscriptions", () => {
           expectTypeOf(event.kind).toEqualTypeOf<"numeric" | "label" | "raw">();
           if (event.kind === "numeric") {
             expectTypeOf(event.data).toEqualTypeOf<{ value: number }>();
-            expect(event.channel).toBe(numeric.channel);
+            expect(event.channel).toBe(numeric.name);
           } else if (event.kind === "label") {
             expectTypeOf(event.data).toEqualTypeOf<string>();
           } else {
@@ -134,20 +134,20 @@ describe("raw channel subscriptions", () => {
     watcher.on("data", (event) => {
       if (event.kind === "numeric") expectTypeOf(event.data.value).toEqualTypeOf<number>();
     });
-    const numberFrame = message(numeric.channel, 42);
-    const labelFrame = message(label.channel, "BTC");
+    const numberFrame = message(numeric.name, 42);
+    const labelFrame = message(label.name, "BTC");
     sockets[0]!.message(JSON.stringify(numberFrame));
     sockets[0]!.message(JSON.stringify(labelFrame));
     sockets[0]!.message(JSON.stringify(message()));
     expect(seen).toEqual([
       {
         kind: "numeric",
-        channel: numeric.channel,
+        channel: numeric.name,
         timestamp: 123,
         data: { value: 42 },
-        raw: numberFrame,
+        frame: numberFrame,
       },
-      { kind: "label", channel: label.channel, timestamp: 123, data: "BTC", raw: labelFrame },
+      { kind: "label", channel: label.name, timestamp: 123, data: "BTC", frame: labelFrame },
       rawMessage(message()),
     ]);
     watcher.close();
@@ -157,7 +157,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const descriptor: Channel<"count", number> = {
       kind: "count",
-      channel: "test_count",
+      name: "test_count",
       decode: (): number => 1,
     };
     const seen = vi.fn();
@@ -181,14 +181,14 @@ describe("raw channel subscriptions", () => {
       kind: "count",
       channel: "test_count",
       data: 1,
-      raw: { c: "test_count" },
+      frame: { c: "test_count" },
     });
     watcher.close();
   });
 
   it("snapshots kind and decoder, dedupes by kind, and rejects conflicting kinds", async () => {
     const { client, sockets } = harness();
-    const descriptor = { kind: "count", channel: PRICE, decode: (): number => 1 };
+    const descriptor = { kind: "count", name: PRICE, decode: (): number => 1 };
     const request = channels.feed([descriptor, descriptor]);
     expect(request.build().params.channels).toHaveLength(1);
     expect(() => channels.feed([descriptor, PRICE])).toThrow(/conflicting channels/);
@@ -197,7 +197,7 @@ describe("raw channel subscriptions", () => {
         .channels,
     ).toHaveLength(1);
     descriptor.kind = "changed";
-    descriptor.channel = OI;
+    descriptor.name = OI;
     descriptor.decode = () => 2;
     const data = vi.fn();
     const pending = client.watch(request, { on: { data } });
@@ -211,16 +211,16 @@ describe("raw channel subscriptions", () => {
       channel: PRICE,
       data: 1,
       timestamp: 123,
-      raw: message(),
+      frame: message(),
     });
     watcher.close();
   });
 
   it.each([
-    { kind: "test", channel: PRICE },
-    { kind: "", channel: PRICE, decode: (): number => 1 },
-    { kind: "test", channel: () => PRICE, decode: (): number => 1 },
-    { kind: "test", channel: "bad\nchannel", decode: (): number => 1 },
+    { kind: "test", name: PRICE },
+    { kind: "", name: PRICE, decode: (): number => 1 },
+    { kind: "test", name: () => PRICE, decode: (): number => 1 },
+    { kind: "test", name: "bad\nchannel", decode: (): number => 1 },
   ])("validates channel contracts before connecting", (value) => {
     const { client, sockets } = harness();
     expect(() =>
@@ -232,7 +232,7 @@ describe("raw channel subscriptions", () => {
     expect(sockets).toHaveLength(0);
   });
 
-  it("keeps envelope-only raw messages intact without fabricating a timestamp", async () => {
+  it("keeps frame-level raw messages intact without fabricating a timestamp", async () => {
     const { client, sockets } = harness();
     const seen = vi.fn();
     const pending = client.watch(channels.feed(["news_priority"]), { on: { data: seen } });
@@ -245,7 +245,7 @@ describe("raw channel subscriptions", () => {
       kind: "raw",
       channel: "news_priority",
       data: undefined,
-      raw,
+      frame: raw,
     });
     watcher.close();
   });
@@ -259,7 +259,7 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const data = vi.fn();
     const error = vi.fn();
-    const pending = client.watch(channels.feed([{ kind: "test", channel: PRICE, decode }]), {
+    const pending = client.watch(channels.feed([{ kind: "test", name: PRICE, decode }]), {
       reconnect: false,
       on: { data, error },
     });
@@ -285,10 +285,10 @@ describe("raw channel subscriptions", () => {
     expect(client.channels).toBe(channels);
     expect(sockets).toHaveLength(0);
     expect(builder.build().kind).toBe("channels.feed");
-    expect(builder.build().params.channels.map((item) => item.channel)).toEqual(names.slice(1, 3));
+    expect(builder.build().params.channels.map((item) => item.name)).toEqual(names.slice(1, 3));
     expect(builder.build().params.channels.every((item) => item.kind === "raw")).toBe(true);
     expect(Object.isFrozen(builder.build().params.channels)).toBe(true);
-    expect(channels.feed([PRICE]).build().params.channels[0]!.channel).toBe(PRICE);
+    expect(channels.feed([PRICE]).build().params.channels[0]!.name).toBe(PRICE);
   });
 
   it.each([[], [""], [" channel"], ["channel "], ["a\ns2 b"], ["a\r"], ["a\0"], [42], null])(
@@ -678,27 +678,27 @@ describe("raw channel frames", () => {
   it("handles the live server hb heartbeat without consuming channel data with extra fields", () => {
     expect(decodeChannelFrame('{"hb":1}')).toEqual({ type: "heartbeat" });
     const raw = { ...message(), hb: 1, heartbeat: true };
-    expect(decodeChannelFrame(JSON.stringify(raw))).toEqual({ type: "data", message: raw });
+    expect(decodeChannelFrame(JSON.stringify(raw))).toEqual({ type: "data", frame: raw });
   });
 
   it("decodes Buffer and ArrayBuffer payloads without aggregating or renaming fields", () => {
     const wire = JSON.stringify(message(OI, { realtime_bybit: [1, 2, 3] }));
     expect(decodeChannelFrame(Buffer.from(wire))).toEqual({
       type: "data",
-      message: JSON.parse(wire),
+      frame: JSON.parse(wire),
     });
     expect(decodeChannelFrame(new TextEncoder().encode(wire).buffer)).toEqual({
       type: "data",
-      message: JSON.parse(wire),
+      frame: JSON.parse(wire),
     });
     expect(decodeChannelFrame('{"c":"news_priority","headline":"test"}')).toEqual({
       type: "data",
-      message: { c: "news_priority", headline: "test" },
+      frame: { c: "news_priority", headline: "test" },
     });
   });
 
   it.each(["bad json", "[]", "null", "42", "{}", '{"c":"a","tt":"1"}', '{"c":"a","f":1}'])(
-    "rejects malformed envelopes: %s",
+    "rejects malformed frames: %s",
     (wire) => {
       expect(() => decodeChannelFrame(wire)).toThrow(VeloError);
     },

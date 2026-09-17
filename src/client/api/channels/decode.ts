@@ -1,14 +1,14 @@
 import { VeloError } from "../../../errors.ts";
 import { frameText } from "../../../transport/frame.ts";
-import type { ChannelEnvelope } from "./channel.ts";
+import type { ChannelFrame } from "../../channel/channel.ts";
 
 export interface ChannelError {
   readonly channel: string;
   readonly reason: "rejected" | "unsubscribed";
 }
 
-export type ChannelFrame =
-  | { readonly type: "data"; readonly message: ChannelEnvelope }
+export type DecodedFrame =
+  | { readonly type: "data"; readonly frame: ChannelFrame }
   | { readonly type: "channelError"; readonly error: ChannelError }
   | { readonly type: "heartbeat" }
   | { readonly type: "control" };
@@ -25,9 +25,9 @@ export type ChannelFrame =
  * @param data - The frame's raw data from the session.
  * @returns The decoded frame.
  * @throws A VeloError when the frame is not JSON text, not an object, or a
- * data envelope with malformed fields.
+ * data frame with malformed fields.
  */
-export function decodeChannelFrame(data: unknown): ChannelFrame {
+export function decodeChannelFrame(data: unknown): DecodedFrame {
   let value: unknown;
   try {
     value = JSON.parse(frameText(data));
@@ -54,7 +54,7 @@ export function decodeChannelFrame(data: unknown): ChannelFrame {
       (typeof message.tt !== "number" || !Number.isFinite(message.tt))) ||
     (message.f !== undefined && typeof message.f !== "boolean")
   ) {
-    throw new VeloError("unexpected channel message: invalid envelope");
+    throw new VeloError("unexpected channel message: invalid frame");
   }
-  return { type: "data", message: message as ChannelEnvelope };
+  return { type: "data", frame: message as ChannelFrame };
 }

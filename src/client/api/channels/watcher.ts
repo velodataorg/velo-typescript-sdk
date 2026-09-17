@@ -3,6 +3,9 @@ import { WebSocketSession } from "../../../transport/session.ts";
 import { abnormalCloseEvent } from "../../../transport/websocket.ts";
 import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
 import { assert } from "../../../util/assert.ts";
+import type { Channel, ChannelMessage } from "../../channel/channel.ts";
+import { channelEndpoint } from "../../channel/name.ts";
+import type { ChannelEndpoint } from "../../channel/name.ts";
 import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
 import { WatchLifecycle } from "../../watch/lifecycle.ts";
 import type { TeardownReason } from "../../watch/lifecycle.ts";
@@ -10,12 +13,6 @@ import { prepareWatcherOptions } from "../../watch/options.ts";
 import type { WatcherOptions } from "../../watch/options.ts";
 import type { WatchTransports } from "../../watch/transports.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
-import {
-  channelEndpoint,
-  type Channel,
-  type ChannelEndpoint,
-  type ChannelMessage,
-} from "./channel.ts";
 import { decodeChannelFrame } from "./decode.ts";
 import type { ChannelError } from "./decode.ts";
 import { ChannelsParams } from "./params.ts";
@@ -88,7 +85,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
 
     const byEndpoint = new Map<ChannelEndpoint, string[]>();
     for (const entry of channels) {
-      const name = entry.channel;
+      const name = entry.name;
       this.#channels.set(name, entry);
       const endpoint = channelEndpoint(name);
       const names = byEndpoint.get(endpoint) ?? [];
@@ -225,25 +222,25 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * @param data - The frame's raw data from the session.
    */
   #handleMessage(group: ChannelGroup, data: unknown): void {
-    let frame: ReturnType<typeof decodeChannelFrame>;
+    let incoming: ReturnType<typeof decodeChannelFrame>;
     try {
-      frame = decodeChannelFrame(data);
+      incoming = decodeChannelFrame(data);
     } catch (cause) {
       this.#lifecycle.fail(cause as VeloError, abnormalCloseEvent());
       return;
     }
 
-    if (frame.type === "heartbeat") {
+    if (incoming.type === "heartbeat") {
       group.heartbeat.reset();
       return;
     }
-    if (frame.type === "control") return;
+    if (incoming.type === "control") return;
 
-    const channel = frame.type === "data" ? frame.message.c : frame.error.channel;
+    const channel = incoming.type === "data" ? incoming.frame.c : incoming.error.channel;
     if (!this.#active.has(channel) || !group.channels.includes(channel)) return;
-    if (frame.type === "channelError") {
+    if (incoming.type === "channelError") {
       this.#active.delete(channel);
-      this.#lifecycle.emitter.emit("channelError", frame.error);
+      this.#lifecycle.emitter.emit("channelError", incoming.error);
       return;
     }
 
@@ -251,15 +248,15 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     assert(entry !== undefined, () => `no channel registered for active ${channel}`);
     let decoded: unknown;
     try {
-      decoded = entry.decode(frame.message);
+      decoded = entry.decode(incoming.frame);
       if (isThenable(decoded)) {
         /* A mistaken async decoder must not leave an unhandled rejection behind. */
         void Promise.resolve(decoded).catch(() => {});
         throw new VeloError("channel decoders must return synchronously");
       }
-    } catch {
+    } catch (cause) {
       this.#lifecycle.fail(
-        new VeloError(`failed to decode channel ${channel}`),
+        new VeloError(`failed to decode channel ${channel}`, { cause }),
         abnormalCloseEvent(),
       );
       return;
@@ -267,9 +264,9 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#lifecycle.emitter.emit("data", {
       kind: entry.kind,
       channel,
-      ...(frame.message.tt === undefined ? {} : { timestamp: frame.message.tt }),
+      ...(incoming.frame.tt === undefined ? {} : { timestamp: incoming.frame.tt }),
       data: decoded,
-      raw: frame.message,
+      frame: incoming.frame,
     });
   }
 

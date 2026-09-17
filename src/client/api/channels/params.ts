@@ -1,12 +1,12 @@
 import { assert } from "../../../util/assert.ts";
 import {
-  channel,
-  validateChannelName,
   type Channel,
-  type ChannelEnvelope,
+  type ChannelFrame,
   type ChannelInput,
   type ChannelOf,
-} from "./channel.ts";
+} from "../../channel/channel.ts";
+import { raw } from "../../channel/kinds/raw.ts";
+import { validateChannelName } from "../../channel/name.ts";
 
 /** Parameters for a channel feed. */
 export interface ChannelsParams<Input extends ChannelInput = ChannelInput> {
@@ -43,17 +43,17 @@ export const ChannelsParams = Object.freeze({
     const kinds = new Map<string, string>();
     const channels: Channel[] = [];
     for (const input of inputs) {
-      const candidate = typeof input === "string" ? channel.raw(input) : input;
+      const candidate = typeof input === "string" ? raw(input) : input;
       assert(
         candidate !== null &&
           typeof candidate === "object" &&
           typeof candidate.kind === "string" &&
           candidate.kind.length > 0 &&
-          typeof candidate.channel === "string" &&
+          typeof candidate.name === "string" &&
           typeof candidate.decode === "function",
         "channels must contain strings or channels",
       );
-      const name = candidate.channel;
+      const name = candidate.name;
       validateChannelName(name);
       const previous = kinds.get(name);
       if (previous !== undefined) {
@@ -68,8 +68,8 @@ export const ChannelsParams = Object.freeze({
       channels.push(
         Object.freeze({
           kind: candidate.kind,
-          channel: name,
-          decode: (message: ChannelEnvelope) => decode.call(candidate, message),
+          name,
+          decode: (frame: ChannelFrame) => decode.call(candidate, frame),
         }),
       );
     }

@@ -134,7 +134,13 @@ describe("a live subscription", () => {
       frames.forEach((frame) => feed.push(frame));
       await until(() => seen.length === 2, "both raw messages");
       expect(seen).toEqual(
-        frames.map((raw) => ({ kind: "raw", channel: raw.c, timestamp: raw.tt, data: raw.d, raw })),
+        frames.map((raw) => ({
+          kind: "raw",
+          channel: raw.c,
+          timestamp: raw.tt,
+          data: raw.d,
+          frame: raw,
+        })),
       );
     } finally {
       watcher.close();
@@ -164,9 +170,7 @@ describe("a live subscription", () => {
       const frame = { c: channel, d: [1, 2, 3], tt: 123, f: false };
       feed.push(frame);
       await until(() => seen.length === 1, "native data");
-      expect(seen).toEqual([
-        { kind: "raw", channel, timestamp: frame.tt, data: frame.d, raw: frame },
-      ]);
+      expect(seen).toEqual([{ kind: "raw", channel, timestamp: frame.tt, data: frame.d, frame }]);
     } finally {
       watcher.close();
     }
