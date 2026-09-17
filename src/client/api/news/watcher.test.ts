@@ -5,20 +5,17 @@ import { VeloConnectionError, VeloError } from "../../../errors.ts";
 import {
   FakeSocket,
   flushConnection,
-  harness,
-  openFeed,
-  story,
-  STORY,
   SynchronouslyFailingSendSocket,
   ThrowingAttachSocket,
   ThrowingSendSocket,
-} from "../../../test-support/news-socket.ts";
+} from "../../../transport/fake-socket.ts";
 import { MAX_TIMER_MS } from "../../../transport/retry.ts";
 import type {
   WebSocketConnection,
   WebSocketFactory,
   WebSocketTarget,
 } from "../../../transport/websocket.ts";
+import { harness, openFeed, story, STORY } from "./fixtures.ts";
 import type { NewsStory } from "./validation.ts";
 import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.ts";
 import type { NewsClose, NewsDelete, NewsWatcherState } from "./watcher.ts";

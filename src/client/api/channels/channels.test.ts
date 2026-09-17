@@ -16,7 +16,7 @@ import {
   flushConnection,
   ThrowingSendSocket,
   SynchronouslyFailingSendSocket,
-} from "../../../test-support/news-socket.ts";
+} from "../../../transport/fake-socket.ts";
 import {
   WebSocketTransport,
   type WebSocketFactory,
