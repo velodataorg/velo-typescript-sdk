@@ -35,11 +35,8 @@ export type { PriceFrame } from "./client/channel/kinds/price.ts";
 export type {
   Channel,
   ChannelFrame,
-  ChannelInput,
   ChannelMessage,
-  ChannelOf,
   RawChannel,
-  RawChannelMessage,
 } from "./client/channel/channel.ts";
 export type { ChannelError } from "./client/api/channels/decode.ts";
 export type {

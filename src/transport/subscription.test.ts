@@ -8,8 +8,8 @@ import type { WebSocket } from "ws";
 
 import type { NewsStory } from "../client/api/news/validation.ts";
 import { VeloAuthError } from "../errors.ts";
-import { Velo } from "../index.ts";
-import type { RawChannelMessage } from "../index.ts";
+import { channel as channelOf, Velo } from "../index.ts";
+import type { ChannelMessage, RawChannel } from "../index.ts";
 import { defaultWebSocketFactory } from "./websocket.ts";
 
 /**
@@ -120,8 +120,8 @@ describe("a live subscription", () => {
       "realtime_BTC#open_interest#Coins#Aggregated",
     ];
     const velo = new Velo({ apiKey: "test/key", baseUrl: feed.baseUrl });
-    const seen: RawChannelMessage[] = [];
-    const watcher = await velo.watch(velo.channels.feed(names), {
+    const seen: ChannelMessage<RawChannel>[] = [];
+    const watcher = await velo.watch(velo.channels.feed(names.map((name) => channelOf.raw(name))), {
       on: { data: (value) => seen.push(value) },
     });
     try {
@@ -159,8 +159,8 @@ describe("a live subscription", () => {
       webSocketFactory: (target) =>
         defaultWebSocketFactory(target, { WebSocket: globalThis.WebSocket }),
     });
-    const seen: RawChannelMessage[] = [];
-    const watcher = await velo.watch(velo.channels.feed([channel]), {
+    const seen: ChannelMessage<RawChannel>[] = [];
+    const watcher = await velo.watch(velo.channels.feed([channelOf.raw(channel)]), {
       on: { data: (value) => seen.push(value) },
     });
     try {
@@ -179,7 +179,7 @@ describe("a live subscription", () => {
   it("does not retry raw channels rejected by API-key authentication", async ({ refusing }) => {
     const velo = new Velo({ apiKey: "test/key", baseUrl: refusing.baseUrl });
     await expect(
-      velo.watch(velo.channels.feed(["realtime_binance-futures:BTCUSDT"])),
+      velo.watch(velo.channels.feed([channelOf.raw("realtime_binance-futures:BTCUSDT")])),
     ).rejects.toBeInstanceOf(VeloAuthError);
     expect(refusing.attempts()).toBe(1);
   });

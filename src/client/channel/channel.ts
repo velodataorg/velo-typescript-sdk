@@ -11,8 +11,7 @@ export interface ChannelFrame {
  * One channel a feed can carry: what to subscribe to and how to read it.
  *
  * Independent of any client or subscription, so the same value can go into
- * several feeds. Built-in kinds add fields describing what they subscribe
- * to; a custom channel needs only these three.
+ * several feeds. Built-in and custom channels are the same three fields.
  */
 export interface Channel<Kind extends string = string, Data = unknown> {
   /**
@@ -29,13 +28,8 @@ export interface Channel<Kind extends string = string, Data = unknown> {
   decode(frame: ChannelFrame): Data;
 }
 
+/* What `channel.raw()` builds: a wire name whose payload is left as `unknown`. */
 export type RawChannel = Channel<"raw", unknown>;
-export type ChannelInput = string | Channel;
-export type ChannelOf<Input extends ChannelInput> = Input extends string
-  ? RawChannel
-  : Input extends Channel<infer Kind, infer Data>
-    ? Channel<Kind, Data>
-    : never;
 
 /** Distributes over channels so checking kind narrows the associated data. */
 export type ChannelMessage<C extends Channel = Channel> =
@@ -49,5 +43,3 @@ export type ChannelMessage<C extends Channel = Channel> =
         readonly frame: ChannelFrame;
       }
     : never;
-
-export type RawChannelMessage = ChannelMessage<RawChannel>;

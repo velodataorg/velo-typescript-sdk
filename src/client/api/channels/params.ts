@@ -1,17 +1,11 @@
 import { assert } from "../../../util/assert.ts";
-import {
-  type Channel,
-  type ChannelFrame,
-  type ChannelInput,
-  type ChannelOf,
-} from "../../channel/channel.ts";
-import { raw } from "../../channel/kinds/raw.ts";
+import type { Channel, ChannelFrame } from "../../channel/channel.ts";
 import { validateChannelName } from "../../channel/name.ts";
 
 /** Parameters for a channel feed. */
-export interface ChannelsParams<Input extends ChannelInput = ChannelInput> {
-  /* Wire names and/or channels; a bare name subscribes as a raw channel. */
-  readonly channels: readonly Input[];
+export interface ChannelsParams<C extends Channel = Channel> {
+  /* Built with the `channel` namespace; a bare wire name goes through `channel.raw()`. */
+  readonly channels: readonly C[];
 }
 
 export const ChannelsParams = Object.freeze({
@@ -19,20 +13,18 @@ export const ChannelsParams = Object.freeze({
    * Validates and snapshots channel-feed parameters.
    *
    * @remarks
-   * Each input becomes a frozen channel whose kind, wire name, and decoder
-   * are captured now, so later mutation of a caller's object cannot change
-   * what a feed does. One wire name appears once: repeats with the same kind
+   * Each channel is copied and frozen with its kind, wire name, and decoder
+   * captured now, so later mutation of a caller's object cannot change what
+   * a feed does. One wire name appears once: repeats with the same kind
    * collapse to the first, since a kind means one decoder, and repeats with
    * a different kind are rejected rather than picking one silently.
    *
    * @param params - The caller's parameters.
-   * @returns Frozen parameters with every input as a channel.
-   * @throws A VeloError when the inputs are not a non-empty array of valid
-   * names or channels, or when two of them disagree on a kind.
+   * @returns Frozen parameters holding a frozen copy of each distinct channel.
+   * @throws A VeloError when the channels are not a non-empty array of valid
+   * channels, or when two of them disagree on a kind.
    */
-  parse<Input extends ChannelInput>(
-    params: ChannelsParams<Input>,
-  ): ChannelsParams<ChannelOf<Input>> {
+  parse<C extends Channel>(params: ChannelsParams<C>): ChannelsParams<C> {
     assert(
       params !== null && typeof params === "object" && !Array.isArray(params),
       "channels params must be an object",
@@ -41,40 +33,35 @@ export const ChannelsParams = Object.freeze({
     assert(Array.isArray(inputs) && inputs.length > 0, "channels must be a non-empty array");
 
     const kinds = new Map<string, string>();
-    const channels: Channel[] = [];
-    for (const input of inputs) {
-      const candidate = typeof input === "string" ? raw(input) : input;
+    const channels: C[] = [];
+    for (const input of inputs as readonly C[]) {
       assert(
-        candidate !== null &&
-          typeof candidate === "object" &&
-          typeof candidate.kind === "string" &&
-          candidate.kind.length > 0 &&
-          typeof candidate.name === "string" &&
-          typeof candidate.decode === "function",
-        "channels must contain strings or channels",
+        input !== null &&
+          typeof input === "object" &&
+          typeof input.kind === "string" &&
+          input.kind.length > 0 &&
+          typeof input.name === "string" &&
+          typeof input.decode === "function",
+        "channels must be channel objects; wrap a wire name with channel.raw()",
       );
-      const name = candidate.name;
+      const { kind, name, decode } = input;
       validateChannelName(name);
       const previous = kinds.get(name);
       if (previous !== undefined) {
-        assert(
-          previous === candidate.kind,
-          `conflicting channels for ${name}: ${previous} and ${candidate.kind}`,
-        );
+        assert(previous === kind, `conflicting channels for ${name}: ${previous} and ${kind}`);
         continue;
       }
-      kinds.set(name, candidate.kind);
-      const decode = candidate.decode;
+      kinds.set(name, kind);
       channels.push(
         Object.freeze({
-          kind: candidate.kind,
+          ...input,
+          kind,
           name,
-          decode: (frame: ChannelFrame) => decode.call(candidate, frame),
+          decode: (frame: ChannelFrame) => decode.call(input, frame),
         }),
       );
     }
 
-    /* Normalization keeps each channel's kind/data pair; strings became RawChannel. */
-    return Object.freeze({ channels: Object.freeze(channels) }) as ChannelsParams<ChannelOf<Input>>;
+    return Object.freeze({ channels: Object.freeze(channels) });
   },
 });

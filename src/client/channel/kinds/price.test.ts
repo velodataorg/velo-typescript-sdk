@@ -133,7 +133,9 @@ describe("channel.price", () => {
   });
 
   it("conflicts with a raw subscription to the same wire name", () => {
-    expect(() => channels.feed([channel.price(BTC), NAME])).toThrow(/conflicting channels/);
+    expect(() => channels.feed([channel.price(BTC), channel.raw(NAME)])).toThrow(
+      /conflicting channels/,
+    );
   });
 
   it("fails the connection on a malformed frame and keeps the reason", async () => {

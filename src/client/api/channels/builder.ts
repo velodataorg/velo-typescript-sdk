@@ -1,23 +1,23 @@
-import type { ChannelInput, ChannelOf } from "../../channel/channel.ts";
+import type { Channel } from "../../channel/channel.ts";
 import type { WatchBuilder, WatchRequest } from "../../watch/registry.ts";
 import { ChannelsParams } from "./params.ts";
 
 /** An immutable live-channel feed builder. */
-export class ChannelsFeedBuilder<Input extends ChannelInput> implements WatchBuilder<
+export class ChannelsFeedBuilder<C extends Channel> implements WatchBuilder<
   "channels.feed",
-  ChannelsParams<ChannelOf<Input>>
+  ChannelsParams<C>
 > {
-  readonly #request: WatchRequest<"channels.feed", ChannelsParams<ChannelOf<Input>>>;
+  readonly #request: WatchRequest<"channels.feed", ChannelsParams<C>>;
 
-  constructor(inputs: readonly Input[]) {
+  constructor(channels: readonly C[]) {
     this.#request = Object.freeze({
       kind: "channels.feed",
-      params: ChannelsParams.parse({ channels: inputs }),
+      params: ChannelsParams.parse({ channels }),
     });
   }
 
   /** Returns the immutable transport-independent subscription request. */
-  build(): WatchRequest<"channels.feed", ChannelsParams<ChannelOf<Input>>> {
+  build(): WatchRequest<"channels.feed", ChannelsParams<C>> {
     return this.#request;
   }
 }

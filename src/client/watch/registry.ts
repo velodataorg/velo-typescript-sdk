@@ -3,7 +3,7 @@ import { ChannelsWatcherController } from "../api/channels/watcher.ts";
 import type { ChannelsWatcherEvents, ChannelsWatchOptions } from "../api/channels/watcher.ts";
 import { NewsWatcherController } from "../api/news/watcher.ts";
 import type { NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
-import type { ChannelOf } from "../channel/channel.ts";
+import type { Channel } from "../channel/channel.ts";
 import type { ResumeOptions } from "./connection.ts";
 import type { WatchTransports } from "./transports.ts";
 import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
@@ -46,8 +46,8 @@ export type WatchEvents<
   K extends WatchableKind,
   P extends WatchParams<K> = WatchParams<K>,
 > = K extends "channels.feed"
-  ? P extends ChannelsParams<infer Input>
-    ? ChannelsWatcherEvents<ChannelOf<Input>>
+  ? P extends ChannelsParams<infer C extends Channel>
+    ? ChannelsWatcherEvents<C>
     : never
   : WatchDefinitions[K]["events"];
 
