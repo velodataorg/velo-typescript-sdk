@@ -28,7 +28,7 @@ export {
 export type { Channels } from "./client/api/channels/channels.ts";
 export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
 export type { ChannelsParams } from "./client/api/channels/params.ts";
-export { channel } from "./channel/channel.ts";
+export { channel } from "./client/api/channels/channel.ts";
 export type {
   Channel,
   ChannelEnvelope,
@@ -37,7 +37,7 @@ export type {
   ChannelOf,
   RawChannel,
   RawChannelMessage,
-} from "./channel/channel.ts";
+} from "./client/api/channels/channel.ts";
 export type { ChannelError } from "./client/api/channels/decode.ts";
 export type {
   ChannelsWatcher,

@@ -1,4 +1,4 @@
-import type { ChannelOf } from "../../channel/channel.ts";
+import type { ChannelOf } from "../api/channels/channel.ts";
 import type { ChannelsParams } from "../api/channels/params.ts";
 import { ChannelsWatcherController } from "../api/channels/watcher.ts";
 import type { ChannelsWatcherEvents, ChannelsWatchOptions } from "../api/channels/watcher.ts";

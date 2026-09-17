@@ -1,3 +1,4 @@
+import { assert } from "../../../util/assert.ts";
 import {
   channel,
   validateChannelName,
@@ -5,8 +6,7 @@ import {
   type ChannelEnvelope,
   type ChannelInput,
   type ChannelOf,
-} from "../../../channel/channel.ts";
-import { assert } from "../../../util/assert.ts";
+} from "./channel.ts";
 
 /** Parameters for a channel feed. */
 export interface ChannelsParams<Input extends ChannelInput = ChannelInput> {

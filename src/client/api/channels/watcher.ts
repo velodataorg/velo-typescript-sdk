@@ -1,9 +1,3 @@
-import {
-  channelEndpoint,
-  type Channel,
-  type ChannelEndpoint,
-  type ChannelMessage,
-} from "../../../channel/channel.ts";
 import { VeloError } from "../../../errors.ts";
 import { WebSocketSession } from "../../../transport/session.ts";
 import { abnormalCloseEvent } from "../../../transport/websocket.ts";
@@ -16,6 +10,12 @@ import { prepareWatcherOptions } from "../../watch/options.ts";
 import type { WatcherOptions } from "../../watch/options.ts";
 import type { WatchTransports } from "../../watch/transports.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
+import {
+  channelEndpoint,
+  type Channel,
+  type ChannelEndpoint,
+  type ChannelMessage,
+} from "./channel.ts";
 import { decodeChannelFrame } from "./decode.ts";
 import type { ChannelError } from "./decode.ts";
 import { ChannelsParams } from "./params.ts";

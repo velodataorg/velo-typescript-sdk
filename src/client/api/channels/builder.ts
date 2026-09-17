@@ -1,5 +1,5 @@
-import type { ChannelInput, ChannelOf } from "../../../channel/channel.ts";
 import type { WatchBuilder, WatchRequest } from "../../watch/registry.ts";
+import type { ChannelInput, ChannelOf } from "./channel.ts";
 import { ChannelsParams } from "./params.ts";
 
 /** An immutable live-channel feed builder. */

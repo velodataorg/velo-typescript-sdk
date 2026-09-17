@@ -1,6 +1,6 @@
-import type { ChannelEnvelope } from "../../../channel/channel.ts";
 import { VeloError } from "../../../errors.ts";
 import { frameText } from "../../../transport/frame.ts";
+import type { ChannelEnvelope } from "./channel.ts";
 
 export interface ChannelError {
   readonly channel: string;

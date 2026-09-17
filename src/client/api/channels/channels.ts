@@ -1,5 +1,5 @@
-import type { ChannelInput } from "../../../channel/channel.ts";
 import { ChannelsFeedBuilder } from "./builder.ts";
+import type { ChannelInput } from "./channel.ts";
 
 /** The channels namespace exposed by {@link Velo}. */
 export class Channels {
