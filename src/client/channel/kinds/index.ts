@@ -1,5 +1,10 @@
+import { openInterest } from "./open-interest.ts";
 import { price } from "./price.ts";
 import { raw } from "./raw.ts";
 
-/** Standalone channel construction: one builder per kind of channel a feed can carry. */
-export const channel = Object.freeze({ raw, price });
+/**
+ * Standalone channel construction, spelled like the history builders.
+ *
+ * A builder that takes a metric covers one kind of channel per metric.
+ */
+export const channel = Object.freeze({ raw, price, openInterest });
