@@ -6,10 +6,17 @@ import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
 import type { FutureProduct } from "../../api/catalog/futures.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange, SpotExchange } from "../../market/exchanges.ts";
-import type { PriceColumn } from "./price.ts";
 
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
 const NAME = "realtime_binance-futures:BTCUSDT";
+
+type PriceColumn =
+  | "open_price"
+  | "high_price"
+  | "low_price"
+  | "close_price"
+  | "coin_volume"
+  | "dollar_volume";
 
 /* Frames captured live on 2026-09-17 around the 10:50:00 UTC rollover. */
 const LAST_OF_MINUTE = {
