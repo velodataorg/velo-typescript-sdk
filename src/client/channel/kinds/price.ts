@@ -21,12 +21,10 @@ export type PriceColumn =
  * coin and dollar volume, both cumulative within the minute. `tt` is the
  * tick time in milliseconds. Frames arrive several times a second.
  */
-export const priceFrameSchema = z.object({
+const priceFrameSchema = z.object({
   d: z.tuple([z.number(), z.number(), z.number(), z.number(), z.number(), z.number()]),
   tt: z.number(),
 });
-
-export type PriceFrame = z.output<typeof priceFrameSchema>;
 
 /**
  * The live price of one product, futures or spot.
