@@ -38,6 +38,7 @@ export type {
 } from "./client/channel/channel.ts";
 export type { ChannelError } from "./client/api/channels/decode.ts";
 export type {
+  ChannelFrameError,
   ChannelsWatcher,
   ChannelsWatcherEvents,
   ChannelsWatchOptions,

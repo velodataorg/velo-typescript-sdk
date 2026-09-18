@@ -167,6 +167,6 @@ export const WATCHERS: WatcherRegistry = Object.freeze({
   "channels.feed": {
     create: (transports, params, options) =>
       new ChannelsWatcherController(transports, params, options),
-    events: { data: true, channelError: true, error: true, close: true },
+    events: { data: true, frameError: true, channelError: true, error: true, close: true },
   },
 });

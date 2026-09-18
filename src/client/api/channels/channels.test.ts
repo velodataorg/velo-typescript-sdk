@@ -9,6 +9,7 @@ import {
   VeloError,
   type Channel,
   type ChannelFrame,
+  type ChannelFrameError,
   type ChannelMessage,
   type RawChannel,
 } from "../../../index.ts";
@@ -24,7 +25,11 @@ import {
   type WebSocketTarget,
 } from "../../../transport/websocket.ts";
 import { decodeChannelFrame } from "./decode.ts";
-import { ChannelsWatcherController, MAX_CHANNELS_PER_SOCKET } from "./watcher.ts";
+import {
+  ChannelsWatcherController,
+  MAX_CHANNELS_PER_SOCKET,
+  MAX_CONSECUTIVE_DECODE_FAILURES,
+} from "./watcher.ts";
 
 const PRICE = "realtime_binance-futures:BTCUSDT";
 const OI = "realtime_BTC#open_interest#Coins#Aggregated";
@@ -259,13 +264,14 @@ describe("raw channel subscriptions", () => {
       throw new Error("invalid payload");
     },
     () => Promise.reject(new Error("mistaken async decoder")),
-  ])("surfaces decoder failures without emitting data or leaving a socket open", async (decode) => {
+  ])("reports a decoder failure for its frame alone and keeps the socket open", async (decode) => {
     const { client, sockets } = harness();
     const data = vi.fn();
     const error = vi.fn();
+    const frameError = vi.fn();
     const pending = client.watch(channels.feed([{ kind: "test", name: PRICE, decode }]), {
       reconnect: false,
-      on: { data, error },
+      on: { data, error, frameError },
     });
     await flushConnection();
     sockets[0]!.open();
@@ -273,11 +279,131 @@ describe("raw channel subscriptions", () => {
     sockets[0]!.message(JSON.stringify(message()));
     await flushConnection();
     expect(data).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+    expect(frameError).toHaveBeenCalledExactlyOnceWith({
+      channel: PRICE,
+      error: expect.objectContaining({ message: `failed to decode channel ${PRICE}` }),
+      frame: message(),
+    });
+    expect((frameError.mock.calls[0]![0] as ChannelFrameError).error.cause).toBeInstanceOf(Error);
+    expect(watcher.state).toBe("open");
+    expect(sockets[0]!.readyState).toBe(1);
+    watcher.close();
+  });
+
+  it("reports a failing channel once, stays quiet, and recovers on a good frame", async () => {
+    const { client, sockets } = harness();
+    /* Decodes numbers and refuses anything else, so a test picks each frame's outcome. */
+    const strict = {
+      kind: "strict" as const,
+      name: PRICE,
+      decode: (frame: ChannelFrame): number => {
+        if (typeof frame.d !== "number") throw new Error("not a number");
+        return frame.d;
+      },
+    };
+    const seen: string[] = [];
+    const channelErrors = vi.fn();
+    const pending = client.watch(channels.feed([strict, channel.raw(OI)]), {
+      reconnect: false,
+      on: (event) => {
+        seen.push(event.type === "data" ? `data:${event.event.channel}` : event.type);
+        if (event.type === "channelError") channelErrors(event.event);
+      },
+    });
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+    const send = (c: string, d: unknown) => sockets[0]!.message(JSON.stringify(message(c, d)));
+    const bad = () => send(PRICE, "bad");
+    const take = () => seen.splice(0);
+
+    /* Below the limit every failure is reported, and a good frame clears the count. */
+    bad();
+    bad();
+    send(PRICE, 1);
+    expect(take()).toEqual(["frameError", "frameError", `data:${PRICE}`]);
+
+    /* So the run starts over: the limit is reached on the third failure, not the first. */
+    bad();
+    bad();
+    expect(channelErrors).not.toHaveBeenCalled();
+    bad();
+    expect(take()).toEqual(["frameError", "frameError", "frameError", "channelError"]);
+    expect(channelErrors).toHaveBeenCalledExactlyOnceWith({
+      channel: PRICE,
+      reason: "decode",
+      error: expect.objectContaining({ message: `failed to decode channel ${PRICE}` }),
+    });
+
+    /* Past the limit the channel is quiet, and its sibling never stopped delivering. */
+    for (let failure = 0; failure < MAX_CONSECUTIVE_DECODE_FAILURES * 2; failure++) bad();
+    send(OI, [1]);
+    expect(take()).toEqual([`data:${OI}`]);
+
+    /* The subscription was kept, so a readable frame is delivered and the channel is healthy. */
+    send(PRICE, 2);
+    bad();
+    expect(take()).toEqual([`data:${PRICE}`, "frameError"]);
+    expect(sockets[0]!.sent).toEqual([`s2 ${PRICE}`, `s2 ${OI}`]);
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("starts every channel's failure count over on a reconnect", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const frameError = vi.fn();
+    const channelError = vi.fn();
+    const refusing = {
+      kind: "refusing",
+      name: PRICE,
+      decode: (): never => {
+        throw new Error("refused");
+      },
+    };
+    const pending = client.watch(channels.feed([refusing]), {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+      on: { frameError, channelError },
+    });
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+    for (let failure = 0; failure < MAX_CONSECUTIVE_DECODE_FAILURES + 2; failure++) {
+      sockets[0]!.message(JSON.stringify(message()));
+    }
+    expect(frameError).toHaveBeenCalledTimes(MAX_CONSECUTIVE_DECODE_FAILURES);
+    expect(channelError).toHaveBeenCalledTimes(1);
+
+    sockets[0]!.remoteClose();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[1]!.open();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(watcher.state).toBe("open");
+
+    sockets[1]!.message(JSON.stringify(message()));
+    expect(frameError).toHaveBeenCalledTimes(MAX_CONSECUTIVE_DECODE_FAILURES + 1);
+    expect(channelError).toHaveBeenCalledTimes(1);
+    watcher.close();
+  });
+
+  it("still fails the connection on a frame no channel can be blamed for", async () => {
+    const { client, sockets } = harness();
+    const error = vi.fn();
+    const frameError = vi.fn();
+    const pending = client.watch(channels.feed(rawChannels(PRICE)), {
+      reconnect: false,
+      on: { error, frameError },
+    });
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+    sockets[0]!.message("{broken");
+    expect(frameError).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: `failed to decode channel ${PRICE}` }),
+      expect.objectContaining({ message: expect.stringMatching(/JSON/) }),
     );
     expect(watcher.state).toBe("disconnected");
-    expect(sockets[0]!.readyState).toBe(3);
     watcher.close();
   });
 

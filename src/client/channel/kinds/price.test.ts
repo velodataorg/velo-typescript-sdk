@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { channel, channels, Velo, VeloError } from "../../../index.ts";
+import type { ChannelFrameError } from "../../../index.ts";
 import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
 import type { FutureProduct } from "../../api/catalog/futures.ts";
 import type { Row } from "../../data/row.ts";
@@ -138,7 +139,7 @@ describe("channel.price", () => {
     );
   });
 
-  it("fails the connection on a malformed frame and keeps the reason", async () => {
+  it("skips a malformed frame, keeps its reason, and goes on delivering", async () => {
     const sockets: FakeSocket[] = [];
     const client = new Velo({
       apiKey: "key",
@@ -148,19 +149,29 @@ describe("channel.price", () => {
         return socket;
       },
     });
-    const errors = vi.fn();
+    const frameErrors = vi.fn();
+    const closePrices: number[] = [];
     const pending = client.watch(channels.feed([channel.price(BTC)]), {
       reconnect: false,
-      on: { error: errors },
+      on: {
+        frameError: frameErrors,
+        data: (event) => closePrices.push(event.data.close_price ?? NaN),
+      },
     });
     await flushConnection();
     sockets[0]!.open();
     const watcher = await pending;
 
-    sockets[0]!.message(JSON.stringify({ c: NAME, d: [1, 2, 3], tt: 1 }));
+    const malformed = { c: NAME, d: [1, 2, 3], tt: 1 };
+    sockets[0]!.message(JSON.stringify(malformed));
+    sockets[0]!.message(JSON.stringify(LAST_OF_MINUTE));
 
-    expect(watcher.state).toBe("disconnected");
-    const error = errors.mock.calls[0]![0] as VeloError;
+    expect(watcher.state).toBe("open");
+    expect(closePrices).toEqual([76269.7]);
+    expect(frameErrors).toHaveBeenCalledTimes(1);
+    const { channel: name, error, frame } = frameErrors.mock.calls[0]![0] as ChannelFrameError;
+    expect(name).toBe(NAME);
+    expect(frame).toEqual(malformed);
     expect(error.message).toBe(`failed to decode channel ${NAME}`);
     expect((error.cause as Error).message).toMatch(/unexpected realtime_binance-futures:BTCUSDT/);
     watcher.close();

@@ -3,7 +3,7 @@ import { WebSocketSession } from "../../../transport/session.ts";
 import { abnormalCloseEvent } from "../../../transport/websocket.ts";
 import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
 import { assert } from "../../../util/assert.ts";
-import type { Channel, ChannelMessage } from "../../channel/channel.ts";
+import type { Channel, ChannelFrame, ChannelMessage } from "../../channel/channel.ts";
 import { channelEndpoint } from "../../channel/name.ts";
 import type { ChannelEndpoint } from "../../channel/name.ts";
 import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
@@ -23,9 +23,38 @@ export type ChannelsWatchOptions = WatcherOptions;
 /* The server terminates a socket on its eleventh subscription. */
 export const MAX_CHANNELS_PER_SOCKET = 10;
 
+/*
+ * How many frames in a row a channel may fail to decode before it is reported
+ * as a whole. The count is reversible, so it only decides when the per-frame
+ * reports stop: the first frame that decodes clears it.
+ */
+export const MAX_CONSECUTIVE_DECODE_FAILURES = 3;
+
+/* One frame a channel's decoder refused. The frame is skipped and the channel continues. */
+export interface ChannelFrameError {
+  readonly channel: string;
+  /* Its `cause` is the decoder's own error, such as the schema mismatch. */
+  readonly error: VeloError;
+  readonly frame: ChannelFrame;
+}
+
 export interface ChannelsWatcherEvents<C extends Channel = Channel> {
   readonly data: ChannelMessage<C>;
-  /** A server rejection or unsolicited unsubscription; other channels continue. */
+  /**
+   * A frame that could not be decoded.
+   *
+   * Reported for each failure until a channel reaches
+   * {@link MAX_CONSECUTIVE_DECODE_FAILURES} in a row, then not again until the
+   * channel has recovered.
+   */
+  readonly frameError: ChannelFrameError;
+  /**
+   * A channel that stopped delivering; other channels continue.
+   *
+   * Either the server rejected or dropped it, or its frames kept failing to
+   * decode. The second kind keeps its subscription and resumes `data` by
+   * itself once a frame decodes.
+   */
   readonly channelError: ChannelError;
   readonly error: VeloError;
   readonly close: WebSocketCloseEvent;
@@ -61,9 +90,15 @@ interface ChannelGroup {
  *
  * Nothing published while disconnected is replayed, and a reconnect
  * resubscribes the original set, including channels the server rejected.
+ *
+ * A frame its channel cannot decode costs that frame alone: it is reported
+ * and skipped, and neither the socket nor the other channels are affected.
+ * Only a frame that cannot be attributed to a channel fails the connection.
  */
 export class ChannelsWatcherController implements ChannelsWatcher {
   readonly #active = new Set<string>();
+  /* Consecutive decode failures per channel; absent means the last frame decoded. */
+  readonly #strikes = new Map<string, number>();
   readonly #connectTimeout: number;
   readonly #channels = new Map<string, Channel>();
   readonly #groups: readonly ChannelGroup[];
@@ -255,12 +290,10 @@ export class ChannelsWatcherController implements ChannelsWatcher {
         throw new VeloError("channel decoders must return synchronously");
       }
     } catch (cause) {
-      this.#lifecycle.fail(
-        new VeloError(`failed to decode channel ${channel}`, { cause }),
-        abnormalCloseEvent(),
-      );
+      this.#strike(channel, incoming.frame, cause);
       return;
     }
+    this.#strikes.delete(channel);
     this.#lifecycle.emitter.emit("data", {
       kind: entry.kind,
       channel,
@@ -295,6 +328,36 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     }
     this.#sessions.clear();
     this.#active.clear();
+    this.#strikes.clear();
+  }
+
+  /**
+   * Records one frame a channel could not decode.
+   *
+   * @remarks
+   * The frame is skipped and the subscription kept, so the frames that keep
+   * arriving are what shows the channel has recovered. Unsubscribing instead
+   * would last until the next reconnect, and the server terminates a socket
+   * that unsubscribes its last channel, which would reconnect the whole feed.
+   *
+   * Every failure is reported until the limit. Reaching it reports the
+   * channel once, and further failures stay quiet until a frame decodes.
+   *
+   * @param channel - The channel the frame belongs to.
+   * @param frame - The frame that could not be decoded.
+   * @param cause - What the decoder threw.
+   */
+  #strike(channel: string, frame: ChannelFrame, cause: unknown): void {
+    const strikes = (this.#strikes.get(channel) ?? 0) + 1;
+    if (strikes > MAX_CONSECUTIVE_DECODE_FAILURES) return;
+    this.#strikes.set(channel, strikes);
+
+    const error = new VeloError(`failed to decode channel ${channel}`, { cause });
+    this.#lifecycle.emitter.emit("frameError", { channel, error, frame });
+    /* A frameError listener may have ended the connection, which clears the active set. */
+    if (strikes === MAX_CONSECUTIVE_DECODE_FAILURES && this.#active.has(channel)) {
+      this.#lifecycle.emitter.emit("channelError", { channel, reason: "decode", error });
+    }
   }
 }
 

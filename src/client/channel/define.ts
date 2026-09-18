@@ -15,7 +15,7 @@ interface ProductDefinition<Kind extends string, X extends Exchange, Frame, Data
   readonly exchanges: readonly X[];
   /* Appended to the product's name to select the indicator. Omitted for price. */
   readonly suffix?: string;
-  /* What the server sends for this kind; a frame that fails it fails the connection. */
+  /* What the server sends for this kind; a frame that fails it is reported and skipped. */
   readonly schema: z.ZodType<Frame>;
   /** Shapes one validated frame into what listeners receive. */
   readonly decode: (frame: Frame, product: Product<X>) => Data;
