@@ -3,7 +3,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import { VeloError } from "../../../errors.ts";
 import type { Row } from "../../data/row.ts";
 import type { Channel } from "../channel.ts";
-import { aggregatedChannel, singleChannel } from "./build.ts";
+import { aggregatedChannel, buildChannel, singleChannel } from "./build.ts";
 import type { ChannelFor } from "./build.ts";
 import type { ExchangeEntry } from "./decode.ts";
 import type { Coin } from "./target.ts";
@@ -66,6 +66,28 @@ describe("aggregatedChannel", () => {
     expect(() => aggregatedChannel("BTC", EXCHANGES, { ...PREMIUM, suffix: "premium" })).toThrow(
       VeloError,
     );
+  });
+});
+
+describe("buildChannel", () => {
+  it("builds the single channel for a parsed product and the aggregated one for a parsed coin", () => {
+    const single = buildChannel({ scope: "single", product: BTC }, EXCHANGES, PREMIUM);
+    const aggregated = buildChannel({ scope: "aggregated", coin: "BTC" }, EXCHANGES, PREMIUM);
+
+    expect([single.kind, single.name]).toEqual(["premium", "realtime_bybit:BTCUSDT#premium"]);
+    expect([aggregated.kind, aggregated.name]).toEqual([
+      "aggregated_premium",
+      "realtime_BTC#premium#Aggregated",
+    ]);
+    /* The exchanges reach the aggregated decoder, which skips one it does not list. */
+    expect(
+      aggregated.decode({ c: "any", d: { realtime_deribit: 0.5, "realtime_added-later": 9 } }),
+    ).toEqual([{ exchange: "deribit", coin: "BTC", premium: 0.5 }]);
+  });
+
+  it("returns a plain channel, leaving its type to the indicator that knows its target", () => {
+    const built = buildChannel({ scope: "single", product: BTC }, EXCHANGES, PREMIUM);
+    expectTypeOf(built).toEqualTypeOf<Channel>();
   });
 });
 

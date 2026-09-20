@@ -1,7 +1,6 @@
 import { FUTURES_EXCHANGES } from "../../market/exchanges.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
-import type { Channel } from "../channel.ts";
-import { aggregatedChannel, singleChannel } from "../helpers/build.ts";
+import { buildChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
@@ -78,11 +77,7 @@ export function openInterest<
   const { metric } = parseOptions(BUILDER, options, OPTIONS);
   const parsed = parseTarget(BUILDER, FUTURES_EXCHANGES, target);
 
-  const definition = METRICS[metric];
-  const channel: Channel =
-    parsed.scope === "single"
-      ? singleChannel(parsed.product, definition)
-      : aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, definition);
-  /* Which branch ran follows T and M, which the compiler cannot see from here. */
+  const channel = buildChannel(parsed, FUTURES_EXCHANGES, METRICS[metric]);
+  /* Which channel it is follows T and M, which the compiler cannot see from here. */
   return channel as ChannelFor<T, FuturesExchange, Metrics[M]>;
 }

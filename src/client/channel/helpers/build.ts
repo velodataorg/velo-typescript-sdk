@@ -4,6 +4,7 @@ import type { Channel } from "../channel.ts";
 import { aggregatedDecoder, singleDecoder } from "./decode.ts";
 import type { ColumnNames, ColumnOf, ExchangeEntry } from "./decode.ts";
 import { renderAggregatedName, renderSingleName } from "./render.ts";
+import type { ParsedTarget } from "./target.ts";
 
 /*
  * The two channels an indicator can be followed as, and the one place each is
@@ -40,6 +41,27 @@ export type AggregatedChannel<
 /* The channel a target gets: single for a product, aggregated for a coin. */
 export type ChannelFor<T, X extends string, D extends ChannelDefinition> =
   T extends Product<X> ? SingleChannel<X, D> : AggregatedChannel<X, D>;
+
+/**
+ * Builds the channel a parsed target gets: single for a product, aggregated
+ * for a coin.
+ *
+ * @param target - The target, as `parseTarget` returned it.
+ * @param exchanges - The exchanges that publish the indicator.
+ * @param definition - The channel to follow it on.
+ * @returns The frozen channel. Which one it is follows the caller's target,
+ * so the indicator that knows its type says so.
+ * @throws A VeloError when the name cannot be rendered.
+ */
+export function buildChannel<X extends string>(
+  target: ParsedTarget<X>,
+  exchanges: readonly X[],
+  definition: ChannelDefinition,
+): Channel {
+  return target.scope === "single"
+    ? singleChannel(target.product, definition)
+    : aggregatedChannel(target.coin, exchanges, definition);
+}
 
 /**
  * Builds a single channel: one product on one exchange.

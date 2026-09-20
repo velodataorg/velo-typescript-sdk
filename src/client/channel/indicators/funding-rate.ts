@@ -1,8 +1,7 @@
 import { assert } from "../../../util/assert.ts";
 import { FUTURES_EXCHANGES } from "../../market/exchanges.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
-import type { Channel } from "../channel.ts";
-import { aggregatedChannel, singleChannel } from "../helpers/build.ts";
+import { buildChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { flag, option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
@@ -109,10 +108,7 @@ export function fundingRate<
     () => `${BUILDER}() weights only the rate of a coin, such as { coin: "BTC" }`,
   );
 
-  const channel: Channel =
-    parsed.scope === "single"
-      ? singleChannel(parsed.product, definition)
-      : aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, weighted ? WEIGHTED_RATE : definition);
-  /* Which branch ran follows T, M, and W, which the compiler cannot see from here. */
+  const channel = buildChannel(parsed, FUTURES_EXCHANGES, weighted ? WEIGHTED_RATE : definition);
+  /* Which channel it is follows T, M, and W, which the compiler cannot see from here. */
   return channel as ChannelFor<T, FuturesExchange, Selected<M, W>>;
 }
