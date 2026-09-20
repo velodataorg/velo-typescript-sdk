@@ -5,42 +5,42 @@ import { validateChannelName } from "../name.ts";
 /**
  * Channel strings: how a channel is spelled to the server.
  *
- * A name is made of words, and this file is the only place words become a
- * string:
+ * This file is the only place a name is put together:
  *
- *     name   := "realtime_" target ("#" word)* ("#Aggregated")?
+ *     name   := "realtime_" target suffix ("#Aggregated")?
  *     target := exchange ":" product | coin
  *
- * The words select what is published about the target, such as
- * `open_interest` then `Coins`; price has none. `#Aggregated` is not a word
- * of any indicator. It is how following a coin is spelled, as
- * `<exchange>:<product>` is how following a product is: the server ends every
- * channel that spans exchanges with it, and no other.
+ * The suffix says what is published about the target, such as
+ * `#open_interest#Coins`; price has none. It is written as the server's own
+ * list has it, so a definition can be checked against that list by eye.
+ * `#Aggregated` is no part of any definition's suffix. It is how following a
+ * coin is spelled, as `<exchange>:<product>` is how following a product is:
+ * the server ends every channel that spans exchanges with it, and no other.
  */
 
 const REALTIME_PREFIX = "realtime_";
-const WORD_SEPARATOR = "#";
-const AGGREGATED = "Aggregated";
+const SUFFIX_SEPARATOR = "#";
+const AGGREGATED_SUFFIX = "#Aggregated";
 
 /**
  * Renders the name of a single channel: one product on one exchange.
  *
  * @param product - The exchange identifier and its own symbol, as the
  * catalog returns them; no symbol is translated.
- * @param words - The indicator's words, in order.
+ * @param suffix - The definition's suffix, as the server lists it.
  * @returns The validated channel string.
- * @throws A VeloError when a part is empty, a word contains the separator,
- * or the result is not a valid channel name.
+ * @throws A VeloError when a part is empty, the suffix is not one, or the
+ * result is not a valid channel name.
  */
 export function renderSingleName(
   product: { readonly exchange: string; readonly product: string },
-  words: readonly string[],
+  suffix: string,
 ): string {
   assert(
     isNonEmptyString(product.exchange) && isNonEmptyString(product.product),
     "a single channel's name needs a non-empty exchange and product",
   );
-  return render(`${product.exchange}:${product.product}`, words);
+  return render(`${product.exchange}:${product.product}`, suffix);
 }
 
 /**
@@ -48,14 +48,15 @@ export function renderSingleName(
  *
  * @param coin - The Velo coin symbol, as the catalog returns it. Symbols are
  * not limited to ASCII.
- * @param words - The indicator's words, in order.
+ * @param suffix - The definition's suffix, as the server lists it for the
+ * single channel.
  * @returns The validated channel string, ending in the aggregated marker.
- * @throws A VeloError when a part is empty, a word contains the separator,
- * or the result is not a valid channel name.
+ * @throws A VeloError when the coin is empty, the suffix is not one, or the
+ * result is not a valid channel name.
  */
-export function renderAggregatedName(coin: string, words: readonly string[]): string {
+export function renderAggregatedName(coin: string, suffix: string): string {
   assert(isNonEmptyString(coin), "an aggregated channel's name needs a non-empty coin");
-  return render(coin, [...words, AGGREGATED]);
+  return render(coin, suffix, AGGREGATED_SUFFIX);
 }
 
 /**
@@ -73,23 +74,22 @@ export function entryExchange(key: string): string {
 }
 
 /**
- * Joins a target and its words into a channel string.
+ * Joins a target, a suffix, and a marker into a channel string.
  *
  * @param target - The target, already spelled.
- * @param words - Every word that follows it.
+ * @param suffix - The definition's suffix.
+ * @param marker - What the kind of target adds after it, if anything.
  * @returns The validated channel string.
- * @throws A VeloError when a word is unusable or the result is not a valid
- * channel name.
+ * @throws A VeloError when the suffix is neither empty nor led by the
+ * separator, or the result is not a valid channel name.
  */
-function render(target: string, words: readonly string[]): string {
-  for (const word of words) {
-    assert(
-      isNonEmptyString(word) && !word.includes(WORD_SEPARATOR),
-      () =>
-        `a channel name word must be non-empty and free of ${WORD_SEPARATOR} (got ${JSON.stringify(word)})`,
-    );
-  }
-  const name = [REALTIME_PREFIX + target, ...words].join(WORD_SEPARATOR);
+function render(target: string, suffix: string, marker = ""): string {
+  assert(
+    typeof suffix === "string" && (suffix === "" || suffix.startsWith(SUFFIX_SEPARATOR)),
+    () =>
+      `a channel name suffix must be empty or start with ${SUFFIX_SEPARATOR} (got ${JSON.stringify(suffix)})`,
+  );
+  const name = REALTIME_PREFIX + target + suffix + marker;
   validateChannelName(name);
   return name;
 }

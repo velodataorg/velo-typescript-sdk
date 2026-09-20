@@ -1,10 +1,8 @@
-import type { z } from "zod";
-
 import type { Row } from "../../data/row.ts";
 import type { Product } from "../../market/product.ts";
 import type { Channel } from "../channel.ts";
 import { aggregatedDecoder, singleDecoder } from "./decode.ts";
-import type { Columns, ExchangeEntry } from "./decode.ts";
+import type { ColumnNames, ColumnOf, ExchangeEntry } from "./decode.ts";
 import { renderAggregatedName, renderSingleName } from "./render.ts";
 
 /*
@@ -26,32 +24,26 @@ export type AggregatedChannel<X extends string, Kind extends string, C extends s
 >;
 
 /*
- * Everything about one channel the server publishes except what it follows:
- * the words of its name, its kind, one payload as the server sends it, and
- * the history columns a payload fills.
+ * Everything about one channel the server publishes except what it follows.
  */
-export interface ChannelDefinition<
-  Payload,
-  Kind extends string = string,
-  C extends Columns = Columns,
-> {
-  readonly words: readonly string[];
-  readonly kind: Kind;
-  readonly payload: z.ZodType<Payload>;
-  readonly columns: (payload: Payload) => C;
-}
-
-/* The least a definition is, whatever its payload. */
-interface AnyDefinition {
+export interface ChannelDefinition {
+  /* What the server's list calls it, verbatim, such as `#open_interest#Coins`; empty for price. */
+  readonly suffix: string;
+  /* What a listener narrows `data` on. The SDK's own name for the channel. */
   readonly kind: string;
-  readonly columns: (payload: never) => Columns;
+  /* The history columns a payload fills, by position. */
+  readonly columns: ColumnNames;
 }
 
 /* The channel a target gets for a definition: single for a product, aggregated for a coin. */
-export type ChannelFor<T, X extends string, D extends AnyDefinition> = D extends AnyDefinition
+export type ChannelFor<
+  T,
+  X extends string,
+  D extends ChannelDefinition,
+> = D extends ChannelDefinition
   ? T extends Product<X>
-    ? SingleChannel<X, D["kind"], keyof ReturnType<D["columns"]> & string>
-    : AggregatedChannel<X, D["kind"], keyof ReturnType<D["columns"]> & string>
+    ? SingleChannel<X, D["kind"], ColumnOf<D["columns"]>>
+    : AggregatedChannel<X, D["kind"], ColumnOf<D["columns"]>>
   : never;
 
 /**
@@ -62,18 +54,15 @@ export type ChannelFor<T, X extends string, D extends AnyDefinition> = D extends
  * @returns The frozen channel.
  * @throws A VeloError when the name cannot be rendered.
  */
-export function singleChannel<
-  X extends string,
-  Payload,
-  const Kind extends string,
-  C extends Columns,
->(
+export function singleChannel<X extends string, const D extends ChannelDefinition>(
   product: Product<X>,
-  definition: ChannelDefinition<Payload, Kind, C>,
-): SingleChannel<X, Kind, keyof C & string> {
-  const { words, kind, payload, columns } = definition;
-  const name = renderSingleName(product, words);
-  return Object.freeze({ kind, name, decode: singleDecoder(name, product, payload, columns) });
+  definition: D,
+): SingleChannel<X, D["kind"], ColumnOf<D["columns"]>> {
+  const { suffix, kind, columns }: ChannelDefinition = definition;
+  const name = renderSingleName(product, suffix);
+  const built = Object.freeze({ kind, name, decode: singleDecoder(name, product, columns) });
+  /* The kind and the columns are the definition's, which its literal type says and the value cannot. */
+  return built as SingleChannel<X, D["kind"], ColumnOf<D["columns"]>>;
 }
 
 /**
@@ -86,21 +75,18 @@ export function singleChannel<
  * @returns The frozen channel, its kind prefixed `aggregated_`.
  * @throws A VeloError when the name cannot be rendered.
  */
-export function aggregatedChannel<
-  X extends string,
-  Payload,
-  const Kind extends string,
-  C extends Columns,
->(
+export function aggregatedChannel<X extends string, const D extends ChannelDefinition>(
   coin: string,
   exchanges: readonly X[],
-  definition: ChannelDefinition<Payload, Kind, C>,
-): AggregatedChannel<X, Kind, keyof C & string> {
-  const { words, kind, payload, columns } = definition;
-  const name = renderAggregatedName(coin, words);
-  return Object.freeze({
-    kind: `aggregated_${kind}` as const,
+  definition: D,
+): AggregatedChannel<X, D["kind"], ColumnOf<D["columns"]>> {
+  const { suffix, kind, columns }: ChannelDefinition = definition;
+  const name = renderAggregatedName(coin, suffix);
+  const built = Object.freeze({
+    kind: `aggregated_${kind}`,
     name,
-    decode: aggregatedDecoder(name, exchanges, coin, payload, columns),
+    decode: aggregatedDecoder(name, exchanges, coin, columns),
   });
+  /* The kind and the columns are the definition's, which its literal type says and the value cannot. */
+  return built as AggregatedChannel<X, D["kind"], ColumnOf<D["columns"]>>;
 }

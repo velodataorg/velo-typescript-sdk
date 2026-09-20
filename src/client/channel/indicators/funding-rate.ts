@@ -1,8 +1,7 @@
-import { z } from "zod";
-
 import { assert } from "../../../util/assert.ts";
 import { FUTURES_EXCHANGES } from "../../market/exchanges.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
+import type { Channel } from "../channel.ts";
 import { aggregatedChannel, singleChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { flag, option, parseOptions } from "../helpers/options.ts";
@@ -11,60 +10,41 @@ import type { Coin, Target } from "../helpers/target.ts";
 
 const BUILDER = "channel.fundingRate";
 
-/* Every measure sends its current value, bare. */
-const value = z.number();
-/* A weighted rate arrives beside its weight: the rate, then the exchange's open interest in coins. */
-const weightedValue = z.tuple([z.number(), z.number()]);
-
-/* A measure, and whether the server also publishes it weighted. */
-interface MeasureDefinition extends ChannelDefinition<number> {
-  readonly weightable: boolean;
-}
-
 /*
- * The three measures are different kinds of channel because they fill
- * different columns; a listener narrows `data` on `kind`. History has the
- * rate's column and none for what is spent, so those two are named here, in
- * the manner of the history columns measured in coins and in dollars.
+ * Every measure sends its current value, bare. The three are different kinds
+ * of channel because they fill different columns; a listener narrows `data`
+ * on `kind`. History has the rate's column and none for what is spent, so
+ * those two are named here, in the manner of the history columns measured in
+ * coins and in dollars.
  */
 const MEASURES = {
   /* The server words it `Rate (%)` and sends a fraction, as history does: 0.0001 is 0.01%. */
   rate: {
-    words: ["funding_rate", "Rate (%)"],
+    suffix: "#funding_rate#Rate (%)",
     kind: "funding_rate",
-    payload: value,
-    weightable: true,
-    columns: (rate: number) => ({ funding_rate: rate }),
+    columns: "funding_rate",
   },
   coins: {
-    words: ["funding_rate", "Total Spend Rate (Coins)"],
+    suffix: "#funding_rate#Total Spend Rate (Coins)",
     kind: "funding_spend_rate_coins",
-    payload: value,
-    weightable: false,
-    columns: (spend: number) => ({ coin_funding_spend_rate: spend }),
+    columns: "coin_funding_spend_rate",
   },
   /* Sent again on every price change, so far more often than the other two. */
   dollars: {
-    words: ["funding_rate", "Total Spend Rate ($)"],
+    suffix: "#funding_rate#Total Spend Rate ($)",
     kind: "funding_spend_rate_dollars",
-    payload: value,
-    weightable: false,
-    columns: (spend: number) => ({ dollar_funding_spend_rate: spend }),
+    columns: "dollar_funding_spend_rate",
   },
-} as const satisfies Readonly<Record<string, MeasureDefinition>>;
+} as const satisfies Readonly<Record<string, ChannelDefinition>>;
 
 type Measures = typeof MEASURES;
 
-/* The one channel whose payload differs: a coin's rate, beside the open interest that weights it. */
+/* The one channel whose payload differs: a coin's rate, then the open interest that weights it. */
 const WEIGHTED_RATE = {
-  words: ["funding_rate", "Rate (%)", "weighted"],
+  suffix: "#funding_rate#Rate (%)#weighted",
   kind: "funding_rate_weighted",
-  payload: weightedValue,
-  columns: ([rate, openInterest]: z.infer<typeof weightedValue>) => ({
-    ...MEASURES.rate.columns(rate),
-    coin_open_interest_close: openInterest,
-  }),
-} as const satisfies ChannelDefinition<z.infer<typeof weightedValue>>;
+  columns: ["funding_rate", "coin_open_interest_close"],
+} as const satisfies ChannelDefinition;
 
 const OPTIONS = { measure: option(MEASURES, "rate"), weighted: flag() };
 
@@ -114,26 +94,25 @@ export function fundingRate<
     /*
      * Sends each exchange's open interest beside its rate, to weight the rates
      * by. The server publishes this for a coin only, and only for the rate. A
-     * target that may be a product is refused too, so `T` is checked whole.
+     * target that may be a product, or a measure that may not be the rate, is
+     * refused too, so `T` and `M` are checked whole.
      */
-    readonly weighted?: W & ([T] extends [Coin] ? Measures[M]["weightable"] | false : false);
+    readonly weighted?: W & ([T] extends [Coin] ? ([M] extends ["rate"] ? boolean : false) : false);
   },
 ): ChannelFor<T, FuturesExchange, Selected<M, W>> {
   const { measure, weighted } = parseOptions(BUILDER, options, OPTIONS);
   const parsed = parseTarget(BUILDER, FUTURES_EXCHANGES, target);
 
-  const definition: MeasureDefinition = MEASURES[measure];
+  const definition = MEASURES[measure];
   assert(
-    !weighted || (parsed.scope === "aggregated" && definition.weightable),
+    !weighted || (parsed.scope === "aggregated" && measure === "rate"),
     () => `${BUILDER}() weights only the rate of a coin, such as { coin: "BTC" }`,
   );
 
-  const channel =
+  const channel: Channel =
     parsed.scope === "single"
       ? singleChannel(parsed.product, definition)
-      : weighted
-        ? aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, WEIGHTED_RATE)
-        : aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, definition);
+      : aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, weighted ? WEIGHTED_RATE : definition);
   /* Which branch ran follows T, M, and W, which the compiler cannot see from here. */
   return channel as ChannelFor<T, FuturesExchange, Selected<M, W>>;
 }

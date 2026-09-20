@@ -1,7 +1,6 @@
-import { z } from "zod";
-
 import { FUTURES_EXCHANGES } from "../../market/exchanges.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
+import type { Channel } from "../channel.ts";
 import { aggregatedChannel, singleChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { option, parseOptions } from "../helpers/options.ts";
@@ -10,38 +9,29 @@ import type { Target } from "../helpers/target.ts";
 
 const BUILDER = "channel.openInterest";
 
-/* Every metric sends the one-minute candle in progress: high, low, then close. */
-const candle = z.tuple([z.number(), z.number(), z.number()]);
-type Candle = z.infer<typeof candle>;
-
 /*
+ * Every metric sends the one-minute candle in progress: high, low, then close.
  * The two metrics are different kinds of channel because they fill different
  * columns; a listener narrows `data` on `kind`.
  */
 const METRICS = {
   /* A new frame arrives when the exchange reports a value, every one to a few seconds. */
   coins: {
-    words: ["open_interest", "Coins"],
+    suffix: "#open_interest#Coins",
     kind: "open_interest_coins",
-    payload: candle,
-    columns: ([high, low, close]: Candle) => ({
-      coin_open_interest_high: high,
-      coin_open_interest_low: low,
-      coin_open_interest_close: close,
-    }),
+    columns: ["coin_open_interest_high", "coin_open_interest_low", "coin_open_interest_close"],
   },
   /* The server recomputes close as coin close times last trade price on every price change. */
   dollars: {
-    words: ["open_interest", "Dollars"],
+    suffix: "#open_interest#Dollars",
     kind: "open_interest_dollars",
-    payload: candle,
-    columns: ([high, low, close]: Candle) => ({
-      dollar_open_interest_high: high,
-      dollar_open_interest_low: low,
-      dollar_open_interest_close: close,
-    }),
+    columns: [
+      "dollar_open_interest_high",
+      "dollar_open_interest_low",
+      "dollar_open_interest_close",
+    ],
   },
-} as const satisfies Readonly<Record<string, ChannelDefinition<Candle>>>;
+} as const satisfies Readonly<Record<string, ChannelDefinition>>;
 
 type Metrics = typeof METRICS;
 
@@ -88,8 +78,8 @@ export function openInterest<
   const { metric } = parseOptions(BUILDER, options, OPTIONS);
   const parsed = parseTarget(BUILDER, FUTURES_EXCHANGES, target);
 
-  const definition: ChannelDefinition<Candle> = METRICS[metric];
-  const channel =
+  const definition = METRICS[metric];
+  const channel: Channel =
     parsed.scope === "single"
       ? singleChannel(parsed.product, definition)
       : aggregatedChannel(parsed.coin, FUTURES_EXCHANGES, definition);

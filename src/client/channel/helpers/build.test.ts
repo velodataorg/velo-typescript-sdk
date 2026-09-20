@@ -1,5 +1,4 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { z } from "zod";
 
 import { VeloError } from "../../../errors.ts";
 import type { Row } from "../../data/row.ts";
@@ -11,16 +10,16 @@ import type { Coin } from "./target.ts";
 
 const BTC = { exchange: "bybit", coin: "BTC", product: "BTCUSDT" } as const;
 const EXCHANGES = ["bybit", "deribit"] as const;
-const premium = (value: number) => ({ premium: value });
+const PREMIUM = { suffix: "#premium", kind: "premium", columns: "premium" } as const;
+const WEIGHTED_PREMIUM = {
+  suffix: "#premium#weighted",
+  kind: "premium_weighted",
+  columns: ["premium", null, "coin_open_interest_close"],
+} as const;
 
 describe("singleChannel", () => {
   it("renders the name, keeps the kind, and decodes rows, frozen", () => {
-    const built = singleChannel(BTC, {
-      words: ["premium"],
-      kind: "premium",
-      payload: z.number(),
-      columns: premium,
-    });
+    const built = singleChannel(BTC, PREMIUM);
 
     expectTypeOf(built).toEqualTypeOf<Channel<"premium", Row<"bybit", "premium">>>();
     expect([built.kind, built.name]).toEqual(["premium", "realtime_bybit:BTCUSDT#premium"]);
@@ -36,12 +35,7 @@ describe("singleChannel", () => {
 
 describe("aggregatedChannel", () => {
   it("renders the aggregated name and prefixes the kind, in the type as in the value", () => {
-    const built = aggregatedChannel("BTC", EXCHANGES, {
-      words: ["premium"],
-      kind: "premium",
-      payload: z.number(),
-      columns: premium,
-    });
+    const built = aggregatedChannel("BTC", EXCHANGES, PREMIUM);
 
     expectTypeOf(built).toEqualTypeOf<
       Channel<"aggregated_premium", readonly ExchangeEntry<"bybit" | "deribit", "premium">[]>
@@ -56,48 +50,47 @@ describe("aggregatedChannel", () => {
     expect(Object.isFrozen(built)).toBe(true);
   });
 
+  it("takes a definition that may be either of two, in one call", () => {
+    const build = (weighted: boolean) =>
+      aggregatedChannel("BTC", EXCHANGES, weighted ? WEIGHTED_PREMIUM : PREMIUM);
+
+    expect(build(true).name).toBe("realtime_BTC#premium#weighted#Aggregated");
+    expect(build(true).decode({ c: "any", d: { realtime_bybit: [0.5, 9, 3] } })).toEqual([
+      { exchange: "bybit", coin: "BTC", premium: 0.5, coin_open_interest_close: 3 },
+    ]);
+    expect(build(false).name).toBe("realtime_BTC#premium#Aggregated");
+  });
+
   it("refuses a name that cannot be rendered", () => {
-    const definition = { kind: "premium", payload: z.number(), columns: premium };
-    expect(() => aggregatedChannel("", EXCHANGES, { ...definition, words: [] })).toThrow(VeloError);
-    expect(() => aggregatedChannel("BTC", EXCHANGES, { ...definition, words: ["a#b"] })).toThrow(
+    expect(() => aggregatedChannel("", EXCHANGES, PREMIUM)).toThrow(VeloError);
+    expect(() => aggregatedChannel("BTC", EXCHANGES, { ...PREMIUM, suffix: "premium" })).toThrow(
       VeloError,
     );
   });
 });
 
 describe("ChannelFor", () => {
-  const plain = {
-    words: ["premium"],
-    kind: "premium",
-    payload: z.number(),
-    columns: premium,
-  } as const;
-  const weighted = {
-    words: ["premium", "weighted"],
-    kind: "premium_weighted",
-    payload: z.tuple([z.number(), z.number()]),
-    columns: ([value, weight]: [number, number]) => ({ premium: value, weight }),
-  } as const;
-
   it("is the single channel for a product and the aggregated one for a coin", () => {
-    expectTypeOf<ChannelFor<typeof BTC, "bybit", typeof plain>>().toEqualTypeOf<
+    expectTypeOf<ChannelFor<typeof BTC, "bybit", typeof PREMIUM>>().toEqualTypeOf<
       Channel<"premium", Row<"bybit", "premium">>
     >();
-    expectTypeOf<ChannelFor<Coin, "bybit", typeof weighted>>().toEqualTypeOf<
+    expectTypeOf<ChannelFor<Coin, "bybit", typeof WEIGHTED_PREMIUM>>().toEqualTypeOf<
       Channel<
         "aggregated_premium_weighted",
-        readonly ExchangeEntry<"bybit", "premium" | "weight">[]
+        readonly ExchangeEntry<"bybit", "premium" | "coin_open_interest_close">[]
       >
     >();
   });
 
   it("keeps each definition's own columns when it may be either of two", () => {
     /* One channel per definition, never one channel with only the columns they share. */
-    expectTypeOf<ChannelFor<Coin, "bybit", typeof plain | typeof weighted>>().toEqualTypeOf<
+    expectTypeOf<
+      ChannelFor<Coin, "bybit", typeof PREMIUM | typeof WEIGHTED_PREMIUM>
+    >().toEqualTypeOf<
       | Channel<"aggregated_premium", readonly ExchangeEntry<"bybit", "premium">[]>
       | Channel<
           "aggregated_premium_weighted",
-          readonly ExchangeEntry<"bybit", "premium" | "weight">[]
+          readonly ExchangeEntry<"bybit", "premium" | "coin_open_interest_close">[]
         >
     >();
   });

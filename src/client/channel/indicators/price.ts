@@ -1,5 +1,3 @@
-import { z } from "zod";
-
 import { FUTURES_EXCHANGES, SPOT_EXCHANGES } from "../../market/exchanges.ts";
 import type { Product } from "../../market/product.ts";
 import { singleChannel } from "../helpers/build.ts";
@@ -10,22 +8,12 @@ const BUILDER = "channel.price";
 const EXCHANGES = [...FUTURES_EXCHANGES, ...SPOT_EXCHANGES];
 type PriceExchange = (typeof EXCHANGES)[number];
 
-/* The one-minute candle in progress: open, high, low, close, then coin and dollar volume. */
-const candle = z.tuple([z.number(), z.number(), z.number(), z.number(), z.number(), z.number()]);
-
+/* The one-minute candle in progress, both volumes cumulative within the minute. */
 const PRICE = {
-  words: [],
+  suffix: "",
   kind: "price",
-  payload: candle,
-  columns: ([open, high, low, close, coinVolume, dollarVolume]: z.infer<typeof candle>) => ({
-    open_price: open,
-    high_price: high,
-    low_price: low,
-    close_price: close,
-    coin_volume: coinVolume,
-    dollar_volume: dollarVolume,
-  }),
-} as const satisfies ChannelDefinition<z.infer<typeof candle>>;
+  columns: ["open_price", "high_price", "low_price", "close_price", "coin_volume", "dollar_volume"],
+} as const satisfies ChannelDefinition;
 
 /**
  * The live price of one product, futures or spot.

@@ -206,6 +206,13 @@ describe("channel.fundingRate", () => {
       "funding_rate" | "aggregated_funding_rate"
     >();
 
+    /* Likewise a measure that may not be the rate; this one is, so only the compiler objects. */
+    const measure = "rate" as "rate" | "coins";
+    // @ts-expect-error weighted needs a measure known to be the rate
+    expect(channel.fundingRate({ coin: "BTC" }, { measure, weighted: true }).kind).toBe(
+      "aggregated_funding_rate_weighted",
+    );
+
     /* Switching it off is always allowed. */
     expect(channel.fundingRate(BTC, { weighted: false }).kind).toBe("funding_rate");
     expect(channel.fundingRate({ coin: "BTC" }, { measure: "coins", weighted: false }).kind).toBe(
