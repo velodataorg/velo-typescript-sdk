@@ -7,6 +7,7 @@ import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
 import type { Channel } from "../channel.ts";
 import type { ExchangeEntry } from "../helpers/decode.ts";
+import type { Target } from "../helpers/target.ts";
 
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
 const RATE = "realtime_binance-futures:BTCUSDT#funding_rate#Rate (%)";
@@ -222,6 +223,14 @@ describe("channel.fundingRate", () => {
       // @ts-expect-error only the rate is weighted
       channel.fundingRate({ coin: "BTC" }, { measure: "dollars", weighted: true }),
     ).toThrow(refusal);
+
+    /* A target that may be a product is refused as a product is, not let through as a coin. */
+    const either = BTC as Target<FuturesExchange>;
+    // @ts-expect-error weighted needs a target known to be a coin
+    expect(() => channel.fundingRate(either, { weighted: true })).toThrow(refusal);
+    expectTypeOf(channel.fundingRate(either).kind).toEqualTypeOf<
+      "funding_rate" | "aggregated_funding_rate"
+    >();
 
     /* Switching it off is always allowed. */
     expect(channel.fundingRate(BTC, { weighted: false }).kind).toBe("funding_rate");

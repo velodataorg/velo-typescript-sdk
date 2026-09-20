@@ -113,9 +113,10 @@ export function fundingRate<
     readonly measure?: M;
     /*
      * Sends each exchange's open interest beside its rate, to weight the rates
-     * by. The server publishes this for a coin only, and only for the rate.
+     * by. The server publishes this for a coin only, and only for the rate. A
+     * target that may be a product is refused too, so `T` is checked whole.
      */
-    readonly weighted?: W & (T extends Coin ? Measures[M]["weightable"] | false : false);
+    readonly weighted?: W & ([T] extends [Coin] ? Measures[M]["weightable"] | false : false);
   },
 ): ChannelFor<T, FuturesExchange, Selected<M, W>> {
   const { measure, weighted } = parseOptions(BUILDER, options, OPTIONS);
