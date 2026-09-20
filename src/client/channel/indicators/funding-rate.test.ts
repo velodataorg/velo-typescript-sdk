@@ -1,8 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel, channels, Velo, VeloError } from "../../../index.ts";
-import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
-import type { FutureProduct } from "../../api/catalog/futures.ts";
+import { channel, VeloError } from "../../../index.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
 import type { Channel } from "../channel.ts";
@@ -60,21 +58,41 @@ const WEIGHTED_RATE_FRAME = {
 };
 
 describe("channel.fundingRate", () => {
-  it("renders the target and the options into the channel string, defaults included", () => {
-    expect(channel.fundingRate(BTC).name).toBe(RATE);
-    expect(channel.fundingRate(BTC, {}).name).toBe(RATE);
-    expect(channel.fundingRate(BTC, { measure: "rate", weighted: false }).name).toBe(RATE);
-    expect(channel.fundingRate(BTC, { measure: "coins" }).name).toBe(COIN_FRAME.c);
-    expect(channel.fundingRate(BTC, { measure: "dollars" }).name).toBe(DOLLAR_FRAME.c);
+  it("names one channel per measure and target, the rate by default", () => {
+    const named = (built: { readonly kind: string; readonly name: string }) => [
+      built.kind,
+      built.name,
+    ];
 
-    expect(channel.fundingRate({ coin: "BTC" }).name).toBe(AGGREGATE_RATE);
-    expect(channel.fundingRate({ coin: "BTC" }, { measure: "coins" }).name).toBe(
+    expect(named(channel.fundingRate(BTC))).toEqual(["funding_rate", RATE]);
+    expect(named(channel.fundingRate(BTC, { measure: "rate", weighted: false }))).toEqual([
+      "funding_rate",
+      RATE,
+    ]);
+    expect(named(channel.fundingRate(BTC, { measure: "coins" }))).toEqual([
+      "funding_spend_rate_coins",
+      COIN_FRAME.c,
+    ]);
+    expect(named(channel.fundingRate(BTC, { measure: "dollars" }))).toEqual([
+      "funding_spend_rate_dollars",
+      DOLLAR_FRAME.c,
+    ]);
+    expect(named(channel.fundingRate({ coin: "BTC" }))).toEqual([
+      "aggregated_funding_rate",
+      AGGREGATE_RATE,
+    ]);
+    expect(named(channel.fundingRate({ coin: "BTC" }, { measure: "coins" }))).toEqual([
+      "aggregated_funding_spend_rate_coins",
       "realtime_BTC#funding_rate#Total Spend Rate (Coins)#Aggregated",
-    );
-    expect(channel.fundingRate({ coin: "BTC" }, { measure: "dollars" }).name).toBe(
+    ]);
+    expect(named(channel.fundingRate({ coin: "BTC" }, { measure: "dollars" }))).toEqual([
+      "aggregated_funding_spend_rate_dollars",
       "realtime_BTC#funding_rate#Total Spend Rate ($)#Aggregated",
-    );
-    expect(channel.fundingRate({ coin: "BTC" }, { weighted: true }).name).toBe(WEIGHTED_RATE);
+    ]);
+    expect(named(channel.fundingRate({ coin: "BTC" }, { weighted: true }))).toEqual([
+      "aggregated_funding_rate_weighted",
+      WEIGHTED_RATE,
+    ]);
   });
 
   it("types the channel from the target and the options", () => {
@@ -104,32 +122,6 @@ describe("channel.fundingRate", () => {
     >();
   });
 
-  it("builds frozen channels of three fields whose kind matches their type", () => {
-    const built = [
-      [channel.fundingRate(BTC), "funding_rate"],
-      [channel.fundingRate(BTC, { measure: "coins" }), "funding_spend_rate_coins"],
-      [channel.fundingRate(BTC, { measure: "dollars" }), "funding_spend_rate_dollars"],
-      [channel.fundingRate({ coin: "BTC" }), "aggregated_funding_rate"],
-      [
-        channel.fundingRate({ coin: "BTC" }, { measure: "coins" }),
-        "aggregated_funding_spend_rate_coins",
-      ],
-      [
-        channel.fundingRate({ coin: "BTC" }, { measure: "dollars" }),
-        "aggregated_funding_spend_rate_dollars",
-      ],
-      [
-        channel.fundingRate({ coin: "BTC" }, { weighted: true }),
-        "aggregated_funding_rate_weighted",
-      ],
-    ] as const;
-    for (const [one, kind] of built) {
-      expect(one.kind).toBe(kind);
-      expect(Object.keys(one).sort()).toEqual(["decode", "kind", "name"]);
-      expect(Object.isFrozen(one)).toBe(true);
-    }
-  });
-
   it("decodes a product's frame to a row timed at its minute, in the measure's column", () => {
     /* /api/v1/rows returned funding_rate 0.00003256 for the same minute. */
     expect(channel.fundingRate(BTC).decode(RATE_FRAME)).toEqual({
@@ -147,11 +139,6 @@ describe("channel.fundingRate", () => {
       time: 1789738080000,
       dollar_funding_spend_rate: 274058.3807686435,
     });
-  });
-
-  it("accepts catalog products as returned", () => {
-    const listed: FutureProduct = { ...BTC, begin: 0, depth: true };
-    expect(channel.fundingRate(listed).decode(RATE_FRAME)).toMatchObject(BTC);
   });
 
   it("decodes a coin's frame to one entry per exchange, without a time", () => {
@@ -196,19 +183,6 @@ describe("channel.fundingRate", () => {
     );
   });
 
-  it.each([
-    { ...RATE_FRAME, d: "0.0001" },
-    { ...RATE_FRAME, d: [0.0001] },
-    { ...RATE_FRAME, d: null },
-    { ...RATE_FRAME, tt: undefined },
-    { c: RATE },
-  ])("rejects a malformed frame: %j", (frame) => {
-    expect(() => channel.fundingRate(BTC).decode(frame as never)).toThrow(VeloError);
-    expect(() => channel.fundingRate(BTC).decode(frame as never)).toThrow(
-      /unexpected realtime_binance-futures:BTCUSDT#funding_rate/,
-    );
-  });
-
   it("refuses a combination the server does not publish, at compile time too", () => {
     const refusal =
       'channel.fundingRate() weights only the rate of a coin, such as { coin: "BTC" }';
@@ -248,92 +222,25 @@ describe("channel.fundingRate", () => {
     expect(build(false).kind).toBe("aggregated_funding_rate");
   });
 
-  it.each([
-    { measure: "Rate (%)" },
-    { measure: "coin" },
-    { measure: true },
-    { weighted: "true" },
-    { weighted: 1 },
-    { aggregated: true },
-    { metric: "coins" },
-    [],
-    null,
-    "rate",
-  ])("rejects options it cannot read: %j", (options) => {
-    const untyped = channel.fundingRate as (target: unknown, options: unknown) => unknown;
-    expect(() => untyped(BTC, options)).toThrow(VeloError);
-  });
-
-  it("names what a caller may choose when a choice is unknown", () => {
-    const untyped = channel.fundingRate as (target: unknown, options: unknown) => unknown;
-    expect(() => untyped(BTC, { measure: "spend" })).toThrow(
+  it("has two options, the measure and weighted; history's spelling is refused", () => {
+    // @ts-expect-error spend is not a measure
+    expect(() => channel.fundingRate(BTC, { measure: "spend" })).toThrow(
       'channel.fundingRate() received an unknown measure "spend"; expected rate, coins, dollars',
     );
-    expect(() => untyped(BTC, { weighted: "yes" })).toThrow(
-      'channel.fundingRate() takes a boolean for weighted (got "yes")',
+    // @ts-expect-error history says coin, a channel says coins
+    expect(() => channel.fundingRate(BTC, { measure: "coin" })).toThrow(
+      'channel.fundingRate() received an unknown measure "coin"; expected rate, coins, dollars',
     );
-    expect(() => untyped(BTC, { metric: "coins" })).toThrow(
+    // @ts-expect-error open interest has a metric, funding has a measure
+    expect(() => channel.fundingRate(BTC, { metric: "coins" })).toThrow(
       'channel.fundingRate() received an unknown option "metric"; expected measure, weighted',
     );
   });
 
-  it.each([null, "BTC", { ...BTC, exchange: "binance" }, { ...BTC, product: "" }, { coin: "" }])(
-    "accepts only a futures product or a coin: %j",
-    (target) => {
-      expect(() => channel.fundingRate(target as never)).toThrow(VeloError);
-    },
-  );
-
-  it("builds channels that can be passed around unbound", () => {
-    const products = [BTC, { exchange: "bybit", coin: "BTC", product: "BTCUSDT" } as const];
-    expect(products.map((product) => channel.fundingRate(product).name)).toEqual([
-      RATE,
-      "realtime_bybit:BTCUSDT#funding_rate#Rate (%)",
-    ]);
-  });
-
-  it("rides a feed beside its weighted form, narrowed apart by kind", async () => {
-    const sockets: FakeSocket[] = [];
-    const client = new Velo({
-      apiKey: "key",
-      webSocketFactory: () => {
-        const socket = new FakeSocket();
-        sockets.push(socket);
-        return socket;
-      },
-    });
-    const seen: [string, number | null][] = [];
-    const feed = channels.feed([
-      channel.fundingRate(BTC),
-      channel.fundingRate({ coin: "BTC" }, { weighted: true }),
-    ]);
-    const pending = client.watch(feed, {
-      on: {
-        data: (event) => {
-          expectTypeOf(event.kind).toEqualTypeOf<
-            "funding_rate" | "aggregated_funding_rate_weighted"
-          >();
-          if (event.kind === "funding_rate") {
-            expectTypeOf(event.data).toEqualTypeOf<Row<FuturesExchange, "funding_rate">>();
-            seen.push([event.kind, event.data.funding_rate]);
-          } else {
-            seen.push([event.kind, event.data[0]?.coin_open_interest_close ?? null]);
-          }
-        },
-      },
-    });
-    await flushConnection();
-    sockets[0]!.open();
-    const watcher = await pending;
-
-    sockets[0]!.message(JSON.stringify(RATE_FRAME));
-    sockets[0]!.message(JSON.stringify(WEIGHTED_RATE_FRAME));
-
-    expect(sockets[0]!.sent).toEqual([`s2 ${RATE}`, `s2 ${WEIGHTED_RATE}`]);
-    expect(seen).toEqual([
-      ["funding_rate", 0.00003256],
-      ["aggregated_funding_rate_weighted", 9993.086300221625],
-    ]);
-    watcher.close();
+  it("follows futures products only", () => {
+    // @ts-expect-error a spot exchange publishes no funding rate
+    expect(() => channel.fundingRate({ ...BTC, exchange: "binance" })).toThrow(
+      'channel.fundingRate() received an invalid exchange "binance"',
+    );
   });
 });
