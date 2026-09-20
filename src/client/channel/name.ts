@@ -1,40 +1,19 @@
 import { assert } from "../../util/assert.ts";
 
-/**
- * Wire names: how a channel is spelled to the server.
- *
- * The server builds its list of valid channels as a scope prefix plus a
- * suffix from a fixed table, so a name here is the same two parts. A product
- * scope is `realtime_<exchange>:<product>`; the suffix selects the indicator
- * and is empty for price.
+/*
+ * What holds of any channel name, whoever spelled it: a feed checks the names
+ * it is given, and a watcher routes each to its socket. Spelling a name from
+ * its words is done in `helpers/render.ts`.
  */
 
 /** The socket endpoint that serves a channel. */
 export type ChannelEndpoint = "realtime" | "ondemand";
 
-const REALTIME_PREFIX = "realtime_";
 const ONDEMAND_PREFIX = "ondemand_";
 
 /* Control characters could alter the framing of a subscription command. */
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/u;
-
-/**
- * Names a realtime channel scoped to one product on one exchange.
- *
- * @param exchange - The exchange identifier, as the catalog returns it.
- * @param product - The exchange-native product symbol, as the catalog
- * returns it; no translation is applied.
- * @param suffix - Selects the indicator, such as `#open_interest#Coins`.
- * Empty for price.
- * @returns The validated wire name.
- * @throws A VeloError when the result is not a valid channel name.
- */
-export function productChannelName(exchange: string, product: string, suffix = ""): string {
-  const name = `${REALTIME_PREFIX}${exchange}:${product}${suffix}`;
-  validateChannelName(name);
-  return name;
-}
 
 /**
  * Checks that a value can be sent as a channel name.

@@ -41,11 +41,6 @@ export function partColumns<P extends string, Column extends string>(
 /**
  * Resolves a metric-selector options bag to the entry for its metric.
  *
- * @remarks
- * Shared by everything that takes `{ metric }`, so history and live validate
- * and default alike: a history selector keeps a column map per metric, and a
- * channel builder keeps a kind of channel per metric.
- *
  * @param selector - The public selector name, used in error messages.
  * @param tree - The selector's entries keyed by metric.
  * @param options - The options bag; the metric defaults to `"dollar"`.

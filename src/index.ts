@@ -28,7 +28,7 @@ export {
 export type { Channels } from "./client/api/channels/channels.ts";
 export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
 export type { ChannelsParams } from "./client/api/channels/params.ts";
-export { channel } from "./client/channel/kinds/index.ts";
+export { channel } from "./client/channel/index.ts";
 export type { Product } from "./client/market/product.ts";
 export type {
   Channel,

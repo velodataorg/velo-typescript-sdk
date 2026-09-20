@@ -140,6 +140,16 @@ describe("channel.price", () => {
     watcher.close();
   });
 
+  it("follows a product only, since the server publishes no price across exchanges", () => {
+    // @ts-expect-error price takes a product, never a coin
+    const aggregated = () => channel.price({ coin: "BTC" });
+    expect(aggregated).toThrow("channel.price() received an invalid exchange undefined");
+    const untyped = channel.price as (target: unknown) => unknown;
+    expect(() => untyped("BTC")).toThrow(
+      "channel.price() takes a product, as the catalog returns it",
+    );
+  });
+
   it("conflicts with a raw subscription to the same wire name", () => {
     expect(() => channels.feed([channel.price(BTC), channel.raw(NAME)])).toThrow(
       /conflicting channels/,
