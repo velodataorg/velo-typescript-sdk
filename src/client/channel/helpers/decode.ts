@@ -3,13 +3,10 @@ import { z } from "zod";
 import { VeloError } from "../../../errors.ts";
 import { assert } from "../../../util/assert.ts";
 import type { Row, RowBase } from "../../data/row.ts";
-import type { FuturesStandardColumn, SpotColumn } from "../../market/columns.ts";
+import type { ChannelColumn } from "../../market/columns.ts";
 import type { Product } from "../../market/product.ts";
 import type { ChannelFrame } from "../channel.ts";
 import { entryExchange } from "./render.ts";
-
-/* What a payload's values fill: one per history column, null where there is none. */
-export type Columns = Readonly<Record<string, number | null>>;
 
 /**
  * One exchange's share of an aggregated frame: a history row without the
@@ -25,21 +22,11 @@ export type ExchangeEntry<X extends string, C extends string> = {
 } & { readonly [K in C]: number | null };
 
 /*
- * The two values the server publishes live and history has no column for,
- * so the only names here that are the SDK's own. Every other name a channel
- * fills is a history column, from the one list history is typed by.
- */
-type ChannelOnlyColumn = "coin_funding_spend_rate" | "dollar_funding_spend_rate";
-
-/* A name a channel's data may carry. */
-export type Column = FuturesStandardColumn | SpotColumn | ChannelOnlyColumn;
-
-/*
  * The columns a payload fills, by position: one name for a bare number, a
  * list for a tuple of numbers, and null for a position that fills no column.
  * Every payload the server sends is one or the other.
  */
-export type ColumnNames = Column | readonly (Column | null)[];
+export type ColumnNames = ChannelColumn | readonly (ChannelColumn | null)[];
 
 /* The columns a list of names fills. */
 export type ColumnOf<Names extends ColumnNames> = Names extends readonly (string | null)[]
@@ -117,7 +104,7 @@ export function aggregatedDecoder<X extends string, const Names extends ColumnNa
  */
 function payloadOf(columns: ColumnNames): {
   readonly schema: z.ZodType<number | readonly number[]>;
-  readonly read: (payload: number | readonly number[]) => Columns;
+  readonly read: (payload: number | readonly number[]) => Readonly<Record<string, number | null>>;
 } {
   if (typeof columns === "string") {
     return { schema: z.number(), read: (payload) => ({ [columns]: payload as number }) };

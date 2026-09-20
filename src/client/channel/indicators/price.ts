@@ -1,7 +1,7 @@
 import { FUTURES_EXCHANGES, SPOT_EXCHANGES } from "../../market/exchanges.ts";
 import type { Product } from "../../market/product.ts";
 import { singleChannel } from "../helpers/build.ts";
-import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
+import type { ChannelDefinition, SingleChannel } from "../helpers/build.ts";
 import { parseProduct } from "../helpers/target.ts";
 
 const BUILDER = "channel.price";
@@ -33,8 +33,6 @@ const PRICE = {
  * @returns The frozen channel.
  * @throws A VeloError when the product is not usable.
  */
-export function price(
-  product: Product<PriceExchange>,
-): ChannelFor<Product<PriceExchange>, PriceExchange, typeof PRICE> {
+export function price(product: Product<PriceExchange>): SingleChannel<PriceExchange, typeof PRICE> {
   return singleChannel(parseProduct(BUILDER, EXCHANGES, product), PRICE);
 }
