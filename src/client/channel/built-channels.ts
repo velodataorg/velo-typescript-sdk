@@ -65,4 +65,9 @@ export const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readon
     { list: "spotProduct", built: channel.spotTape(SPOT) },
     { list: "spotCoin", built: channel.spotTape(COIN) },
   ],
+  premium: [
+    { list: "futuresProduct", built: channel.premium(PERP) },
+    { list: "futuresCoin", built: channel.premium(COIN) },
+    { list: "futuresCoin", built: channel.premium(COIN, { weighted: true }) },
+  ],
 };
