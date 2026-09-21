@@ -1,0 +1,99 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_binance-futures:BTCUSDT#volume#Coins": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#volume#Coins",
+        "d": [29.997000000000078, 42.138999999999996],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#volume#Coins",
+        "d": [0, 0],
+        "f": true,
+        "tt": 1789991040000
+      }
+    },
+    "realtime_binance-futures:BTCUSDT#volume#Dollars": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#volume#Dollars",
+        "d": [2542824.3570000036, 3572421.8190000025],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#volume#Dollars",
+        "d": [0, 0],
+        "f": true,
+        "tt": 1789991040000
+      }
+    },
+    "realtime_BTC#volume#Coins#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": [5.564099999999998, 11.898590000000006],
+          "realtime_bybit": [7.070000000000015, 19.80299999999992],
+          "realtime_binance-futures": [29.997000000000078, 42.138999999999996],
+          "realtime_okex-swap": [14.429499999999962, 33.379099999999944],
+          "realtime_okex-coin-margin": [2.1730932564701075, 3.4433908354872718],
+          "realtime_binance-coin-margin": [0.5805659893118329, 1.9040669837495472],
+          "realtime_bybit-coin-margin": [0.11321671556524275, 0.07722012612040101],
+          "realtime_deribit": [2.3822472978357396, 5.443016626778827]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#volume#Coins#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_binance-futures": [0.09400000000000001, 0.33099999999999996],
+          "realtime_okex-swap": [0, 0],
+          "realtime_okex-coin-margin": [0, 0],
+          "realtime_binance-coin-margin": [0, 0],
+          "realtime_bybit-coin-margin": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": true,
+        "tt": 1789991040692,
+        "c": "realtime_BTC#volume#Coins#Aggregated"
+      }
+    },
+    "realtime_BTC#volume#Dollars#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": [472140.6450000002, 1009698.2770000005],
+          "realtime_bybit": [599341.8599999989, 1678861.0439999993],
+          "realtime_binance-futures": [2542824.3570000036, 3572421.8190000025],
+          "realtime_okex-swap": [1223297.6509999938, 2829785.6889999844],
+          "realtime_okex-coin-margin": [184170.00300000003, 291920.011],
+          "realtime_binance-coin-margin": [49200.00199999999, 161400.00399999996],
+          "realtime_bybit-coin-margin": [9596.002, 6544.003000000001],
+          "realtime_deribit": [202100, 461970.001]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#volume#Dollars#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_binance-futures": [7968.365000000001, 28058.773],
+          "realtime_okex-swap": [0, 0],
+          "realtime_okex-coin-margin": [0, 0],
+          "realtime_binance-coin-margin": [0, 0],
+          "realtime_bybit-coin-margin": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": true,
+        "tt": 1789991040692,
+        "c": "realtime_BTC#volume#Dollars#Aggregated"
+      }
+    }
+  }
+}

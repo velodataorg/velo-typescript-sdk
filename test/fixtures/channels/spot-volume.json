@@ -1,0 +1,83 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_coinbase:BTC-USD#spotvol#Coins": {
+      "lastOfMinute": {
+        "c": "realtime_coinbase:BTC-USD#spotvol#Coins",
+        "d": [1.93425473, 0.8720502499999999],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_coinbase:BTC-USD#spotvol#Coins",
+        "d": [0, 2e-8],
+        "f": true,
+        "tt": 1789991040002
+      }
+    },
+    "realtime_coinbase:BTC-USD#spotvol#Dollars": {
+      "lastOfMinute": {
+        "c": "realtime_coinbase:BTC-USD#spotvol#Dollars",
+        "d": [164030.79499999995, 73944.46599999997],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_coinbase:BTC-USD#spotvol#Dollars",
+        "d": [0, 0.002],
+        "f": true,
+        "tt": 1789991040002
+      }
+    },
+    "realtime_BTC#spotvol#Coins#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_binance": [7.690280000000027, 19.01331999999996],
+          "realtime_coinbase": [1.93425473, 0.8720502499999999],
+          "realtime_okex": [3.1738934599999773, 1.0739247499999998],
+          "realtime_bybit-spot": [0.7357079999999999, 3.4253660000000026]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#spotvol#Coins#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_binance": [0, 0],
+          "realtime_coinbase": [0, 0],
+          "realtime_okex": [0, 0],
+          "realtime_bybit-spot": [0.05942, 0.01087]
+        },
+        "f": true,
+        "tt": 1789991040442,
+        "c": "realtime_BTC#spotvol#Coins#Aggregated"
+      }
+    },
+    "realtime_BTC#spotvol#Dollars#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_binance": [652233.3580000002, 1612642.4840000002],
+          "realtime_coinbase": [164030.79499999995, 73944.46599999997],
+          "realtime_okex": [269209.26699999993, 91089.50700000003],
+          "realtime_bybit-spot": [62393.37399999999, 290542.91500000015]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#spotvol#Dollars#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_binance": [0, 0],
+          "realtime_coinbase": [0, 0],
+          "realtime_okex": [0, 0],
+          "realtime_bybit-spot": [5039.411, 921.884]
+        },
+        "f": true,
+        "tt": 1789991040442,
+        "c": "realtime_BTC#spotvol#Dollars#Aggregated"
+      }
+    }
+  }
+}

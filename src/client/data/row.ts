@@ -1,16 +1,14 @@
 import { z } from "zod";
 
 import { csvNumberOrNull, csvTimestamp } from "../decode/csv.ts";
+import type { Product } from "../market/product.ts";
 
 /**
  * Fields present at the start of every `/rows` response.
  *
  * @typeParam E - Exchanges the market may return.
  */
-export interface RowBase<E extends string = string> {
-  readonly exchange: E;
-  readonly coin: string;
-  readonly product: string;
+export interface RowBase<E extends string = string> extends Product<E> {
   readonly time: number;
 }
 

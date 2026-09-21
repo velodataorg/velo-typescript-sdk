@@ -1,6 +1,8 @@
 import type { VeloError } from "../errors.ts";
+import { abortReason } from "../util/abort.ts";
 import { assert } from "../util/assert.ts";
 import { MAX_TIMER_MS } from "./retry.ts";
+import { abnormalCloseEvent } from "./websocket.ts";
 import type {
   WebSocketCloseEvent,
   WebSocketConnection,
@@ -14,8 +16,6 @@ import type {
 const CONNECTING = 0;
 const OPEN = 1;
 const CLOSING = 2;
-
-const ABNORMAL_CLOSE_CODE = 1006;
 
 const IGNORE_SOCKET_ERROR = (): void => {};
 
@@ -334,24 +334,4 @@ function removeSocketListener<K extends keyof WebSocketEvents>(
   } catch {
     // The session is already terminal; cleanup errors cannot change its state.
   }
-}
-
-/**
- * Builds the close a session reports when a socket errors without closing.
- *
- * @returns An abnormal-closure event (code 1006).
- */
-function abnormalCloseEvent(): WebSocketCloseEvent {
-  return { code: ABNORMAL_CLOSE_CODE, reason: "", wasClean: false };
-}
-
-/**
- * Extracts a signal's abort reason.
- *
- * @param signal - An aborted signal.
- * @returns The signal's reason, or a default AbortError for runtimes that
- * predate `AbortSignal.reason`.
- */
-function abortReason(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
 }

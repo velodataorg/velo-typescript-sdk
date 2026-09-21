@@ -1,6 +1,7 @@
-import { VeloError } from "../../errors.ts";
+import { VeloHttpError } from "../../errors.ts";
 import { backoffMs, isRetryable, MAX_TIMER_MS } from "../../transport/retry.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
+import { abortReason } from "../../util/abort.ts";
 import { assert } from "../../util/assert.ts";
 import type { WatcherOf } from "./watcher.ts";
 
@@ -98,7 +99,11 @@ export type ResumeSchedule = (context: ResumeContext, retry: ResumeOptions) => n
 const DEFAULT_INITIAL_RETRIES = DEFAULT_RETRY.retries;
 
 const exponentialBackoff: ResumeSchedule = ({ attempt, connected, error }, retry) => {
-  if (error instanceof VeloError && !isRetryable(error)) return undefined;
+  /* Only a handshake the server refused outright ends the sequence. Anything
+   * else that fails an attempt — a dropped socket, a malformed frame — is
+   * the same transient trouble a post-open drop is, and is retried alike.
+   */
+  if (error instanceof VeloHttpError && !isRetryable(error)) return undefined;
   const budget = connected ? retry.retries : (retry.retries ?? DEFAULT_INITIAL_RETRIES);
   if (budget !== undefined && attempt >= budget) return undefined;
   return backoffMs(attempt, retry);
@@ -215,8 +220,8 @@ export function maintainConnection<E extends { close: unknown }>(
         connected = true;
         resolveFirstConnection();
 
-        /* connect() can resolve just before a buffered frame or socket event
-         * drops the subscription. Do not lose that close while this promise's
+        /* connect() can resolve just before a socket event drops the
+         * subscription. Do not lose that close while this promise's
          * continuation was waiting to run.
          */
         if (watcher.state === "disconnected") scheduleNext();
@@ -282,9 +287,7 @@ export function maintainConnection<E extends { close: unknown }>(
 
   function onAbort(): void {
     if (!connected) {
-      rejectFirstConnection(
-        signal?.reason ?? new DOMException("The operation was aborted.", "AbortError"),
-      );
+      rejectFirstConnection(abortReason(signal as AbortSignal));
     } else {
       stop();
     }

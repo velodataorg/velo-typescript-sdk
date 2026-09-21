@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { REALTIME_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { VeloError } from "../errors.ts";
+import { FakeSocket, SynchronouslyFailingSendSocket } from "./fake-socket.ts";
 import { WebSocketSession } from "./session.ts";
 import { WebSocketTransport } from "./websocket.ts";
 import type {
@@ -9,73 +11,6 @@ import type {
   WebSocketEvents,
   WebSocketFactory,
 } from "./websocket.ts";
-
-type Listener = (event: unknown) => void;
-
-class FakeSocket implements WebSocketConnection {
-  readonly closeCalls: { code: number | undefined; reason: string | undefined }[] = [];
-  readonly sent: string[] = [];
-  readonly #listeners: Record<keyof WebSocketEvents, Set<Listener>> = {
-    open: new Set(),
-    message: new Set(),
-    error: new Set(),
-    close: new Set(),
-  };
-
-  readyState = 0;
-
-  send(data: string): void {
-    this.sent.push(data);
-  }
-
-  close(code?: number, reason?: string): void {
-    this.closeCalls.push({ code, reason });
-    this.readyState = 3;
-  }
-
-  addEventListener<K extends keyof WebSocketEvents>(
-    type: K,
-    listener: (event: WebSocketEvents[K]) => void,
-  ): void {
-    this.#listeners[type].add(listener as Listener);
-  }
-
-  removeEventListener<K extends keyof WebSocketEvents>(
-    type: K,
-    listener: (event: WebSocketEvents[K]) => void,
-  ): void {
-    this.#listeners[type].delete(listener as Listener);
-  }
-
-  open(): void {
-    this.readyState = 1;
-    this.#emit("open", {});
-  }
-
-  message(data: unknown): void {
-    this.#emit("message", { data });
-  }
-
-  error(error: unknown): void {
-    this.#emit("error", {
-      error,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  remoteClose(code = 1006, reason = ""): void {
-    this.readyState = 3;
-    this.#emit("close", { code, reason, wasClean: code === 1000 });
-  }
-
-  listenerCount(type: keyof WebSocketEvents): number {
-    return this.#listeners[type].size;
-  }
-
-  #emit<K extends keyof WebSocketEvents>(type: K, event: WebSocketEvents[K]): void {
-    for (const listener of Array.from(this.#listeners[type])) listener(event);
-  }
-}
 
 class PartiallyThrowingAttachSocket extends FakeSocket {
   override addEventListener<K extends keyof WebSocketEvents>(
@@ -91,6 +26,7 @@ function sessionHarness(factory?: WebSocketFactory) {
   const sockets: FakeSocket[] = [];
   const transport = new WebSocketTransport(
     { apiKey: "test/key", baseUrl: "https://example.test" },
+    REALTIME_WEBSOCKET_PATH,
     factory ??
       (() => {
         const socket = new FakeSocket();
@@ -456,12 +392,6 @@ describe("WebSocketSession", () => {
   });
 
   it("survives a socket that terminates synchronously inside send()", async () => {
-    class SynchronouslyFailingSendSocket extends FakeSocket {
-      override send(data: string): void {
-        super.send(data);
-        this.error(new Error("synchronous send failure"));
-      }
-    }
     const harness = sessionHarness(() => {
       const socket = new SynchronouslyFailingSendSocket();
       harness.sockets.push(socket);

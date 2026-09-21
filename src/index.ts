@@ -15,7 +15,41 @@ export type { CatalogParams } from "./client/api/catalog/params.ts";
 export type { SpotCatalogParams, SpotProduct } from "./client/api/catalog/spot.ts";
 export type { VeloConfig } from "./client/client.ts";
 export { Velo } from "./client/client.ts";
-export { catalog, futures, marketCaps, news, options, orderbook, spot } from "./client/builders.ts";
+export {
+  catalog,
+  channels,
+  futures,
+  marketCaps,
+  news,
+  options,
+  orderbook,
+  spot,
+} from "./client/builders.ts";
+export type { Channels } from "./client/api/channels/channels.ts";
+export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
+export type { ChannelsParams } from "./client/api/channels/params.ts";
+export type { ChannelFor } from "./client/channel/helpers/build.ts";
+export type { Coin, Target } from "./client/channel/helpers/target.ts";
+export type { Product } from "./client/market/product.ts";
+export type {
+  Channel,
+  ChannelError,
+  ChannelFrame,
+  ChannelListeners,
+  ChannelMessage,
+  CustomChannel,
+  RawChannel,
+} from "./client/channel/channel.ts";
+export type { ExchangeEntry } from "./client/channel/helpers/decode.ts";
+export type {
+  ChannelsWatcher,
+  ChannelsWatcherEvents,
+  ChannelsWatchOptions,
+} from "./client/api/channels/watcher.ts";
+export {
+  MAX_CHANNELS_PER_SOCKET,
+  MAX_CONSECUTIVE_DECODE_FAILURES,
+} from "./client/api/channels/watcher.ts";
 export type {
   QueryBuilder,
   QueryInput,
@@ -26,6 +60,11 @@ export type {
   StreamableKind,
 } from "./client/query/plan.ts";
 export { DEFAULT_WATCH_RECONNECT } from "./client/watch/connection.ts";
+export type { WatcherOptions } from "./client/watch/options.ts";
+export {
+  DEFAULT_WATCH_CONNECT_TIMEOUT,
+  DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
+} from "./client/watch/options.ts";
 export type { ResumeOptions } from "./client/watch/connection.ts";
 export type { EventListeners, TaggedEvent, WatcherOf, WatchState } from "./client/watch/watcher.ts";
 export type {
@@ -144,8 +183,10 @@ export {
   FUTURES_CATALOG_PATH,
   NEWS_PATH,
   NEWS_WEBSOCKET_PATH,
+  ONDEMAND_WEBSOCKET_PATH,
   OPTIONS_CATALOG_PATH,
   ORDERBOOK_PATH,
+  REALTIME_WEBSOCKET_PATH,
   ROWS_PATH,
   SPOT_CATALOG_PATH,
   STATUS_PATH,

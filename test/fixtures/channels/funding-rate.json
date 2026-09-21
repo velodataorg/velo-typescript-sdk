@@ -1,0 +1,175 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_binance-futures:BTCUSDT#funding_rate#Rate (%)": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Rate (%)",
+        "d": 0.0001,
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Rate (%)",
+        "d": 0.0001,
+        "f": true,
+        "tt": 1789991040588
+      }
+    },
+    "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate (Coins)": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate (Coins)",
+        "d": 11.0174355,
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate (Coins)",
+        "d": 11.0174355,
+        "f": true,
+        "tt": 1789991040588
+      }
+    },
+    "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate ($)": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate ($)",
+        "d": 933944.70210435,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#funding_rate#Total Spend Rate ($)",
+        "d": 933944.70210435,
+        "tt": 1789991040000
+      }
+    },
+    "realtime_BTC#funding_rate#Rate (%)#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": 0.0001,
+          "realtime_bybit": 0.0001,
+          "realtime_binance-futures": 0.0001,
+          "realtime_okex-swap": 0.0001,
+          "realtime_okex-coin-margin": 0.000081701851116,
+          "realtime_binance-coin-margin": 0.00007211,
+          "realtime_bybit-coin-margin": 0.0001,
+          "realtime_deribit": 0.00026196
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Rate (%)#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": 0.0001,
+          "realtime_bybit": 0.0001,
+          "realtime_binance-futures": 0.0001,
+          "realtime_okex-swap": 0.0001,
+          "realtime_okex-coin-margin": 0.000081701851116,
+          "realtime_binance-coin-margin": 0.00007211,
+          "realtime_bybit-coin-margin": 0.0001,
+          "realtime_deribit": 0.00026196
+        },
+        "f": true,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Rate (%)#Aggregated"
+      }
+    },
+    "realtime_BTC#funding_rate#Total Spend Rate (Coins)#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": 4.255554142,
+          "realtime_bybit": 5.768335100000001,
+          "realtime_binance-futures": 11.0174355,
+          "realtime_okex-swap": 2.9661845500000115,
+          "realtime_okex-coin-margin": 0.48656715244797477,
+          "realtime_binance-coin-margin": 0.995100685439905,
+          "realtime_bybit-coin-margin": 0.5603838505403329,
+          "realtime_deribit": 2.448613315400648
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Total Spend Rate (Coins)#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": 4.255554142,
+          "realtime_bybit": 5.768335100000001,
+          "realtime_binance-futures": 11.0174355,
+          "realtime_okex-swap": 2.9661845500000115,
+          "realtime_okex-coin-margin": 0.48656715244797477,
+          "realtime_binance-coin-margin": 0.995100685439905,
+          "realtime_bybit-coin-margin": 0.5603838505403329,
+          "realtime_deribit": 2.448613315400648
+        },
+        "f": true,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Total Spend Rate (Coins)#Aggregated"
+      }
+    },
+    "realtime_BTC#funding_rate#Total Spend Rate ($)#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": 361062.49117799004,
+          "realtime_bybit": 489000.8019328301,
+          "realtime_binance-futures": 933944.70210435,
+          "realtime_okex-swap": 251452.36285715096,
+          "realtime_okex-coin-margin": 41239.388259737105,
+          "realtime_binance-coin-margin": 84325.72767479444,
+          "realtime_bybit-coin-margin": 47494.3806,
+          "realtime_deribit": 207718.3161587524
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Total Spend Rate ($)#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": 361062.49117799004,
+          "realtime_bybit": 489000.8019328301,
+          "realtime_binance-futures": 933944.70210435,
+          "realtime_okex-swap": 251452.36285715096,
+          "realtime_okex-coin-margin": 41239.388259737105,
+          "realtime_binance-coin-margin": 84325.74802307632,
+          "realtime_bybit-coin-margin": 47494.3806,
+          "realtime_deribit": 207718.3161587524
+        },
+        "f": true,
+        "tt": 1789991040833,
+        "c": "realtime_BTC#funding_rate#Total Spend Rate ($)#Aggregated"
+      }
+    },
+    "realtime_BTC#funding_rate#Rate (%)#weighted#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_hyperliquid": [0.0001, 42569.1742],
+          "realtime_bybit": [0.0001, 57703.756],
+          "realtime_binance-futures": [0.0001, 110174.355],
+          "realtime_okex-swap": [0.0001, 29676.561600000114],
+          "realtime_okex-coin-margin": [0.000081701851116, 5956.242684124077],
+          "realtime_binance-coin-margin": [0.00007211, 13800.961284292807],
+          "realtime_bybit-coin-margin": [0.0001, 5604.733955031499],
+          "realtime_deribit": [0.00026196, 9348.655153128208]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Rate (%)#weighted#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_hyperliquid": [0.0001, 42569.1742],
+          "realtime_bybit": [0.0001, 57703.756],
+          "realtime_binance-futures": [0.0001, 110174.355],
+          "realtime_okex-swap": [0.0001, 29676.561600000114],
+          "realtime_okex-coin-margin": [0.000081701851116, 5956.242684124077],
+          "realtime_binance-coin-margin": [0.00007211, 13800.961284292807],
+          "realtime_bybit-coin-margin": [0.0001, 5604.733955031499],
+          "realtime_deribit": [0.00026196, 9348.655153128208]
+        },
+        "f": true,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#funding_rate#Rate (%)#weighted#Aggregated"
+      }
+    }
+  }
+}

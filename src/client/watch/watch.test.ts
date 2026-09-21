@@ -1,14 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  FakeSocket,
-  flushConnection,
-  harness,
-  openFeed,
-  story,
-  STORY,
-} from "../../test-support/news-socket.ts";
+import { FakeSocket, flushConnection } from "../../transport/fake-socket.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
+import { harness, openFeed, story, STORY } from "../api/news/fixtures.ts";
 import type { NewsStory } from "../api/news/validation.ts";
 
 afterEach(() => {
@@ -146,10 +140,13 @@ describe("Velo.watch", () => {
     });
     await flushConnection();
 
-    /* The socket opens, but a buffered malformed frame drops it before the
-     * successful connect() continuation gets to run.
+    /* One microtask lets the controller subscribe and settle connect(), but
+     * not the supervisor's continuation: the socket then drops in between.
      */
-    (sockets[0] as FakeSocket).openWithMessages("{not json");
+    const firstConnection = sockets[0] as FakeSocket;
+    firstConnection.open();
+    await Promise.resolve();
+    firstConnection.remoteClose(1006, "gone");
     const watcher = await pending;
     expect(watcher.state).toBe("disconnected");
 
@@ -158,6 +155,27 @@ describe("Velo.watch", () => {
 
     (sockets[1] as FakeSocket).open();
     await flushConnection();
+    expect(watcher.state).toBe("open");
+    watcher.close();
+  });
+
+  it("retries a malformed handshake frame instead of failing the watch", async () => {
+    vi.useFakeTimers();
+    const { client, sockets } = harness();
+    const pending = client.watch(client.news.feed(), {
+      reconnect: { retries: 1, baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    await flushConnection();
+
+    /* Garbage with the handshake is not a refusal, so the attempt is retried
+     * like any other transient failure rather than ending the watch.
+     */
+    (sockets[0] as FakeSocket).openWithMessages("{not json");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sockets).toHaveLength(2);
+
+    (sockets[1] as FakeSocket).open();
+    const watcher = await pending;
     expect(watcher.state).toBe("open");
     watcher.close();
   });

@@ -5,20 +5,17 @@ import { VeloConnectionError, VeloError } from "../../../errors.ts";
 import {
   FakeSocket,
   flushConnection,
-  harness,
-  openFeed,
-  story,
-  STORY,
   SynchronouslyFailingSendSocket,
   ThrowingAttachSocket,
   ThrowingSendSocket,
-} from "../../../test-support/news-socket.ts";
+} from "../../../transport/fake-socket.ts";
 import { MAX_TIMER_MS } from "../../../transport/retry.ts";
 import type {
   WebSocketConnection,
   WebSocketFactory,
   WebSocketTarget,
 } from "../../../transport/websocket.ts";
+import { harness, openFeed, story, STORY } from "./fixtures.ts";
 import type { NewsStory } from "./validation.ts";
 import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.ts";
 import type { NewsClose, NewsDelete, NewsWatcherState } from "./watcher.ts";
@@ -89,7 +86,7 @@ describe("News feed subscription", () => {
     expect(targets[0]?.authenticatedUrl).toContain("/api/w/connect/test%2Fkey");
   });
 
-  it("replays frames emitted synchronously with open in their original order", async () => {
+  it("delivers frames that arrive with open, in order, before connect resolves", async () => {
     const { client, sockets } = harness();
     const events: string[] = [];
 
@@ -112,12 +109,13 @@ describe("News feed subscription", () => {
     expect(events).toEqual(["story:1", "story:2", "connected"]);
   });
 
-  it("stops draining after a buffered frame fails and never replays stale frames", async () => {
+  it("rejects the connection when a frame arriving with open is malformed", async () => {
     const { client, sockets } = harness();
     const stories = vi.fn();
     const events: string[] = [];
 
     const pending = client.watch(client.news.feed(), {
+      reconnect: false,
       on: {
         story: stories,
         error: () => events.push("error"),
@@ -125,24 +123,14 @@ describe("News feed subscription", () => {
       },
     });
     await flushConnection();
-    const firstSocket = sockets[0] as FakeSocket;
-    firstSocket.openWithMessages("{not json", story(99));
-    const watcher = await pending;
+    const socket = sockets[0] as FakeSocket;
+    socket.openWithMessages("{not json", story(99));
 
-    expect(watcher.state).toBe("disconnected");
-    expect(events).toEqual(["error", "close"]);
+    await expect(pending).rejects.toThrow(/invalid JSON/);
+    expect(events).toEqual(["close"]);
     expect(stories).not.toHaveBeenCalled();
-
-    const reconnected = watcher.connect();
-    await flushConnection();
-    const secondSocket = sockets[1] as FakeSocket;
-    secondSocket.openWithMessages(story(2));
-    await reconnected;
-
-    expect(watcher.state).toBe("open");
-    expect(stories).toHaveBeenCalledOnce();
-    expect(stories).toHaveBeenCalledWith({ ...STORY, id: 2 });
-    watcher.close();
+    expect(socket.closeCalls).toHaveLength(1);
+    expect(sockets).toHaveLength(1);
   });
 
   it("emits decoded domain events in order and supports fluent on/off", async () => {

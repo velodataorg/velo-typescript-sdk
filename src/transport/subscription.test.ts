@@ -9,6 +9,8 @@ import type { WebSocket } from "ws";
 import type { NewsStory } from "../client/api/news/validation.ts";
 import { VeloAuthError } from "../errors.ts";
 import { Velo } from "../index.ts";
+import type { ChannelMessage, RawChannel } from "../index.ts";
+import { defaultWebSocketFactory } from "./websocket.ts";
 
 /**
  * A subscription carried end to end over a real socket.
@@ -110,6 +112,88 @@ async function until(check: () => boolean, what: string): Promise<void> {
 }
 
 describe("a live subscription", () => {
+  it("authenticates raw channels, multiplexes data, and unsubscribes over a real socket", async ({
+    feed,
+  }) => {
+    const names = [
+      "realtime_binance-futures:BTCUSDT",
+      "realtime_BTC#open_interest#Coins#Aggregated",
+    ];
+    const velo = new Velo({ apiKey: "test/key", baseUrl: feed.baseUrl });
+    const seen: ChannelMessage<RawChannel>[] = [];
+    const watcher = await velo.watch(
+      velo.channels.feed(
+        names.map((name) =>
+          velo.channels.raw(name).on({ data: (_payload, message) => seen.push(message) }),
+        ),
+      ),
+    );
+    try {
+      expect(feed.upgrades).toHaveLength(1);
+      expect(feed.upgrades[0]?.url).toBe("/api/w/connect");
+      expect(feed.upgrades[0]?.headers.authorization).toBe(`Basic ${btoa("api:test/key")}`);
+      await until(() => feed.sent.length === 2, "both raw subscriptions");
+      expect(feed.sent).toEqual(names.map((name) => `s2 ${name}`));
+      const frames = names.map((c) => ({ c, d: [1, 2, 3], tt: 123, f: false }));
+      frames.forEach((frame) => feed.push(frame));
+      await until(() => seen.length === 2, "both raw messages");
+      expect(seen).toEqual(
+        frames.map((raw) => ({
+          kind: "raw",
+          channel: raw.c,
+          timestamp: raw.tt,
+          data: raw.d,
+          frame: raw,
+        })),
+      );
+    } finally {
+      watcher.close();
+    }
+    await until(() => feed.sent.length === 4, "both unsubscriptions");
+    expect(feed.sent.slice(2)).toEqual(names.map((name) => `u2 ${name}`));
+  });
+
+  it("sends the encoded API key in the native WebSocket URL for on-demand channels", async ({
+    feed,
+  }) => {
+    const channel = "ondemand_hyperliquid_linear_BTC_candle_1";
+    const velo = new Velo({
+      apiKey: "test/key +?",
+      baseUrl: feed.baseUrl,
+      webSocketFactory: (target) =>
+        defaultWebSocketFactory(target, { WebSocket: globalThis.WebSocket }),
+    });
+    const seen: ChannelMessage<RawChannel>[] = [];
+    const watcher = await velo.watch(
+      velo.channels.feed([
+        velo.channels.raw(channel).on({ data: (_payload, message) => seen.push(message) }),
+      ]),
+    );
+    try {
+      expect(feed.upgrades[0]?.url).toBe("/api/o/connect/test%2Fkey%20%2B%3F");
+      expect(feed.upgrades[0]?.headers.authorization).toBeUndefined();
+      await until(() => feed.sent.length === 1, "native subscription");
+      const frame = { c: channel, d: [1, 2, 3], tt: 123, f: false };
+      feed.push(frame);
+      await until(() => seen.length === 1, "native data");
+      expect(seen).toEqual([{ kind: "raw", channel, timestamp: frame.tt, data: frame.d, frame }]);
+    } finally {
+      watcher.close();
+    }
+  });
+
+  it("does not retry raw channels rejected by API-key authentication", async ({ refusing }) => {
+    const velo = new Velo({ apiKey: "test/key", baseUrl: refusing.baseUrl });
+    await expect(
+      velo.watch(
+        velo.channels.feed([
+          velo.channels.raw("realtime_binance-futures:BTCUSDT").on({ data: () => {} }),
+        ]),
+      ),
+    ).rejects.toBeInstanceOf(VeloAuthError);
+    expect(refusing.attempts()).toBe(1);
+  });
+
   it("authenticates, subscribes, and delivers what the server pushes", async ({ feed }) => {
     const velo = new Velo({ apiKey: "test/key", baseUrl: feed.baseUrl });
     const stories: NewsStory[] = [];

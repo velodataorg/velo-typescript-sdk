@@ -1,9 +1,15 @@
+import {
+  NEWS_WEBSOCKET_PATH,
+  ONDEMAND_WEBSOCKET_PATH,
+  REALTIME_WEBSOCKET_PATH,
+} from "../constants/endpoints.ts";
 import { Http } from "../transport/http.ts";
 import type { HttpConfig, HttpRequestOptions } from "../transport/http.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
 import type { WebSocketFactory } from "../transport/websocket.ts";
 import { assert } from "../util/assert.ts";
 import type { Catalog } from "./api/catalog/catalog.ts";
+import type { Channels } from "./api/channels/channels.ts";
 import type { Futures } from "./api/futures/futures.ts";
 import type { MarketCaps } from "./api/market-caps/market-caps.ts";
 import type { News } from "./api/news/news.ts";
@@ -11,7 +17,16 @@ import type { Options } from "./api/options/options.ts";
 import type { Orderbook } from "./api/orderbook/orderbook.ts";
 import type { Spot } from "./api/spot/spot.ts";
 import { Status } from "./api/status/status.ts";
-import { catalog, futures, marketCaps, news, options, orderbook, spot } from "./builders.ts";
+import {
+  catalog,
+  channels,
+  futures,
+  marketCaps,
+  news,
+  options,
+  orderbook,
+  spot,
+} from "./builders.ts";
 import {
   plan,
   type QueryInput,
@@ -33,9 +48,16 @@ import {
   type WatchOptions,
   type WatchParams,
 } from "./watch/registry.ts";
+import type { WatchTransports } from "./watch/transports.ts";
 import { attachWatchListeners } from "./watch/watcher.ts";
 
 export interface VeloConfig extends HttpConfig {
+  /**
+   * HTTP(S) origin for the realtime and on-demand channel sockets.
+   *
+   * Defaults to `baseUrl`. The news feed always connects through `baseUrl`.
+   */
+  readonly channelsBaseUrl?: string;
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
   readonly webSocketFactory?: WebSocketFactory;
 }
@@ -43,11 +65,11 @@ export interface VeloConfig extends HttpConfig {
 export class Velo {
   readonly #http: Http;
   readonly #status: Status;
-  readonly #webSocket: WebSocketTransport;
+  readonly #transports: WatchTransports;
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
-    this.#webSocket = new WebSocketTransport(config, config.webSocketFactory);
+    this.#transports = buildTransports(config);
     this.#status = new Status(this.#http);
   }
 
@@ -61,6 +83,10 @@ export class Velo {
 
   get news(): News {
     return news;
+  }
+
+  get channels(): Channels {
+    return channels;
   }
 
   get futures(): Futures {
@@ -148,7 +174,7 @@ export class Velo {
     /* Options are a superset of what the factory takes, so they pass through
      * without narrowing: the extra keys belong to the watch layer.
      */
-    const watcher = definition.create(this.#webSocket, options);
+    const watcher = definition.create(this.#transports, request.params, options);
 
     if (options?.on) attachWatchListeners(watcher, definition.events, options.on);
 
@@ -165,4 +191,21 @@ export class Velo {
   ): Query<QueryItem<K, P>, QueryResult<K, P>> {
     return new Query(this.#http, plan(toQueryRequest(input)), options);
   }
+}
+
+/**
+ * Builds every socket transport a client's watchers can use.
+ *
+ * @param config - The client configuration.
+ * @returns One transport per endpoint, sharing the credential and factory.
+ */
+function buildTransports(config: VeloConfig): WatchTransports {
+  const factory = config.webSocketFactory;
+  const channelsConfig =
+    config.channelsBaseUrl === undefined ? config : { ...config, baseUrl: config.channelsBaseUrl };
+  return {
+    news: new WebSocketTransport(config, NEWS_WEBSOCKET_PATH, factory),
+    realtime: new WebSocketTransport(channelsConfig, REALTIME_WEBSOCKET_PATH, factory),
+    ondemand: new WebSocketTransport(channelsConfig, ONDEMAND_WEBSOCKET_PATH, factory),
+  };
 }
