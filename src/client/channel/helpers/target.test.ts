@@ -5,14 +5,14 @@ import type { Product } from "../../market/product.ts";
 import { parseProduct, parseTarget } from "./target.ts";
 import type { Coin, Target } from "./target.ts";
 
-const BUILDER = "channel.example";
+const INDICATOR = "channel.example";
 const EXCHANGES = ["bybit", "deribit"] as const;
 const BTC = { exchange: "bybit", coin: "BTC", product: "BTCUSDT" } as const;
 
 describe("parseProduct", () => {
   it("snapshots the three fields, frozen, dropping what a catalog row adds", () => {
     const listed = { ...BTC, begin: 0, depth: true };
-    const product = parseProduct(BUILDER, EXCHANGES, listed);
+    const product = parseProduct(listed, EXCHANGES, INDICATOR);
 
     expectTypeOf(product).toEqualTypeOf<Product<"bybit" | "deribit">>();
     expect(product).toEqual(BTC);
@@ -21,16 +21,16 @@ describe("parseProduct", () => {
   });
 
   it.each([null, undefined, "BTCUSDT", 42, []])("rejects what is not an object: %j", (input) => {
-    expect(() => parseProduct(BUILDER, EXCHANGES, input)).toThrow(
+    expect(() => parseProduct(input, EXCHANGES, INDICATOR)).toThrow(
       "channel.example() takes a product, as the catalog returns it",
     );
   });
 
   it("names the exchange it cannot use", () => {
-    expect(() => parseProduct(BUILDER, EXCHANGES, { ...BTC, exchange: "binance" })).toThrow(
+    expect(() => parseProduct({ ...BTC, exchange: "binance" }, EXCHANGES, INDICATOR)).toThrow(
       'channel.example() received an invalid exchange "binance"',
     );
-    expect(() => parseProduct(BUILDER, EXCHANGES, { coin: "BTC" })).toThrow(
+    expect(() => parseProduct({ coin: "BTC" }, EXCHANGES, INDICATOR)).toThrow(
       "channel.example() received an invalid exchange undefined",
     );
   });
@@ -42,19 +42,19 @@ describe("parseProduct", () => {
     { exchange: "bybit", coin: "BTC" },
     { exchange: "bybit", product: "BTCUSDT" },
   ])("rejects a product missing a usable field: %j", (input) => {
-    expect(() => parseProduct(BUILDER, EXCHANGES, input)).toThrow(VeloError);
+    expect(() => parseProduct(input, EXCHANGES, INDICATOR)).toThrow(VeloError);
   });
 });
 
 describe("parseTarget", () => {
   it("reads a product as a single target and a coin as an aggregated one", () => {
-    expect(parseTarget(BUILDER, EXCHANGES, BTC)).toEqual({ scope: "single", product: BTC });
-    expect(parseTarget(BUILDER, EXCHANGES, { coin: "BTC" })).toEqual({
+    expect(parseTarget(BTC, EXCHANGES, INDICATOR)).toEqual({ scope: "single", product: BTC });
+    expect(parseTarget({ coin: "BTC" }, EXCHANGES, INDICATOR)).toEqual({
       scope: "aggregated",
       coin: "BTC",
     });
     /* Coin symbols are not limited to ASCII. */
-    expect(parseTarget(BUILDER, EXCHANGES, { coin: "币安人生" })).toEqual({
+    expect(parseTarget({ coin: "币安人生" }, EXCHANGES, INDICATOR)).toEqual({
       scope: "aggregated",
       coin: "币安人生",
     });
@@ -62,16 +62,16 @@ describe("parseTarget", () => {
 
   it("reads a target naming an exchange or a product as a product, never as its coin", () => {
     /* A product missing a field is refused rather than followed across every exchange. */
-    expect(() => parseTarget(BUILDER, EXCHANGES, { exchange: "bybit", coin: "BTC" })).toThrow(
+    expect(() => parseTarget({ exchange: "bybit", coin: "BTC" }, EXCHANGES, INDICATOR)).toThrow(
       "channel.example() takes a product whose product is a non-empty string",
     );
-    expect(() => parseTarget(BUILDER, EXCHANGES, { coin: "BTC", product: "BTCUSDT" })).toThrow(
+    expect(() => parseTarget({ coin: "BTC", product: "BTCUSDT" }, EXCHANGES, INDICATOR)).toThrow(
       "channel.example() received an invalid exchange undefined",
     );
   });
 
   it.each([null, undefined, "BTC", 42, []])("rejects what is not an object: %j", (input) => {
-    expect(() => parseTarget(BUILDER, EXCHANGES, input)).toThrow(
+    expect(() => parseTarget(input, EXCHANGES, INDICATOR)).toThrow(
       'channel.example() takes a product, as the catalog returns it, or a coin, such as { coin: "BTC" }',
     );
   });
@@ -79,7 +79,7 @@ describe("parseTarget", () => {
   it.each([{}, { coin: "" }, { coin: 42 }, { coins: ["BTC"] }])(
     "rejects a coin without a usable symbol: %j",
     (input) => {
-      expect(() => parseTarget(BUILDER, EXCHANGES, input)).toThrow(
+      expect(() => parseTarget(input, EXCHANGES, INDICATOR)).toThrow(
         "channel.example() takes a coin whose coin is a non-empty string",
       );
     },

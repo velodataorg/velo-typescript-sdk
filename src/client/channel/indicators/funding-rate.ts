@@ -7,16 +7,16 @@ import { flag, option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Coin, Target } from "../helpers/target.ts";
 
-const BUILDER = "channel.fundingRate";
+const INDICATOR = "channel.fundingRate";
 
 /*
- * Every measure sends its current value, bare. The three are different kinds
- * of channel because they fill different columns; a listener narrows `data`
- * on `kind`. History has the rate's column and none for what is spent, so
- * those two are named here, in the manner of the history columns measured in
- * coins and in dollars.
+ * Every funding rate channel the server publishes. Each of the first three
+ * sends its current value, bare. They are different kinds of channel because
+ * they fill different columns; a listener narrows `data` on `kind`. History
+ * has the rate's column and none for what is spent, so those two are named
+ * here, in the manner of the history columns measured in coins and in dollars.
  */
-const MEASURES = {
+const DEFINITIONS = {
   /* The server words it `Rate (%)` and sends a fraction, as history does: 0.0001 is 0.01%. */
   rate: {
     suffix: "#funding_rate#Rate (%)",
@@ -34,23 +34,30 @@ const MEASURES = {
     kind: "funding_spend_rate_dollars",
     columns: "dollar_funding_spend_rate",
   },
+  /*
+   * Published for a coin only, and chosen by the `weighted` flag rather than
+   * by a measure. The one channel whose payload differs: a rate, then the
+   * open interest that weights it.
+   */
+  weightedRate: {
+    suffix: "#funding_rate#Rate (%)#weighted",
+    kind: "funding_rate_weighted",
+    columns: ["funding_rate", "coin_open_interest_close"],
+  },
 } as const satisfies Readonly<Record<string, ChannelDefinition>>;
 
-type Measures = typeof MEASURES;
+type Definitions = typeof DEFINITIONS;
 
-/* The one channel whose payload differs: a coin's rate, then the open interest that weights it. */
-const WEIGHTED_RATE = {
-  suffix: "#funding_rate#Rate (%)#weighted",
-  kind: "funding_rate_weighted",
-  columns: ["funding_rate", "coin_open_interest_close"],
-} as const satisfies ChannelDefinition;
-
+/* What a caller may pass. Each measure is named as its definition is. */
+const MEASURES = ["rate", "coins", "dollars"] as const;
 const OPTIONS = { measure: option(MEASURES, "rate"), weighted: flag() };
 
+type Measure = (typeof MEASURES)[number];
+
 /* The definition a caller's options select. */
-type Selected<M extends keyof Measures, W extends boolean> = W extends true
-  ? typeof WEIGHTED_RATE
-  : Measures[M];
+type Selected<M extends Measure, W extends boolean> = W extends true
+  ? Definitions["weightedRate"]
+  : Definitions[M];
 
 /**
  * The live funding rate of one futures product, or of a coin across exchanges.
@@ -83,7 +90,7 @@ type Selected<M extends keyof Measures, W extends boolean> = W extends true
  */
 export function fundingRate<
   T extends Target<FuturesExchange>,
-  M extends keyof Measures = "rate",
+  M extends Measure = "rate",
   W extends boolean = false,
 >(
   target: T,
@@ -99,16 +106,16 @@ export function fundingRate<
     readonly weighted?: W & ([T] extends [Coin] ? ([M] extends ["rate"] ? boolean : false) : false);
   },
 ): ChannelFor<T, FuturesExchange, Selected<M, W>> {
-  const { measure, weighted } = parseOptions(BUILDER, options, OPTIONS);
-  const parsed = parseTarget(BUILDER, FUTURES_EXCHANGES, target);
+  const { measure, weighted } = parseOptions(options, OPTIONS, INDICATOR);
+  const parsedTarget = parseTarget(target, FUTURES_EXCHANGES, INDICATOR);
 
-  const definition = MEASURES[measure];
   assert(
-    !weighted || (parsed.scope === "aggregated" && measure === "rate"),
-    () => `${BUILDER}() weights only the rate of a coin, such as { coin: "BTC" }`,
+    !weighted || (parsedTarget.scope === "aggregated" && measure === "rate"),
+    () => `${INDICATOR}() weights only the rate of a coin, such as { coin: "BTC" }`,
   );
 
-  const channel = buildChannel(parsed, FUTURES_EXCHANGES, weighted ? WEIGHTED_RATE : definition);
+  const definition = weighted ? DEFINITIONS.weightedRate : DEFINITIONS[measure];
+  const channel = buildChannel(parsedTarget, FUTURES_EXCHANGES, definition);
   /* Which channel it is follows T, M, and W, which the compiler cannot see from here. */
   return channel as ChannelFor<T, FuturesExchange, Selected<M, W>>;
 }

@@ -6,14 +6,15 @@ import { option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const BUILDER = "channel.openInterest";
+const INDICATOR = "channel.openInterest";
 
 /*
- * Every metric sends the one-minute candle in progress: high, low, then close.
- * The two metrics are different kinds of channel because they fill different
- * columns; a listener narrows `data` on `kind`.
+ * Every open interest channel the server publishes. Each sends the one-minute
+ * candle in progress: high, low, then close. The two are different kinds of
+ * channel because they fill different columns; a listener narrows `data` on
+ * `kind`.
  */
-const METRICS = {
+const DEFINITIONS = {
   /* A new frame arrives when the exchange reports a value, every one to a few seconds. */
   coins: {
     suffix: "#open_interest#Coins",
@@ -32,9 +33,13 @@ const METRICS = {
   },
 } as const satisfies Readonly<Record<string, ChannelDefinition>>;
 
-type Metrics = typeof METRICS;
+type Definitions = typeof DEFINITIONS;
 
+/* What a caller may pass. Each metric is named as its definition is. */
+const METRICS = ["coins", "dollars"] as const;
 const OPTIONS = { metric: option(METRICS, "dollars") };
+
+type Metric = (typeof METRICS)[number];
 
 /**
  * The live open interest of one futures product, or of a coin across exchanges.
@@ -70,14 +75,14 @@ const OPTIONS = { metric: option(METRICS, "dollars") };
  * @returns The frozen channel.
  * @throws A VeloError when the target or an option is not usable.
  */
-export function openInterest<
-  T extends Target<FuturesExchange>,
-  M extends keyof Metrics = "dollars",
->(target: T, options?: { readonly metric?: M }): ChannelFor<T, FuturesExchange, Metrics[M]> {
-  const { metric } = parseOptions(BUILDER, options, OPTIONS);
-  const parsed = parseTarget(BUILDER, FUTURES_EXCHANGES, target);
+export function openInterest<T extends Target<FuturesExchange>, M extends Metric = "dollars">(
+  target: T,
+  options?: { readonly metric?: M },
+): ChannelFor<T, FuturesExchange, Definitions[M]> {
+  const { metric } = parseOptions(options, OPTIONS, INDICATOR);
+  const parsedTarget = parseTarget(target, FUTURES_EXCHANGES, INDICATOR);
 
-  const channel = buildChannel(parsed, FUTURES_EXCHANGES, METRICS[metric]);
+  const channel = buildChannel(parsedTarget, FUTURES_EXCHANGES, DEFINITIONS[metric]);
   /* Which channel it is follows T and M, which the compiler cannot see from here. */
-  return channel as ChannelFor<T, FuturesExchange, Metrics[M]>;
+  return channel as ChannelFor<T, FuturesExchange, Definitions[M]>;
 }

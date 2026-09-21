@@ -4,7 +4,7 @@ import { singleChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, SingleChannel } from "../helpers/build.ts";
 import { parseProduct } from "../helpers/target.ts";
 
-const BUILDER = "channel.price";
+const INDICATOR = "channel.price";
 const EXCHANGES = [...FUTURES_EXCHANGES, ...SPOT_EXCHANGES];
 type PriceExchange = (typeof EXCHANGES)[number];
 
@@ -34,5 +34,5 @@ const PRICE = {
  * @throws A VeloError when the product is not usable.
  */
 export function price(product: Product<PriceExchange>): SingleChannel<PriceExchange, typeof PRICE> {
-  return singleChannel(parseProduct(BUILDER, EXCHANGES, product), PRICE);
+  return singleChannel(parseProduct(product, EXCHANGES, INDICATOR), PRICE);
 }
