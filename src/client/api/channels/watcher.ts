@@ -31,7 +31,7 @@ export const MAX_CHANNELS_PER_SOCKET = 10;
 export const MAX_CONSECUTIVE_DECODE_FAILURES = 3;
 
 /* One frame a channel's decoder refused. The frame is skipped and the channel continues. */
-export interface ChannelFrameError {
+export interface ChannelDecodeError {
   readonly channel: string;
   /* Its `cause` is the decoder's own error, such as the schema mismatch. */
   readonly error: VeloError;
@@ -47,7 +47,7 @@ export interface ChannelsWatcherEvents<C extends Channel = Channel> {
    * {@link MAX_CONSECUTIVE_DECODE_FAILURES} in a row, then not again until the
    * channel has recovered.
    */
-  readonly frameError: ChannelFrameError;
+  readonly decodeError: ChannelDecodeError;
   /**
    * A channel that stopped delivering; other channels continue.
    *
@@ -353,8 +353,8 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#strikes.set(channel, strikes);
 
     const error = new VeloError(`failed to decode channel ${channel}`, { cause });
-    this.#lifecycle.emitter.emit("frameError", { channel, error, frame });
-    /* A frameError listener may have ended the connection, which clears the active set. */
+    this.#lifecycle.emitter.emit("decodeError", { channel, error, frame });
+    /* A decodeError listener may have ended the connection, which clears the active set. */
     if (strikes === MAX_CONSECUTIVE_DECODE_FAILURES && this.#active.has(channel)) {
       this.#lifecycle.emitter.emit("channelError", { channel, reason: "decode", error });
     }
