@@ -29,6 +29,8 @@ export type { Channels } from "./client/api/channels/channels.ts";
 export type { ChannelsFeedBuilder } from "./client/api/channels/builder.ts";
 export type { ChannelsParams } from "./client/api/channels/params.ts";
 export { channel } from "./client/channel/index.ts";
+export type { ChannelFor } from "./client/channel/helpers/build.ts";
+export type { Coin, Target } from "./client/channel/helpers/target.ts";
 export type { Product } from "./client/market/product.ts";
 export type {
   Channel,

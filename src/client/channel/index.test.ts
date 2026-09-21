@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { channel, channels, Velo } from "../../index.ts";
+import type { ChannelFor, Coin, Target } from "../../index.ts";
 import { FakeSocket, flushConnection } from "../../transport/fake-socket.ts";
 import type { FuturesOpenInterestColumn } from "../api/futures/selectors.ts";
 import type { Row } from "../data/row.ts";
@@ -100,5 +101,22 @@ describe("channel builders in a feed", () => {
       ["aggregated_funding_rate_weighted", 9993.0863],
     ]);
     watcher.close();
+  });
+
+  it("lets a caller write a function over any target, in the types the package exports", () => {
+    const follow = <T extends Target<FuturesExchange>>(target: T) => channel.tape(target);
+    const coin: Coin = { coin: "BTC" };
+
+    expectTypeOf(follow(BTC).kind).toEqualTypeOf<"tape">();
+    expectTypeOf(follow(coin).kind).toEqualTypeOf<"aggregated_tape">();
+    /* What such a function returns has a name, so a caller's own declarations can say it. */
+    type Tape<T> = ChannelFor<
+      T,
+      FuturesExchange,
+      { kind: "tape"; suffix: string; columns: readonly ["buy_trades", "sell_trades"] }
+    >;
+    expectTypeOf(follow(BTC)).toEqualTypeOf<Tape<typeof BTC>>();
+    expectTypeOf(follow(coin)).toEqualTypeOf<Tape<Coin>>();
+    expect(follow(coin).name).toBe("realtime_BTC#tape#Trade Count#Aggregated");
   });
 });
