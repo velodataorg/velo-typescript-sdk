@@ -44,7 +44,6 @@ import {
   WATCHERS,
   type WatchableKind,
   type Watcher,
-  type WatchEvents,
   type WatchInput,
   type WatchOptions,
   type WatchParams,
@@ -159,8 +158,8 @@ export class Velo {
    */
   watch<K extends WatchableKind, P extends WatchParams<K>>(
     input: WatchInput<K, P>,
-    options?: WatchOptions<K, NoInfer<P>>,
-  ): Promise<Watcher<K, P>> {
+    options?: WatchOptions<K>,
+  ): Promise<Watcher<K>> {
     /* Omitted is valid; null or a non-object is not. */
     assert(
       options === undefined ||
@@ -175,16 +174,9 @@ export class Velo {
     /* Options are a superset of what the factory takes, so they pass through
      * without narrowing: the extra keys belong to the watch layer.
      */
-    const watcher = definition.create(this.#transports, request.params, options) as Watcher<K, P>;
+    const watcher = definition.create(this.#transports, request.params, options);
 
-    // The factory dispatches using these same params. The registry erases the
-    // channel union internally; restore it at this execution boundary.
-    if (options?.on)
-      attachWatchListeners(
-        watcher,
-        definition.events as { readonly [E in keyof WatchEvents<K, P>]: true },
-        options.on,
-      );
+    if (options?.on) attachWatchListeners(watcher, definition.events, options.on);
 
     /* Not an async method: options are validated synchronously, so a bad
      * call throws where it is written rather than on await.

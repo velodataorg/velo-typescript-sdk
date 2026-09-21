@@ -3,13 +3,10 @@ import type { WatchBuilder, WatchRequest } from "../../watch/registry.ts";
 import { ChannelsParams } from "./params.ts";
 
 /** An immutable live-channel feed builder. */
-export class ChannelsFeedBuilder<C extends Channel> implements WatchBuilder<
-  "channels.feed",
-  ChannelsParams<C>
-> {
-  readonly #request: WatchRequest<"channels.feed", ChannelsParams<C>>;
+export class ChannelsFeedBuilder implements WatchBuilder<"channels.feed", ChannelsParams> {
+  readonly #request: WatchRequest<"channels.feed", ChannelsParams>;
 
-  constructor(channels: readonly C[]) {
+  constructor(channels: readonly Channel[]) {
     this.#request = Object.freeze({
       kind: "channels.feed",
       params: ChannelsParams.parse({ channels }),
@@ -17,7 +14,7 @@ export class ChannelsFeedBuilder<C extends Channel> implements WatchBuilder<
   }
 
   /** Returns the immutable transport-independent subscription request. */
-  build(): WatchRequest<"channels.feed", ChannelsParams<C>> {
+  build(): WatchRequest<"channels.feed", ChannelsParams> {
     return this.#request;
   }
 }

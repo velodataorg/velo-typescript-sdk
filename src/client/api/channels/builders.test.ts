@@ -11,13 +11,13 @@ import type { FuturesOpenInterestColumn } from "../futures/selectors.ts";
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
 
 /*
- * What a feed does with channels, such as collapsing repeats and skipping a
- * frame it cannot decode, is the feed's to test. This is the one thing only
- * the builders can show: that their types survive a feed, so a listener
- * narrows `data` on `kind`, to a row for a product and to entries for a coin.
+ * What a feed does with channels, such as subscribing a repeat once and
+ * skipping a frame it cannot decode, is the feed's to test. This is the one
+ * thing only the builders can show: that each one's listener gets that
+ * builder's own data, a row for a product and entries for a coin.
  */
 describe("channel builders in a feed", () => {
-  it("narrows each builder's data by kind, a row for a product and entries for a coin", async () => {
+  it("gives each builder's listener its own data, a row for a product and entries for a coin", async () => {
     const sockets: FakeSocket[] = [];
     const client = new Velo({
       apiKey: "key",
@@ -29,43 +29,40 @@ describe("channel builders in a feed", () => {
     });
     const seen: [string, number | null][] = [];
     const feed = channels.feed([
-      channels.price(BTC),
-      channels.openInterest(BTC, { metric: "coins" }),
-      channels.openInterest({ coin: "BTC" }, { metric: "coins" }),
-      channels.fundingRate({ coin: "BTC" }, { weighted: true }),
-    ]);
-    const pending = client.watch(feed, {
-      on: {
-        data: (event) => {
-          expectTypeOf(event.kind).toEqualTypeOf<
-            | "price"
-            | "open_interest_coins"
-            | "aggregated_open_interest_coins"
-            | "aggregated_funding_rate_weighted"
-          >();
-          if (event.kind === "price") {
-            seen.push([event.kind, event.data.close_price]);
-          } else if (event.kind === "open_interest_coins") {
-            expectTypeOf(event.data).toEqualTypeOf<
-              Row<FuturesExchange, FuturesOpenInterestColumn<"coin">>
-            >();
-            seen.push([event.kind, event.data.coin_open_interest_close]);
-          } else if (event.kind === "aggregated_open_interest_coins") {
-            expectTypeOf(event.data).toEqualTypeOf<
-              readonly ExchangeEntry<FuturesExchange, FuturesOpenInterestColumn<"coin">>[]
-            >();
-            seen.push([event.kind, event.data.length]);
-            /* An entry has no time; the frame's tick time is still there for a caller who buckets. */
-            expect(event.timestamp).toBe(1789720859999);
-          } else {
-            expectTypeOf(event.data).toEqualTypeOf<
-              readonly ExchangeEntry<FuturesExchange, "funding_rate" | "coin_open_interest_close">[]
-            >();
-            seen.push([event.kind, event.data[0]?.coin_open_interest_close ?? null]);
-          }
+      channels.price(BTC).on({
+        data: (row, message) => {
+          expectTypeOf(message.kind).toEqualTypeOf<"price">();
+          seen.push([message.kind, row.close_price]);
         },
-      },
-    });
+      }),
+      channels.openInterest(BTC, { metric: "coins" }).on({
+        data: (row, message) => {
+          expectTypeOf(row).toEqualTypeOf<
+            Row<FuturesExchange, FuturesOpenInterestColumn<"coin">>
+          >();
+          seen.push([message.kind, row.coin_open_interest_close]);
+        },
+      }),
+      channels.openInterest({ coin: "BTC" }, { metric: "coins" }).on({
+        data: (entries, message) => {
+          expectTypeOf(entries).toEqualTypeOf<
+            readonly ExchangeEntry<FuturesExchange, FuturesOpenInterestColumn<"coin">>[]
+          >();
+          seen.push([message.kind, entries.length]);
+          /* An entry has no time; the frame's tick time is still there for a caller who buckets. */
+          expect(message.timestamp).toBe(1789720859999);
+        },
+      }),
+      channels.fundingRate({ coin: "BTC" }, { weighted: true }).on({
+        data: (entries, message) => {
+          expectTypeOf(entries).toEqualTypeOf<
+            readonly ExchangeEntry<FuturesExchange, "funding_rate" | "coin_open_interest_close">[]
+          >();
+          seen.push([message.kind, entries[0]?.coin_open_interest_close ?? null]);
+        },
+      }),
+    ]);
+    const pending = client.watch(feed);
     await flushConnection();
     sockets[0]!.open();
     const watcher = await pending;

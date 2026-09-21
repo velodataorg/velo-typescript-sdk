@@ -13,8 +13,7 @@ const INDICATOR = "channels.spotVolume";
  * `spotvol`, apart from the futures `volume` channels, so they are another
  * builder. Each sends what has traded so far in the one-minute candle in
  * progress: the buy volume, then the sell volume. The two are different kinds
- * of channel because they fill different columns; a listener narrows `data`
- * on `kind`.
+ * of channel because they fill different columns.
  */
 const DEFINITIONS = {
   coins: {

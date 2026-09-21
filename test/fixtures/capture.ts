@@ -137,21 +137,23 @@ async function captureMinuteEnd(
   const until = end + AFTER_MINUTE;
 
   console.log(`Following ${names.length} channels until ${clock(until)} UTC...`);
-  const watcher = await velo.watch(channels.feed(names.map((name) => channels.raw(name))), {
+  const followed = names.map((name) =>
+    channels.raw(name).on({
+      data: (_payload, { frame }) => {
+        const sofar = captured.get(name);
+        assert(sofar !== undefined, `${name}: a frame that was not asked for`);
+        if (sofar.rollover !== undefined) return;
+        if (opensNextMinute(frame, minute)) sofar.rollover = frame;
+        else sofar.lastOfMinute = frame;
+      },
+      error: ({ reason }) => problems.push(`${name}: ${reason}`),
+    }),
+  );
+  const watcher = await velo.watch(channels.feed(followed), {
     reconnect: false,
     /* The emitter catches what a listener throws; a frame without a `tt` must still fail the run. */
     onListenerError: (error) => problems.push(String(error)),
-    on: {
-      data: ({ channel: name, frame }) => {
-        const sofar = captured.get(name);
-        if (sofar === undefined) problems.push(`${name}: a frame that was not asked for`);
-        else if (sofar.rollover !== undefined) return;
-        else if (opensNextMinute(frame, minute)) sofar.rollover = frame;
-        else sofar.lastOfMinute = frame;
-      },
-      channelError: ({ channel: name, reason }) => problems.push(`${name}: ${reason}`),
-      error: (error) => problems.push(error.message),
-    },
+    on: { error: (error) => problems.push(error.message) },
   });
   await sleep(until - Date.now());
   watcher.close();

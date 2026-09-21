@@ -1,22 +1,6 @@
 import { VeloError } from "../../../errors.ts";
 import { frameText } from "../../../transport/frame.ts";
-import type { ChannelFrame } from "../../channel/channel.ts";
-
-/*
- * One channel that stopped delivering while the rest of the feed continues.
- *
- * `rejected` and `unsubscribed` are the server's doing. `decode` is the
- * client's: the channel's frames kept failing its decoder. The subscription
- * is kept, so the channel delivers again if its frames become readable.
- */
-export type ChannelError =
-  | { readonly channel: string; readonly reason: "rejected" | "unsubscribed" }
-  | {
-      readonly channel: string;
-      readonly reason: "decode";
-      /* The failure that reached the limit; its `cause` is the decoder's own error. */
-      readonly error: VeloError;
-    };
+import type { ChannelError, ChannelFrame } from "../../channel/channel.ts";
 
 export type DecodedFrame =
   | { readonly type: "data"; readonly frame: ChannelFrame }

@@ -12,7 +12,7 @@ const INDICATOR = "channels.volume";
  * Every futures volume channel the server publishes. Each sends what has
  * traded so far in the one-minute candle in progress: the buy volume, then
  * the sell volume. The two are different kinds of channel because they fill
- * different columns; a listener narrows `data` on `kind`.
+ * different columns.
  */
 const DEFINITIONS = {
   coins: {

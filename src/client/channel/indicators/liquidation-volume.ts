@@ -12,8 +12,7 @@ const INDICATOR = "channels.liquidationVolume";
  * Every liquidation volume channel the server publishes. Each sends what has
  * been liquidated so far in the one-minute candle in progress: by forced
  * buys, which close shorts, then by forced sells, which close longs. The two
- * are different kinds of channel because they fill different columns; a
- * listener narrows `data` on `kind`.
+ * are different kinds of channel because they fill different columns.
  */
 const DEFINITIONS = {
   coins: {

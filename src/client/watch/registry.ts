@@ -1,9 +1,12 @@
 import type { ChannelsParams } from "../api/channels/params.ts";
 import { ChannelsWatcherController } from "../api/channels/watcher.ts";
-import type { ChannelsWatcherEvents, ChannelsWatchOptions } from "../api/channels/watcher.ts";
+import type {
+  ChannelsWatcher,
+  ChannelsWatcherEvents,
+  ChannelsWatchOptions,
+} from "../api/channels/watcher.ts";
 import { NewsWatcherController } from "../api/news/watcher.ts";
-import type { NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
-import type { Channel } from "../channel/channel.ts";
+import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
 import type { ResumeOptions } from "./connection.ts";
 import type { WatchTransports } from "./transports.ts";
 import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
@@ -22,12 +25,14 @@ export interface WatchDefinitions {
     params: ChannelsParams;
     options: ChannelsWatchOptions;
     events: ChannelsWatcherEvents;
+    watcher: ChannelsWatcher;
   };
   "news.feed": {
     /* The live feed takes no parameters: it delivers every published story. */
     params: Record<string, never>;
     options: NewsWatchOptions;
     events: NewsWatcherEvents;
+    watcher: NewsWatcher;
   };
 }
 
@@ -38,36 +43,18 @@ export type WatchableKind = keyof WatchDefinitions;
 export type WatchParams<K extends WatchableKind> = WatchDefinitions[K]["params"];
 
 /** The live subscription handle associated with a watchable kind. */
-export type Watcher<K extends WatchableKind, P extends WatchParams<K> = WatchParams<K>> = WatcherOf<
-  WatchEvents<K, P>
->;
+export type Watcher<K extends WatchableKind> = WatchDefinitions[K]["watcher"];
 
-export type WatchEvents<
-  K extends WatchableKind,
-  P extends WatchParams<K> = WatchParams<K>,
-> = K extends "channels.feed"
-  ? P extends ChannelsParams<infer C extends Channel>
-    ? ChannelsWatcherEvents<C>
-    : never
-  : WatchDefinitions[K]["events"];
+export type WatchEvents<K extends WatchableKind> = WatchDefinitions[K]["events"];
 
 /** One event delivered by a watchable kind, tagged with its type. */
-export type WatchEvent<
-  K extends WatchableKind,
-  P extends WatchParams<K> = WatchParams<K>,
-> = TaggedEvent<WatchEvents<K, P>>;
+export type WatchEvent<K extends WatchableKind> = TaggedEvent<WatchEvents<K>>;
 
 /** Listeners for individual event types, keyed by type. */
-export type WatchEventListeners<
-  K extends WatchableKind,
-  P extends WatchParams<K> = WatchParams<K>,
-> = EventListeners<WatchEvents<K, P>>;
+export type WatchEventListeners<K extends WatchableKind> = EventListeners<WatchEvents<K>>;
 
 /** A single listener receiving every event the subscription delivers. */
-export type WatchEventListener<
-  K extends WatchableKind,
-  P extends WatchParams<K> = WatchParams<K>,
-> = (event: WatchEvent<K, P>) => void;
+export type WatchEventListener<K extends WatchableKind> = (event: WatchEvent<K>) => void;
 
 /**
  * Event listeners registered before the subscription opens.
@@ -76,16 +63,13 @@ export type WatchEventListener<
  * them here rather than through `watcher.on()` removes the gap between
  * constructing a watcher and attaching to it, so no event can be missed.
  */
-export type WatchListeners<K extends WatchableKind, P extends WatchParams<K> = WatchParams<K>> =
-  | WatchEventListeners<K, P>
-  | WatchEventListener<K, P>;
+export type WatchListeners<K extends WatchableKind> =
+  | WatchEventListeners<K>
+  | WatchEventListener<K>;
 
 /** Subscription options, plus the listeners to attach before connecting. */
-export type WatchOptions<
-  K extends WatchableKind,
-  P extends WatchParams<K> = WatchParams<K>,
-> = WatchDefinitions[K]["options"] & {
-  readonly on?: WatchListeners<K, P>;
+export type WatchOptions<K extends WatchableKind> = WatchDefinitions[K]["options"] & {
+  readonly on?: WatchListeners<K>;
 
   /**
    * Keeps the subscription connected from its initial attempt onward.
@@ -137,12 +121,16 @@ interface WatcherDefinition<K extends WatchableKind> {
    * Takes every transport the client owns and picks the ones this kind
    * needs, so a kind that spans endpoints is built the same way as one that
    * uses a single socket.
+   *
+   * The `WatcherOf` half of the return type is what lets the client attach
+   * listeners and resume drops generically: without it, `Watcher<K>` is an
+   * opaque indexed access and every call would need a cast.
    */
   create(
     transports: WatchTransports,
     params: WatchParams<K>,
     options: WatchDefinitions[K]["options"] | undefined,
-  ): WatcherOf<WatchEvents<K>>;
+  ): Watcher<K> & WatcherOf<WatchEvents<K>>;
 
   /**
    * Every event type this kind delivers.
@@ -167,6 +155,6 @@ export const WATCHERS: WatcherRegistry = Object.freeze({
   "channels.feed": {
     create: (transports, params, options) =>
       new ChannelsWatcherController(transports, params, options),
-    events: { data: true, decodeError: true, channelError: true, error: true, close: true },
+    events: { error: true, close: true },
   },
 });

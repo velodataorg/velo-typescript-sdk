@@ -33,13 +33,15 @@ export type { Coin, Target } from "./client/channel/helpers/target.ts";
 export type { Product } from "./client/market/product.ts";
 export type {
   Channel,
+  ChannelError,
   ChannelFrame,
+  ChannelListeners,
   ChannelMessage,
+  CustomChannel,
   RawChannel,
 } from "./client/channel/channel.ts";
-export type { ChannelError } from "./client/api/channels/decode.ts";
+export type { ExchangeEntry } from "./client/channel/helpers/decode.ts";
 export type {
-  ChannelDecodeError,
   ChannelsWatcher,
   ChannelsWatcherEvents,
   ChannelsWatchOptions,

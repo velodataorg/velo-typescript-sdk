@@ -1,6 +1,7 @@
 import type { Row } from "../../data/row.ts";
 import type { Product } from "../../market/product.ts";
 import type { Channel } from "../channel.ts";
+import { createChannel } from "../create.ts";
 import { aggregatedDecoder, singleDecoder } from "./decode.ts";
 import type { ColumnNames, ColumnOf, ExchangeEntry } from "./decode.ts";
 import { renderAggregatedName, renderSingleName } from "./render.ts";
@@ -18,7 +19,7 @@ import type { ParsedTarget } from "./target.ts";
 export interface ChannelDefinition {
   /* What the server's list calls it, verbatim, such as `#open_interest#Coins`; empty for price. */
   readonly suffix: string;
-  /* What a listener narrows `data` on. The SDK's own name for the channel. */
+  /* The SDK's own name for the channel, which every message it delivers carries. */
   readonly kind: string;
   /* The history columns a payload fills, by position. */
   readonly columns: ColumnNames;
@@ -77,7 +78,7 @@ export function singleChannel<X extends string, const D extends ChannelDefinitio
 ): SingleChannel<X, D> {
   const { suffix, kind, columns }: ChannelDefinition = definition;
   const name = renderSingleName(product, suffix);
-  const built = Object.freeze({ kind, name, decode: singleDecoder(name, product, columns) });
+  const built = createChannel({ kind, name, decode: singleDecoder(name, product, columns) });
   /* The kind and the columns are the definition's, which its literal type says and the value cannot. */
   return built as SingleChannel<X, D>;
 }
@@ -99,7 +100,7 @@ export function aggregatedChannel<X extends string, const D extends ChannelDefin
 ): AggregatedChannel<X, D> {
   const { suffix, kind, columns }: ChannelDefinition = definition;
   const name = renderAggregatedName(coin, suffix);
-  const built = Object.freeze({
+  const built = createChannel({
     kind: `aggregated_${kind}`,
     name,
     decode: aggregatedDecoder(name, exchanges, coin, columns),

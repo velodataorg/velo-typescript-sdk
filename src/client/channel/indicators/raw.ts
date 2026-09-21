@@ -1,4 +1,5 @@
 import type { ChannelFrame, RawChannel } from "../channel.ts";
+import { createChannel } from "../create.ts";
 import { validateChannelName } from "../name.ts";
 
 /**
@@ -14,7 +15,7 @@ import { validateChannelName } from "../name.ts";
  */
 export function raw(name: string): RawChannel {
   validateChannelName(name);
-  return Object.freeze({ kind: "raw", name, decode: decodeRaw });
+  return createChannel({ kind: "raw", name, decode: decodeRaw });
 }
 
 /**

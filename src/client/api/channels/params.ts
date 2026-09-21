@@ -1,30 +1,32 @@
 import { assert } from "../../../util/assert.ts";
-import type { Channel, ChannelFrame } from "../../channel/channel.ts";
-import { validateChannelName } from "../../channel/name.ts";
+import type { Channel } from "../../channel/channel.ts";
+import { isChannel, listenersOf } from "../../channel/create.ts";
 
 /** Parameters for a channel feed. */
-export interface ChannelsParams<C extends Channel = Channel> {
-  /* Built on the `channels` namespace; a bare wire name goes through `channels.raw()`. */
-  readonly channels: readonly C[];
+export interface ChannelsParams {
+  /* Built on the `channels` namespace, each with a `data` listener from `on()`. */
+  readonly channels: readonly Channel[];
 }
 
 export const ChannelsParams = Object.freeze({
   /**
-   * Validates and snapshots channel-feed parameters.
+   * Validates channel-feed parameters.
    *
    * @remarks
-   * Each channel is copied and frozen with its kind, wire name, and decoder
-   * captured now, so later mutation of a caller's object cannot change what
-   * a feed does. One wire name appears once: repeats with the same kind
-   * collapse to the first, since a kind means one decoder, and repeats with
-   * a different kind are rejected rather than picking one silently.
+   * A channel is kept as the value the caller passed, which is already
+   * frozen, so that value is what names it afterwards. The same value passed
+   * twice is kept once. Two values with one wire name are both kept: they are
+   * one subscription, and each one's listeners are called. A kind means one
+   * decoder, so two that disagree on a kind are rejected rather than picking
+   * one silently.
    *
    * @param params - The caller's parameters.
-   * @returns Frozen parameters holding a frozen copy of each distinct channel.
-   * @throws A VeloError when the channels are not a non-empty array of valid
-   * channels, or when two of them disagree on a kind.
+   * @returns Frozen parameters holding each distinct channel.
+   * @throws A VeloError when the channels are not a non-empty array of
+   * channels built on the `channels` namespace, when one has no `data`
+   * listener and so would deliver nowhere, or when two disagree on a kind.
    */
-  parse<C extends Channel>(params: ChannelsParams<C>): ChannelsParams<C> {
+  parse(params: ChannelsParams): ChannelsParams {
     assert(
       params !== null && typeof params === "object" && !Array.isArray(params),
       "channels params must be an object",
@@ -33,35 +35,39 @@ export const ChannelsParams = Object.freeze({
     assert(Array.isArray(inputs) && inputs.length > 0, "channels must be a non-empty array");
 
     const kinds = new Map<string, string>();
-    const channels: C[] = [];
-    for (const input of inputs as readonly C[]) {
-      assert(
-        input !== null &&
-          typeof input === "object" &&
-          typeof input.kind === "string" &&
-          input.kind.length > 0 &&
-          typeof input.name === "string" &&
-          typeof input.decode === "function",
-        "channels must be channel objects; wrap a wire name with channels.raw()",
-      );
-      const { kind, name, decode } = input;
-      validateChannelName(name);
+    const channels: Channel[] = [];
+    for (const input of inputs as readonly unknown[]) {
+      const channel = parseChannel(input);
+      const { kind, name } = channel;
       const previous = kinds.get(name);
-      if (previous !== undefined) {
-        assert(previous === kind, `conflicting channels for ${name}: ${previous} and ${kind}`);
-        continue;
-      }
-      kinds.set(name, kind);
-      channels.push(
-        Object.freeze({
-          ...input,
-          kind,
-          name,
-          decode: (frame: ChannelFrame) => decode.call(input, frame),
-        }),
+      assert(
+        previous === undefined || previous === kind,
+        `conflicting channels for ${name}: ${previous} and ${kind}`,
       );
+      kinds.set(name, kind);
+      if (!channels.includes(channel)) channels.push(channel);
     }
 
     return Object.freeze({ channels: Object.freeze(channels) });
   },
 });
+
+/**
+ * Checks that a value is a channel a feed can deliver.
+ *
+ * @param input - What a caller passed as a channel.
+ * @returns The channel, as the value it is.
+ * @throws A VeloError when it was not built on the `channels` namespace, or
+ * has no `data` listener and so would deliver nowhere.
+ */
+export function parseChannel(input: unknown): Channel {
+  assert(
+    isChannel(input),
+    "channels must be built on the channels namespace; wrap a wire name with channels.raw(), or a decoder of your own with channels.custom()",
+  );
+  assert(
+    listenersOf(input).data !== undefined,
+    `${input.name} has no data listener; give it one with .on({ data })`,
+  );
+  return input;
+}

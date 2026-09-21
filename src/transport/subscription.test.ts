@@ -122,10 +122,11 @@ describe("a live subscription", () => {
     const velo = new Velo({ apiKey: "test/key", baseUrl: feed.baseUrl });
     const seen: ChannelMessage<RawChannel>[] = [];
     const watcher = await velo.watch(
-      velo.channels.feed(names.map((name) => velo.channels.raw(name))),
-      {
-        on: { data: (value) => seen.push(value) },
-      },
+      velo.channels.feed(
+        names.map((name) =>
+          velo.channels.raw(name).on({ data: (_payload, message) => seen.push(message) }),
+        ),
+      ),
     );
     try {
       expect(feed.upgrades).toHaveLength(1);
@@ -163,9 +164,11 @@ describe("a live subscription", () => {
         defaultWebSocketFactory(target, { WebSocket: globalThis.WebSocket }),
     });
     const seen: ChannelMessage<RawChannel>[] = [];
-    const watcher = await velo.watch(velo.channels.feed([velo.channels.raw(channel)]), {
-      on: { data: (value) => seen.push(value) },
-    });
+    const watcher = await velo.watch(
+      velo.channels.feed([
+        velo.channels.raw(channel).on({ data: (_payload, message) => seen.push(message) }),
+      ]),
+    );
     try {
       expect(feed.upgrades[0]?.url).toBe("/api/o/connect/test%2Fkey%20%2B%3F");
       expect(feed.upgrades[0]?.headers.authorization).toBeUndefined();
@@ -182,7 +185,11 @@ describe("a live subscription", () => {
   it("does not retry raw channels rejected by API-key authentication", async ({ refusing }) => {
     const velo = new Velo({ apiKey: "test/key", baseUrl: refusing.baseUrl });
     await expect(
-      velo.watch(velo.channels.feed([velo.channels.raw("realtime_binance-futures:BTCUSDT")])),
+      velo.watch(
+        velo.channels.feed([
+          velo.channels.raw("realtime_binance-futures:BTCUSDT").on({ data: () => {} }),
+        ]),
+      ),
     ).rejects.toBeInstanceOf(VeloAuthError);
     expect(refusing.attempts()).toBe(1);
   });

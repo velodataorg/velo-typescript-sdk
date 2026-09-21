@@ -12,9 +12,9 @@ const INDICATOR = "channels.fundingRate";
 /*
  * Every funding rate channel the server publishes. Each of the first three
  * sends its current value, bare. They are different kinds of channel because
- * they fill different columns; a listener narrows `data` on `kind`. History
- * has the rate's column and none for what is spent, so those two are named
- * here, in the manner of the history columns measured in coins and in dollars.
+ * they fill different columns. History has the rate's column and none for
+ * what is spent, so those two are named here, in the manner of the history
+ * columns measured in coins and in dollars.
  */
 const DEFINITIONS = {
   /* The server words it `Rate (%)` and sends a fraction, as history does: 0.0001 is 0.01%. */

@@ -1,4 +1,5 @@
 import type { Channel } from "../../channel/channel.ts";
+import { custom } from "../../channel/indicators/custom.ts";
 import { fundingRate } from "../../channel/indicators/funding-rate.ts";
 import { liquidationVolume } from "../../channel/indicators/liquidation-volume.ts";
 import { liquidations } from "../../channel/indicators/liquidations.ts";
@@ -18,11 +19,12 @@ import { ChannelsFeedBuilder } from "./builder.ts";
  * Its builders are spelled like the history ones. A builder's target and
  * options pick which of an indicator's channels comes back, and so its kind:
  * a product for a single channel or a coin, such as `{ coin: "BTC" }`, for
- * one aggregated across exchanges, then a metric. What they build goes into
- * `feed()`.
+ * one aggregated across exchanges, then a metric. What they build takes its
+ * listeners with `on()` and goes into `feed()`.
  */
 export class Channels {
   readonly raw = raw;
+  readonly custom = custom;
   readonly price = price;
   readonly openInterest = openInterest;
   readonly fundingRate = fundingRate;
@@ -37,11 +39,15 @@ export class Channels {
   /**
    * Creates an immutable live-feed builder for a set of channels.
    *
-   * @param channels - Channels built on this namespace. A bare wire name goes
-   * through `raw()`.
-   * @returns A builder whose request carries the channels' types.
+   * @param channels - Channels built on this namespace, each with a `data`
+   * listener from `on()`. A bare wire name goes through `raw()`, and a decoder
+   * of the caller's own through `custom()`.
+   * @returns A builder of the feed's request.
+   * @throws A VeloError when the list is empty, holds something that is not
+   * a channel, holds a channel with no `data` listener, or holds two that
+   * disagree on a kind.
    */
-  feed<const C extends Channel>(channels: readonly C[]): ChannelsFeedBuilder<C> {
+  feed(channels: readonly Channel[]): ChannelsFeedBuilder {
     return new ChannelsFeedBuilder(channels);
   }
 }

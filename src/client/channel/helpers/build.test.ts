@@ -28,7 +28,7 @@ describe("singleChannel", () => {
       time: 60_000,
       premium: 0.5,
     });
-    expect(Object.keys(built).sort()).toEqual(["decode", "kind", "name"]);
+    expect(Object.keys(built).sort()).toEqual(["decode", "kind", "name", "on"]);
     expect(Object.isFrozen(built)).toBe(true);
   });
 });

@@ -11,8 +11,7 @@ const INDICATOR = "channels.openInterest";
 /*
  * Every open interest channel the server publishes. Each sends the one-minute
  * candle in progress: high, low, then close. The two are different kinds of
- * channel because they fill different columns; a listener narrows `data` on
- * `kind`.
+ * channel because they fill different columns.
  */
 const DEFINITIONS = {
   /* A new frame arrives when the exchange reports a value, every one to a few seconds. */

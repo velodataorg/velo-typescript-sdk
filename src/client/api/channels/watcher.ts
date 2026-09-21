@@ -3,7 +3,8 @@ import { WebSocketSession } from "../../../transport/session.ts";
 import { abnormalCloseEvent } from "../../../transport/websocket.ts";
 import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport/websocket.ts";
 import { assert } from "../../../util/assert.ts";
-import type { Channel, ChannelFrame, ChannelMessage } from "../../channel/channel.ts";
+import type { Channel, ChannelError, ChannelFrame, ChannelMessage } from "../../channel/channel.ts";
+import { isChannel, listenersOf } from "../../channel/create.ts";
 import { channelEndpoint } from "../../channel/name.ts";
 import type { ChannelEndpoint } from "../../channel/name.ts";
 import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
@@ -14,8 +15,7 @@ import type { WatcherOptions } from "../../watch/options.ts";
 import type { WatchTransports } from "../../watch/transports.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
 import { decodeChannelFrame } from "./decode.ts";
-import type { ChannelError } from "./decode.ts";
-import { ChannelsParams } from "./params.ts";
+import { ChannelsParams, parseChannel } from "./params.ts";
 
 /** Options for a channel subscription: the contract every watcher shares. */
 export type ChannelsWatchOptions = WatcherOptions;
@@ -25,61 +25,68 @@ export const MAX_CHANNELS_PER_SOCKET = 10;
 
 /*
  * How many frames in a row a channel may fail to decode before it is reported
- * as a whole. The count is reversible, so it only decides when the per-frame
- * reports stop: the first frame that decodes clears it.
+ * as failing. Each of them is reported to the channel's `error` listener as
+ * `decode`; past the limit they stay quiet. The count is reversible: the
+ * first frame that decodes clears it.
  */
 export const MAX_CONSECUTIVE_DECODE_FAILURES = 3;
 
-/* One frame a channel's decoder refused. The frame is skipped and the channel continues. */
-export interface ChannelDecodeError {
-  readonly channel: string;
-  /* Its `cause` is the decoder's own error, such as the schema mismatch. */
-  readonly error: VeloError;
-  readonly frame: ChannelFrame;
-}
-
-export interface ChannelsWatcherEvents<C extends Channel = Channel> {
-  readonly data: ChannelMessage<C>;
-  /**
-   * A frame that could not be decoded.
-   *
-   * Reported for each failure until a channel reaches
-   * {@link MAX_CONSECUTIVE_DECODE_FAILURES} in a row, then not again until the
-   * channel has recovered.
-   */
-  readonly decodeError: ChannelDecodeError;
-  /**
-   * A channel that stopped delivering; other channels continue.
-   *
-   * Either the server rejected or dropped it, or its frames kept failing to
-   * decode. The second kind keeps its subscription and resumes `data` by
-   * itself once a frame decodes.
-   */
-  readonly channelError: ChannelError;
+/*
+ * What the connection itself reports. What a channel delivers, and what goes
+ * wrong on one channel, go to that channel's own listeners.
+ */
+export interface ChannelsWatcherEvents {
   readonly error: VeloError;
   readonly close: WebSocketCloseEvent;
 }
 
-/**
- * A live channel subscription.
- *
- * The shared watcher contract over the channel event map, which carries the
- * union of the subscribed channels so `kind` narrows `data`.
- */
-export type ChannelsWatcher<C extends Channel = Channel> = WatcherOf<ChannelsWatcherEvents<C>>;
+/** A live channel subscription: the shared watcher contract, and which channels it follows. */
+export interface ChannelsWatcher extends WatcherOf<ChannelsWatcherEvents> {
+  /**
+   * Starts following a channel, without reconnecting.
+   *
+   * @remarks
+   * The server acknowledges nothing: the channel's first `data` is what
+   * shows it started, and a refusal arrives later at its `error` listener. A
+   * channel with the wire name of one already followed joins its
+   * subscription. The same value again changes nothing.
+   *
+   * @param channel - A channel built on the `channels` namespace, with a
+   * `data` listener.
+   * @throws A VeloError when the watcher is closed, the channel is not
+   * usable in a feed, or its kind disagrees with one followed under the same
+   * wire name.
+   */
+  subscribe(channel: Channel): void;
+  /**
+   * Stops following a channel, without reconnecting.
+   *
+   * @remarks
+   * A channel is the value that was passed to the feed or to `subscribe()`;
+   * another value built the same way is not it. The server stops sending once
+   * the last channel with a wire name goes. `subscribe()` with the same value
+   * starts it again.
+   *
+   * @param channel - The channel to stop.
+   * @throws A VeloError when the watcher is closed, the channel is not
+   * followed here, or it is the last one: a watcher follows at least one
+   * channel, so `close()` it instead.
+   */
+  unsubscribe(channel: Channel): void;
+}
 
 /*
- * One socket's share of the subscription: its endpoint and the channels it
- * carries. An endpoint gets as many groups as the per-socket limit requires.
+ * One socket's share of the subscription: its endpoint and the wire names it
+ * carries, at most the per-socket limit. It lives as long as it carries one.
  */
 interface ChannelGroup {
   readonly transport: WebSocketTransport;
-  readonly channels: readonly string[];
+  readonly channels: string[];
   readonly heartbeat: HeartbeatDeadline;
 }
 
 /**
- * A disconnected controller for a fixed set of channels.
+ * A disconnected controller for a set of channels that can change while open.
  *
  * Owns the sockets the channels need — one per endpoint, or more when an
  * endpoint's channels exceed the per-socket limit — and the v2 `s2`/`u2`
@@ -89,7 +96,7 @@ interface ChannelGroup {
  * `disconnected` and emits `close`, and the watch layer resumes it.
  *
  * Nothing published while disconnected is replayed, and a reconnect
- * resubscribes the original set, including channels the server rejected.
+ * resubscribes the set as it is then, including channels the server rejected.
  *
  * A frame its channel cannot decode costs that frame alone: it is reported
  * and skipped, and neither the socket nor the other channels are affected.
@@ -100,10 +107,17 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   /* Consecutive decode failures per channel; absent means the last frame decoded. */
   readonly #strikes = new Map<string, number>();
   readonly #connectTimeout: number;
+  /* The channel whose decoder reads a wire name's frames: the first one listed for it. */
   readonly #channels = new Map<string, Channel>();
-  readonly #groups: readonly ChannelGroup[];
+  /* Every channel listed for a wire name. They are one subscription, and each one's listeners are called. */
+  readonly #listening = new Map<string, Channel[]>();
+  readonly #groups: ChannelGroup[] = [];
   readonly #lifecycle: WatchLifecycle<ChannelsWatcherEvents>;
   readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
+  readonly #transports: Pick<WatchTransports, ChannelEndpoint>;
+  readonly #heartbeatTimeout: number;
+  /* The attempt the open sockets belong to, which a socket opened later joins. */
+  #attempt: AbortController | undefined;
 
   constructor(
     transports: Pick<WatchTransports, ChannelEndpoint>,
@@ -113,39 +127,14 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     const { channels } = ChannelsParams.parse(params);
     const prepared = prepareWatcherOptions(options);
     this.#connectTimeout = prepared.connectTimeout;
+    this.#heartbeatTimeout = prepared.heartbeatTimeout;
+    this.#transports = transports;
     this.#lifecycle = new WatchLifecycle("Channels", prepared, {
       start: (attempt) => this.#open(attempt),
       teardown: (reason) => this.#teardown(reason),
     });
 
-    const byEndpoint = new Map<ChannelEndpoint, string[]>();
-    for (const entry of channels) {
-      const name = entry.name;
-      this.#channels.set(name, entry);
-      const endpoint = channelEndpoint(name);
-      const names = byEndpoint.get(endpoint) ?? [];
-      names.push(name);
-      byEndpoint.set(endpoint, names);
-    }
-    const groups: ChannelGroup[] = [];
-    for (const [endpoint, names] of byEndpoint) {
-      const transport = transports[endpoint];
-      for (const shard of chunk(names, MAX_CHANNELS_PER_SOCKET)) {
-        groups.push({
-          transport,
-          channels: shard,
-          heartbeat: new HeartbeatDeadline(prepared.heartbeatTimeout, () => {
-            this.#lifecycle.fail(
-              transport.connectionError(
-                `heartbeat timed out after ${prepared.heartbeatTimeout} milliseconds`,
-              ),
-              abnormalCloseEvent(),
-            );
-          }),
-        });
-      }
-    }
-    this.#groups = groups;
+    for (const channel of channels) this.#follow(channel);
   }
 
   get state(): WatchState {
@@ -180,6 +169,69 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#lifecycle.close();
   }
 
+  subscribe(channel: Channel): void {
+    assert(this.state !== "closed", "Channels watcher is closed");
+    const { kind, name } = parseChannel(channel);
+    const followed = this.#channels.get(name);
+    assert(
+      followed === undefined || followed.kind === kind,
+      () => `conflicting channels for ${name}: ${followed?.kind} and ${kind}`,
+    );
+
+    const placed = this.#follow(channel);
+    /* Not placed: the wire name was already followed, and the channel joined its subscription. */
+    if (placed === undefined || this.#attempt === undefined) return;
+
+    this.#active.add(name);
+    const session = this.#sessions.get(placed.group);
+    if (session !== undefined) this.#send(placed.group, session, `s2 ${name}`);
+    else if (placed.created) this.#openLater(placed.group, this.#attempt);
+    /* Otherwise the group's socket is still opening, and subscribes every name it carries once open. */
+  }
+
+  unsubscribe(channel: Channel): void {
+    assert(this.state !== "closed", "Channels watcher is closed");
+    const name = isChannel(channel) ? channel.name : undefined;
+    const listening = name === undefined ? undefined : this.#listening.get(name);
+    assert(
+      name !== undefined && listening?.includes(channel) === true,
+      "unsubscribe() takes a channel this watcher follows: the value passed to the feed or to subscribe()",
+    );
+    const followed = [...this.#listening.values()].reduce((count, list) => count + list.length, 0);
+    assert(
+      followed > 1,
+      `${name} is the last channel this watcher follows; close() the watcher instead`,
+    );
+
+    listening.splice(listening.indexOf(channel), 1);
+    const next = listening[0];
+    if (next !== undefined) {
+      /* The subscription stays for the others, read by the first of them. */
+      this.#channels.set(name, next);
+      return;
+    }
+    this.#listening.delete(name);
+    this.#channels.delete(name);
+    this.#strikes.delete(name);
+
+    const group = this.#groups.find((candidate) => candidate.channels.includes(name));
+    assert(group !== undefined, () => `no socket carries ${name}`);
+    group.channels.splice(group.channels.indexOf(name), 1);
+    const session = this.#sessions.get(group);
+    /*
+     * Only for a name the server still counts: it lowers a socket's count on
+     * any `u2`, so one for a name it already stopped would miscount the socket.
+     */
+    if (this.#active.delete(name) && session?.state === "open") {
+      try {
+        session.send(`u2 ${name}`);
+      } catch {
+        // Closing the socket also releases the subscription if sending fails.
+      }
+    }
+    if (group.channels.length === 0) this.#retire(group);
+  }
+
   /**
    * Opens every group's socket for one attempt.
    *
@@ -187,6 +239,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * the handshakes and marks every callback stale once the attempt ends.
    */
   #open(attempt: AbortController): void {
+    this.#attempt = attempt;
     for (const group of this.#groups) {
       for (const channel of group.channels) this.#active.add(channel);
     }
@@ -227,12 +280,16 @@ export class ChannelsWatcherController implements ChannelsWatcher {
           if (!attempt.signal.aborted) this.#handleMessage(group, data);
         },
         onClose: (close, error) => {
-          if (!attempt.signal.aborted) this.#lifecycle.fail(error, close);
+          /* A group that carries nothing was retired on purpose; its socket ending is no failure. */
+          if (!attempt.signal.aborted && this.#groups.includes(group)) {
+            this.#lifecycle.fail(error, close);
+          }
         },
       },
       { timeout: this.#connectTimeout, signal: attempt.signal },
     );
-    if (attempt.signal.aborted) {
+    /* Every name the group carried may have been unsubscribed while its socket was opening. */
+    if (attempt.signal.aborted || !this.#groups.includes(group)) {
       session.close();
       return;
     }
@@ -275,7 +332,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     if (!this.#active.has(channel) || !group.channels.includes(channel)) return;
     if (incoming.type === "channelError") {
       this.#active.delete(channel);
-      this.#lifecycle.emitter.emit("channelError", incoming.error);
+      this.#report(incoming.error);
       return;
     }
 
@@ -294,13 +351,17 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       return;
     }
     this.#strikes.delete(channel);
-    this.#lifecycle.emitter.emit("data", {
+    const message: ChannelMessage = {
       kind: entry.kind,
       channel,
       ...(incoming.frame.tt === undefined ? {} : { timestamp: incoming.frame.tt }),
       data: decoded,
       frame: incoming.frame,
-    });
+    };
+    for (const listening of this.#listening.get(channel) ?? []) {
+      const { data } = listenersOf(listening);
+      if (data !== undefined) this.#lifecycle.emitter.call(data, decoded, message);
+    }
   }
 
   /**
@@ -329,6 +390,100 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#sessions.clear();
     this.#active.clear();
     this.#strikes.clear();
+    this.#attempt = undefined;
+  }
+
+  /**
+   * Lists a channel, and gives its wire name a socket if it has none.
+   *
+   * @param channel - A channel already checked, whose kind agrees with any
+   * other listed for its wire name.
+   * @returns The group the wire name was placed in and whether it was made for
+   * it, or undefined when the name was already carried.
+   */
+  #follow(channel: Channel): { group: ChannelGroup; created: boolean } | undefined {
+    const { name } = channel;
+    const listening = this.#listening.get(name);
+    if (listening !== undefined) {
+      if (!listening.includes(channel)) listening.push(channel);
+      return undefined;
+    }
+    this.#listening.set(name, [channel]);
+    this.#channels.set(name, channel);
+
+    const transport = this.#transports[channelEndpoint(name)];
+    const roomy = this.#groups.find(
+      (group) => group.transport === transport && group.channels.length < MAX_CHANNELS_PER_SOCKET,
+    );
+    if (roomy !== undefined) {
+      roomy.channels.push(name);
+      return { group: roomy, created: false };
+    }
+    const group: ChannelGroup = {
+      transport,
+      channels: [name],
+      heartbeat: new HeartbeatDeadline(this.#heartbeatTimeout, () => {
+        this.#lifecycle.fail(
+          transport.connectionError(
+            `heartbeat timed out after ${this.#heartbeatTimeout} milliseconds`,
+          ),
+          abnormalCloseEvent(),
+        );
+      }),
+    };
+    this.#groups.push(group);
+    return { group, created: true };
+  }
+
+  /**
+   * Opens the socket of a group made while the connection was already up.
+   *
+   * @param group - The new group.
+   * @param attempt - The attempt the open sockets belong to.
+   */
+  #openLater(group: ChannelGroup, attempt: AbortController): void {
+    void this.#openGroup(group, attempt).catch((cause: unknown) => {
+      if (attempt.signal.aborted) return;
+      this.#lifecycle.fail(
+        cause instanceof VeloError ? cause : new VeloError("channel connection failed", { cause }),
+        abnormalCloseEvent(),
+      );
+    });
+  }
+
+  /**
+   * Sends one command on an open socket, failing the connection if it cannot.
+   *
+   * @param group - The group the socket belongs to.
+   * @param session - Its open session.
+   * @param command - The command to send.
+   */
+  #send(group: ChannelGroup, session: WebSocketSession, command: string): void {
+    try {
+      session.send(command);
+    } catch (cause) {
+      this.#lifecycle.fail(
+        group.transport.connectionError("subscription failed", cause),
+        abnormalCloseEvent(),
+      );
+    }
+  }
+
+  /**
+   * Ends a group that carries nothing, as an intentional end.
+   *
+   * @remarks
+   * The server terminates a socket once its last channel is unsubscribed. The
+   * group leaves the list first, so neither that nor closing the socket here
+   * counts as a lost connection, which would reconnect the whole feed.
+   *
+   * @param group - The emptied group.
+   */
+  #retire(group: ChannelGroup): void {
+    this.#groups.splice(this.#groups.indexOf(group), 1);
+    group.heartbeat.clear();
+    this.#sessions.get(group)?.close();
+    this.#sessions.delete(group);
   }
 
   /**
@@ -340,8 +495,9 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * would last until the next reconnect, and the server terminates a socket
    * that unsubscribes its last channel, which would reconnect the whole feed.
    *
-   * Every failure is reported until the limit. Reaching it reports the
-   * channel once, and further failures stay quiet until a frame decodes.
+   * Every failure is reported until the limit. Reaching it also reports the
+   * channel as failing, once, and further failures stay quiet until a frame
+   * decodes.
    *
    * @param channel - The channel the frame belongs to.
    * @param frame - The frame that could not be decoded.
@@ -353,27 +509,24 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#strikes.set(channel, strikes);
 
     const error = new VeloError(`failed to decode channel ${channel}`, { cause });
-    this.#lifecycle.emitter.emit("decodeError", { channel, error, frame });
-    /* A decodeError listener may have ended the connection, which clears the active set. */
+    this.#report({ channel, reason: "decode", error, frame });
+    /* A listener may have ended the connection, which clears the active set. */
     if (strikes === MAX_CONSECUTIVE_DECODE_FAILURES && this.#active.has(channel)) {
-      this.#lifecycle.emitter.emit("channelError", { channel, reason: "decode", error });
+      this.#report({ channel, reason: "failing", error });
     }
   }
-}
 
-/**
- * Splits a list into consecutive runs of at most `size` items.
- *
- * @param items - The list to split; order is preserved.
- * @param size - The maximum run length.
- * @returns The runs, the last possibly shorter.
- */
-function chunk<T>(items: readonly T[], size: number): T[][] {
-  const runs: T[][] = [];
-  for (let start = 0; start < items.length; start += size) {
-    runs.push(items.slice(start, start + size));
+  /**
+   * Calls the error listener of every channel listed for a wire name.
+   *
+   * @param event - What went wrong, and on which wire name.
+   */
+  #report(event: ChannelError): void {
+    for (const listening of this.#listening.get(event.channel) ?? []) {
+      const { error } = listenersOf(listening);
+      if (error !== undefined) this.#lifecycle.emitter.call(error, event);
+    }
   }
-  return runs;
 }
 
 /**
