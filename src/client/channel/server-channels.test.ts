@@ -65,7 +65,16 @@ const TARGET: Readonly<Record<ServerList, string>> = {
   spotCoin: "realtime_BTC",
 };
 
-/* What the server publishes and no builder builds yet. Delete a line when its builder lands. */
+/*
+ * What the server publishes and no builder builds, on purpose. Each of these
+ * is named after an indicator and carries only what the web app computes it
+ * from, over a window its user picks: `#vwap` is `coin_volume` and
+ * `dollar_volume`, `#returns` is `close_price`, `#total_return` is
+ * `close_price` and `funding_rate`, `#oiwap` is both open interest closes.
+ * `channel.price`, `channel.fundingRate`, and `channel.openInterest` already
+ * carry those columns. Nothing publishes `#turnover`. A new suffix on the
+ * server shows up here as a failure until it has a builder or a line.
+ */
 const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
   futuresProduct: ["#vwap", "#turnover", "#oiwap", "#returns", "#total_return"],
   spotProduct: [],
