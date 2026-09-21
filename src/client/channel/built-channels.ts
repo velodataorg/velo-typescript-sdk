@@ -51,4 +51,8 @@ export const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readon
     { list: "futuresCoin", built: channel.volume(COIN, { metric: "coins" }) },
     { list: "futuresCoin", built: channel.volume(COIN, { metric: "dollars" }) },
   ],
+  tape: [
+    { list: "futuresProduct", built: channel.tape(PERP) },
+    { list: "futuresCoin", built: channel.tape(COIN) },
+  ],
 };

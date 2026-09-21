@@ -71,7 +71,6 @@ const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
     "#liquidations#Coins",
     "#liquidations#Liquidation Count",
     "#liquidations#Dollars",
-    "#tape#Trade Count",
     "#vwap",
     "#turnover",
     "#oiwap",
@@ -81,7 +80,6 @@ const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
   ],
   spotProduct: ["#spotvol#Coins", "#spotvol#Dollars", "#spottape#Trade Count"],
   futuresCoin: [
-    "#tape#Trade Count#Aggregated",
     "#liquidations#Coins#Aggregated",
     "#liquidations#Liquidation Count#Aggregated",
     "#liquidations#Dollars#Aggregated",
