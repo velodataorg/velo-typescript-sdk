@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { FuturesOpenInterestColumn } from "../../api/futures/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
@@ -51,40 +51,40 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.openInterest", () => {
+describe("channels.openInterest", () => {
   it("names one channel per metric and target, defaulting to dollars as history does", () => {
     const named = (built: { readonly kind: string; readonly name: string }) => [
       built.kind,
       built.name,
     ];
 
-    expect(named(channel.openInterest(BTC))).toEqual(["open_interest_dollars", DOLLARS]);
-    expect(named(channel.openInterest(BTC, { metric: "dollars" }))).toEqual([
+    expect(named(channels.openInterest(BTC))).toEqual(["open_interest_dollars", DOLLARS]);
+    expect(named(channels.openInterest(BTC, { metric: "dollars" }))).toEqual([
       "open_interest_dollars",
       DOLLARS,
     ]);
-    expect(named(channel.openInterest(BTC, { metric: "coins" }))).toEqual([
+    expect(named(channels.openInterest(BTC, { metric: "coins" }))).toEqual([
       "open_interest_coins",
       COINS,
     ]);
-    expect(named(channel.openInterest({ coin: "BTC" }))).toEqual([
+    expect(named(channels.openInterest({ coin: "BTC" }))).toEqual([
       "aggregated_open_interest_dollars",
       "realtime_BTC#open_interest#Dollars#Aggregated",
     ]);
-    expect(named(channel.openInterest({ coin: "BTC" }, { metric: "coins" }))).toEqual([
+    expect(named(channels.openInterest({ coin: "BTC" }, { metric: "coins" }))).toEqual([
       "aggregated_open_interest_coins",
       AGGREGATE_COINS,
     ]);
   });
 
   it("types each channel in the history columns of its metric", () => {
-    expectTypeOf(channel.openInterest(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.openInterest(BTC)).toEqualTypeOf<
       Channel<"open_interest_dollars", Row<FuturesExchange, FuturesOpenInterestColumn<"dollar">>>
     >();
-    expectTypeOf(channel.openInterest(BTC, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.openInterest(BTC, { metric: "coins" })).toEqualTypeOf<
       Channel<"open_interest_coins", Row<FuturesExchange, FuturesOpenInterestColumn<"coin">>>
     >();
-    expectTypeOf(channel.openInterest({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.openInterest({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
       Channel<
         "aggregated_open_interest_coins",
         readonly ExchangeEntry<FuturesExchange, FuturesOpenInterestColumn<"coin">>[]
@@ -93,7 +93,7 @@ describe("channel.openInterest", () => {
   });
 
   it("decodes a coin frame to the history row of its minute", () => {
-    const coins = channel.openInterest(BTC, { metric: "coins" });
+    const coins = channels.openInterest(BTC, { metric: "coins" });
 
     /* These are the values /api/v1/rows returned for the same minute. */
     expect(coins.decode(LAST_OF_MINUTE)).toEqual({
@@ -118,7 +118,7 @@ describe("channel.openInterest", () => {
   });
 
   it("decodes a dollar frame to the dollar columns, close valued at the last trade", () => {
-    const row = channel.openInterest(BTC).decode(DOLLARS_LAST_OF_MINUTE);
+    const row = channels.openInterest(BTC).decode(DOLLARS_LAST_OF_MINUTE);
 
     expect(row).toEqual({
       exchange: "binance-futures",
@@ -137,7 +137,7 @@ describe("channel.openInterest", () => {
   });
 
   it("decodes a coin's frame to one entry per exchange, in the product columns, without a time", () => {
-    const entries = channel
+    const entries = channels
       .openInterest({ coin: "BTC" }, { metric: "coins" })
       .decode(AGGREGATE_FRAME);
 
@@ -156,23 +156,23 @@ describe("channel.openInterest", () => {
 
   it("follows futures products only", () => {
     // @ts-expect-error a spot exchange publishes no open interest
-    expect(() => channel.openInterest({ ...BTC, exchange: "binance" })).toThrow(
-      'channel.openInterest() received an invalid exchange "binance"',
+    expect(() => channels.openInterest({ ...BTC, exchange: "binance" })).toThrow(
+      'channels.openInterest() received an invalid exchange "binance"',
     );
   });
 
   it("has one option, the metric, in the plural; history's spelling is refused", () => {
     // @ts-expect-error contracts is not a metric
-    expect(() => channel.openInterest(BTC, { metric: "contracts" })).toThrow(
-      'channel.openInterest() received an unknown metric "contracts"; expected coins, dollars',
+    expect(() => channels.openInterest(BTC, { metric: "contracts" })).toThrow(
+      'channels.openInterest() received an unknown metric "contracts"; expected coins, dollars',
     );
     // @ts-expect-error history says coin, a channel says coins
-    expect(() => channel.openInterest(BTC, { metric: "coin" })).toThrow(
-      'channel.openInterest() received an unknown metric "coin"; expected coins, dollars',
+    expect(() => channels.openInterest(BTC, { metric: "coin" })).toThrow(
+      'channels.openInterest() received an unknown metric "coin"; expected coins, dollars',
     );
     // @ts-expect-error the target says what to follow; no option does
-    expect(() => channel.openInterest(BTC, { aggregated: true })).toThrow(
-      'channel.openInterest() received an unknown option "aggregated"; expected metric',
+    expect(() => channels.openInterest(BTC, { aggregated: true })).toThrow(
+      'channels.openInterest() received an unknown option "aggregated"; expected metric',
     );
   });
 });

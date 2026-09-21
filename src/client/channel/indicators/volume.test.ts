@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { FuturesVolumeColumn } from "../../api/futures/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
@@ -48,34 +48,34 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.volume", () => {
+describe("channels.volume", () => {
   it("names one channel per metric and target, defaulting to dollars as history does", () => {
     const named = (built: { readonly kind: string; readonly name: string }) => [
       built.kind,
       built.name,
     ];
 
-    expect(named(channel.volume(BTC))).toEqual(["volume_dollars", DOLLARS]);
-    expect(named(channel.volume(BTC, { metric: "dollars" }))).toEqual(["volume_dollars", DOLLARS]);
-    expect(named(channel.volume(BTC, { metric: "coins" }))).toEqual(["volume_coins", COINS]);
-    expect(named(channel.volume({ coin: "BTC" }))).toEqual([
+    expect(named(channels.volume(BTC))).toEqual(["volume_dollars", DOLLARS]);
+    expect(named(channels.volume(BTC, { metric: "dollars" }))).toEqual(["volume_dollars", DOLLARS]);
+    expect(named(channels.volume(BTC, { metric: "coins" }))).toEqual(["volume_coins", COINS]);
+    expect(named(channels.volume({ coin: "BTC" }))).toEqual([
       "aggregated_volume_dollars",
       "realtime_BTC#volume#Dollars#Aggregated",
     ]);
-    expect(named(channel.volume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
+    expect(named(channels.volume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
       "aggregated_volume_coins",
       AGGREGATE_COINS,
     ]);
   });
 
   it("types each channel in history's buy and sell columns of its metric", () => {
-    expectTypeOf(channel.volume(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.volume(BTC)).toEqualTypeOf<
       Channel<"volume_dollars", Row<FuturesExchange, FuturesVolumeColumn<"dollar", "buy" | "sell">>>
     >();
-    expectTypeOf(channel.volume(BTC, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.volume(BTC, { metric: "coins" })).toEqualTypeOf<
       Channel<"volume_coins", Row<FuturesExchange, FuturesVolumeColumn<"coin", "buy" | "sell">>>
     >();
-    expectTypeOf(channel.volume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.volume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
       Channel<
         "aggregated_volume_coins",
         readonly ExchangeEntry<FuturesExchange, FuturesVolumeColumn<"coin", "buy" | "sell">>[]
@@ -84,7 +84,7 @@ describe("channel.volume", () => {
   });
 
   it("decodes a coin frame to the history row of its minute, and starts again in the next", () => {
-    const coins = channel.volume(BTC, { metric: "coins" });
+    const coins = channels.volume(BTC, { metric: "coins" });
 
     /* These are the values /api/v1/rows returned for the same minute. */
     expect(coins.decode(LAST_OF_MINUTE)).toEqual({
@@ -108,7 +108,7 @@ describe("channel.volume", () => {
 
   it("decodes a dollar frame to the dollar columns", () => {
     /* These too are the values /api/v1/rows returned for the minute. */
-    expect(channel.volume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
+    expect(channels.volume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -119,7 +119,7 @@ describe("channel.volume", () => {
   });
 
   it("decodes a coin's frame to one entry per exchange, in the product columns, without a time", () => {
-    const entries = channel.volume({ coin: "BTC" }, { metric: "coins" }).decode(AGGREGATE_FRAME);
+    const entries = channels.volume({ coin: "BTC" }, { metric: "coins" }).decode(AGGREGATE_FRAME);
 
     expect(entries).toHaveLength(8);
     expect(entries.find((entry) => entry.exchange === "bybit")).toEqual({
@@ -132,19 +132,19 @@ describe("channel.volume", () => {
 
   it("follows futures products only", () => {
     // @ts-expect-error spot volume is another channel
-    expect(() => channel.volume({ ...BTC, exchange: "binance" })).toThrow(
-      'channel.volume() received an invalid exchange "binance"',
+    expect(() => channels.volume({ ...BTC, exchange: "binance" })).toThrow(
+      'channels.volume() received an invalid exchange "binance"',
     );
   });
 
   it("has one option, the metric, in the plural; history's spelling is refused", () => {
     // @ts-expect-error history says coin, a channel says coins
-    expect(() => channel.volume(BTC, { metric: "coin" })).toThrow(
-      'channel.volume() received an unknown metric "coin"; expected coins, dollars',
+    expect(() => channels.volume(BTC, { metric: "coin" })).toThrow(
+      'channels.volume() received an unknown metric "coin"; expected coins, dollars',
     );
     // @ts-expect-error total is a part of history's volume, not an option here
-    expect(() => channel.volume(BTC, { parts: ["total"] })).toThrow(
-      'channel.volume() received an unknown option "parts"; expected metric',
+    expect(() => channels.volume(BTC, { parts: ["total"] })).toThrow(
+      'channels.volume() received an unknown option "parts"; expected metric',
     );
   });
 });

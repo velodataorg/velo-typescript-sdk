@@ -4,7 +4,7 @@ import { validateChannelName } from "../../channel/name.ts";
 
 /** Parameters for a channel feed. */
 export interface ChannelsParams<C extends Channel = Channel> {
-  /* Built with the `channel` namespace; a bare wire name goes through `channel.raw()`. */
+  /* Built on the `channels` namespace; a bare wire name goes through `channels.raw()`. */
   readonly channels: readonly C[];
 }
 
@@ -42,7 +42,7 @@ export const ChannelsParams = Object.freeze({
           input.kind.length > 0 &&
           typeof input.name === "string" &&
           typeof input.decode === "function",
-        "channels must be channel objects; wrap a wire name with channel.raw()",
+        "channels must be channel objects; wrap a wire name with channels.raw()",
       );
       const { kind, name, decode } = input;
       validateChannelName(name);

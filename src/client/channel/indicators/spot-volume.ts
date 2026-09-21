@@ -6,7 +6,7 @@ import { option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.spotVolume";
+const INDICATOR = "channels.spotVolume";
 
 /*
  * Every spot volume channel the server publishes. The server words them
@@ -42,10 +42,10 @@ type Metric = (typeof METRICS)[number];
  * exchanges.
  *
  * @remarks
- * The spot counterpart of `channel.volume`, with the same option: `coins` or
+ * The spot counterpart of `channels.volume`, with the same option: `coins` or
  * `dollars`, defaulting to `dollars` as history defaults to `dollar`. A coin
  * cannot say which market it means, so the two markets are two builders. The
- * total is not sent; it is the two added, or `channel.price`'s `coin_volume`
+ * total is not sent; it is the two added, or `channels.price`'s `coin_volume`
  * and `dollar_volume`.
  *
  * For a product, each frame decodes to the one-minute candle in progress as a

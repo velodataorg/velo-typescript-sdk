@@ -70,7 +70,7 @@ const PUBLISHED = [
  * from, over a window its user picks: `#vwap` is `coin_volume` and
  * `dollar_volume`, `#returns` is `close_price`, `#total_return` is
  * `close_price` and `funding_rate`, `#oiwap` is both open interest closes.
- * `channel.price`, `channel.fundingRate`, and `channel.openInterest` already
+ * `channels.price`, `channels.fundingRate`, and `channels.openInterest` already
  * carry those columns. Nothing publishes `#turnover`. A new suffix on the
  * server shows up here as a failure until it has a builder or a line.
  */

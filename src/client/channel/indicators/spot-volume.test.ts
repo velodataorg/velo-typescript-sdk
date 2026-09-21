@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { SpotVolumeColumn } from "../../api/spot/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { SpotExchange } from "../../market/exchanges.ts";
@@ -39,33 +39,33 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.spotVolume", () => {
+describe("channels.spotVolume", () => {
   it("names one channel per metric and target, in the server's word for spot volume", () => {
     const named = (built: { readonly kind: string; readonly name: string }) => [
       built.kind,
       built.name,
     ];
 
-    expect(named(channel.spotVolume(BTC))).toEqual(["spot_volume_dollars", DOLLARS]);
-    expect(named(channel.spotVolume(BTC, { metric: "coins" }))).toEqual([
+    expect(named(channels.spotVolume(BTC))).toEqual(["spot_volume_dollars", DOLLARS]);
+    expect(named(channels.spotVolume(BTC, { metric: "coins" }))).toEqual([
       "spot_volume_coins",
       COINS,
     ]);
-    expect(named(channel.spotVolume({ coin: "BTC" }))).toEqual([
+    expect(named(channels.spotVolume({ coin: "BTC" }))).toEqual([
       "aggregated_spot_volume_dollars",
       "realtime_BTC#spotvol#Dollars#Aggregated",
     ]);
-    expect(named(channel.spotVolume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
+    expect(named(channels.spotVolume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
       "aggregated_spot_volume_coins",
       AGGREGATE_COINS,
     ]);
   });
 
   it("types each channel in spot history's buy and sell columns of its metric", () => {
-    expectTypeOf(channel.spotVolume(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.spotVolume(BTC)).toEqualTypeOf<
       Channel<"spot_volume_dollars", Row<SpotExchange, SpotVolumeColumn<"dollar", "buy" | "sell">>>
     >();
-    expectTypeOf(channel.spotVolume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.spotVolume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
       Channel<
         "aggregated_spot_volume_coins",
         readonly ExchangeEntry<SpotExchange, SpotVolumeColumn<"coin", "buy" | "sell">>[]
@@ -74,7 +74,7 @@ describe("channel.spotVolume", () => {
   });
 
   it("decodes a coin frame to the history row of its minute, and starts again in the next", () => {
-    const coins = channel.spotVolume(BTC, { metric: "coins" });
+    const coins = channels.spotVolume(BTC, { metric: "coins" });
 
     /* These are the values /api/v1/rows returned for the same minute. */
     expect(coins.decode(LAST_OF_MINUTE)).toEqual({
@@ -97,7 +97,7 @@ describe("channel.spotVolume", () => {
 
   it("decodes a dollar frame to the dollar columns", () => {
     /* These too are the values /api/v1/rows returned for the minute. */
-    expect(channel.spotVolume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
+    expect(channels.spotVolume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
       exchange: "coinbase",
       coin: "BTC",
       product: "BTC-USD",
@@ -108,7 +108,7 @@ describe("channel.spotVolume", () => {
   });
 
   it("decodes a coin's frame to one entry per spot exchange, without a time", () => {
-    const entries = channel
+    const entries = channels
       .spotVolume({ coin: "BTC" }, { metric: "coins" })
       .decode(AGGREGATE_FRAME);
 
@@ -128,15 +128,15 @@ describe("channel.spotVolume", () => {
 
   it("follows spot products only", () => {
     // @ts-expect-error futures volume is another channel
-    expect(() => channel.spotVolume({ ...BTC, exchange: "binance-futures" })).toThrow(
-      'channel.spotVolume() received an invalid exchange "binance-futures"',
+    expect(() => channels.spotVolume({ ...BTC, exchange: "binance-futures" })).toThrow(
+      'channels.spotVolume() received an invalid exchange "binance-futures"',
     );
   });
 
   it("has one option, the metric, in the plural; history's spelling is refused", () => {
     // @ts-expect-error history says coin, a channel says coins
-    expect(() => channel.spotVolume(BTC, { metric: "coin" })).toThrow(
-      'channel.spotVolume() received an unknown metric "coin"; expected coins, dollars',
+    expect(() => channels.spotVolume(BTC, { metric: "coin" })).toThrow(
+      'channels.spotVolume() received an unknown metric "coin"; expected coins, dollars',
     );
   });
 });

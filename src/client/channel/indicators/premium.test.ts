@@ -1,7 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { VeloError } from "../../../errors.ts";
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { FuturesPremiumColumn, FuturesPriceColumn } from "../../api/futures/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
@@ -61,29 +61,29 @@ const WEIGHTED_FRAME = {
   },
 };
 
-describe("channel.premium", () => {
+describe("channels.premium", () => {
   it("names one channel per target, and the weighted one for a coin", () => {
     const named = (built: { readonly kind: string; readonly name: string }) => [
       built.kind,
       built.name,
     ];
 
-    expect(named(channel.premium(BTC))).toEqual(["premium", SINGLE]);
-    expect(named(channel.premium({ coin: "BTC" }))).toEqual(["aggregated_premium", AGGREGATE]);
-    expect(named(channel.premium({ coin: "BTC" }, { weighted: true }))).toEqual([
+    expect(named(channels.premium(BTC))).toEqual(["premium", SINGLE]);
+    expect(named(channels.premium({ coin: "BTC" }))).toEqual(["aggregated_premium", AGGREGATE]);
+    expect(named(channels.premium({ coin: "BTC" }, { weighted: true }))).toEqual([
       "aggregated_premium_weighted",
       WEIGHTED,
     ]);
   });
 
   it("types each channel in history's columns, the weight among them when weighted", () => {
-    expectTypeOf(channel.premium(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.premium(BTC)).toEqualTypeOf<
       Channel<"premium", Row<FuturesExchange, PremiumColumn>>
     >();
-    expectTypeOf(channel.premium({ coin: "BTC" })).toEqualTypeOf<
+    expectTypeOf(channels.premium({ coin: "BTC" })).toEqualTypeOf<
       Channel<"aggregated_premium", readonly ExchangeEntry<FuturesExchange, PremiumColumn>[]>
     >();
-    expectTypeOf(channel.premium({ coin: "BTC" }, { weighted: true })).toEqualTypeOf<
+    expectTypeOf(channels.premium({ coin: "BTC" }, { weighted: true })).toEqualTypeOf<
       Channel<
         "aggregated_premium_weighted",
         readonly ExchangeEntry<FuturesExchange, PremiumColumn | "coin_open_interest_close">[]
@@ -93,7 +93,7 @@ describe("channel.premium", () => {
 
   it("decodes a frame to the history row of its minute; the next opens at the premium it left", () => {
     /* These are the values /api/v1/rows returned for the same minute. */
-    expect(channel.premium(BTC).decode(LAST_OF_MINUTE)).toEqual({
+    expect(channels.premium(BTC).decode(LAST_OF_MINUTE)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -101,7 +101,7 @@ describe("channel.premium", () => {
       premium: -13.659056635863207,
       open_price: 83657.3,
     });
-    expect(channel.premium(BTC).decode(ROLLOVER)).toEqual({
+    expect(channels.premium(BTC).decode(ROLLOVER)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -112,7 +112,7 @@ describe("channel.premium", () => {
   });
 
   it("decodes a coin's frame to one entry per exchange, in the product columns, without a time", () => {
-    const entries = channel.premium({ coin: "BTC" }).decode(AGGREGATE_FRAME);
+    const entries = channels.premium({ coin: "BTC" }).decode(AGGREGATE_FRAME);
 
     expect(entries).toHaveLength(8);
     expect(entries.find((entry) => entry.exchange === "deribit")).toEqual({
@@ -124,7 +124,7 @@ describe("channel.premium", () => {
   });
 
   it("decodes a weighted frame to each exchange's premium beside its weight", () => {
-    const entries = channel.premium({ coin: "BTC" }, { weighted: true }).decode(WEIGHTED_FRAME);
+    const entries = channels.premium({ coin: "BTC" }, { weighted: true }).decode(WEIGHTED_FRAME);
 
     expect(entries.find((entry) => entry.exchange === "binance-futures")).toEqual({
       exchange: "binance-futures",
@@ -144,29 +144,30 @@ describe("channel.premium", () => {
   });
 
   it("checks each channel's own payload, so a neighbour's frame is refused", () => {
-    expect(() => channel.premium({ coin: "BTC" }).decode(WEIGHTED_FRAME)).toThrow(VeloError);
+    expect(() => channels.premium({ coin: "BTC" }).decode(WEIGHTED_FRAME)).toThrow(VeloError);
     expect(() =>
-      channel.premium({ coin: "BTC" }, { weighted: true }).decode(AGGREGATE_FRAME),
+      channels.premium({ coin: "BTC" }, { weighted: true }).decode(AGGREGATE_FRAME),
     ).toThrow(VeloError);
   });
 
   it("refuses weighted for a product, at compile time too", () => {
-    const refusal = 'channel.premium() weights only the premium of a coin, such as { coin: "BTC" }';
+    const refusal =
+      'channels.premium() weights only the premium of a coin, such as { coin: "BTC" }';
 
     // @ts-expect-error weighted is published for a coin only
-    expect(() => channel.premium(BTC, { weighted: true })).toThrow(refusal);
+    expect(() => channels.premium(BTC, { weighted: true })).toThrow(refusal);
 
     /* A target that may be a product is refused as a product is, not let through as a coin. */
     const either = BTC as Target<FuturesExchange>;
     // @ts-expect-error weighted needs a target known to be a coin
-    expect(() => channel.premium(either, { weighted: true })).toThrow(refusal);
+    expect(() => channels.premium(either, { weighted: true })).toThrow(refusal);
 
     /* Switching it off is always allowed. */
-    expect(channel.premium(BTC, { weighted: false }).kind).toBe("premium");
+    expect(channels.premium(BTC, { weighted: false }).kind).toBe("premium");
   });
 
   it("widens to each channel it may be when weighted is not known until it runs", () => {
-    const build = (weighted: boolean) => channel.premium({ coin: "BTC" }, { weighted });
+    const build = (weighted: boolean) => channels.premium({ coin: "BTC" }, { weighted });
     expectTypeOf(build(true).kind).toEqualTypeOf<
       "aggregated_premium" | "aggregated_premium_weighted"
     >();
@@ -176,8 +177,8 @@ describe("channel.premium", () => {
 
   it("follows futures products only", () => {
     // @ts-expect-error a spot exchange publishes no premium
-    expect(() => channel.premium({ ...BTC, exchange: "binance" })).toThrow(
-      'channel.premium() received an invalid exchange "binance"',
+    expect(() => channels.premium({ ...BTC, exchange: "binance" })).toThrow(
+      'channels.premium() received an invalid exchange "binance"',
     );
   });
 });

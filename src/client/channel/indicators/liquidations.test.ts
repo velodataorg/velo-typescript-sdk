@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { FuturesLiquidationColumn } from "../../api/futures/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
@@ -31,20 +31,20 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.liquidations", () => {
+describe("channels.liquidations", () => {
   it("names one channel per target", () => {
-    const single = channel.liquidations(BTC);
-    const aggregated = channel.liquidations({ coin: "BTC" });
+    const single = channels.liquidations(BTC);
+    const aggregated = channels.liquidations({ coin: "BTC" });
 
     expect([single.kind, single.name]).toEqual(["liquidations", SINGLE]);
     expect([aggregated.kind, aggregated.name]).toEqual(["aggregated_liquidations", AGGREGATE]);
   });
 
   it("types each channel in history's liquidation count columns", () => {
-    expectTypeOf(channel.liquidations(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.liquidations(BTC)).toEqualTypeOf<
       Channel<"liquidations", Row<FuturesExchange, FuturesLiquidationColumn>>
     >();
-    expectTypeOf(channel.liquidations({ coin: "BTC" })).toEqualTypeOf<
+    expectTypeOf(channels.liquidations({ coin: "BTC" })).toEqualTypeOf<
       Channel<
         "aggregated_liquidations",
         readonly ExchangeEntry<FuturesExchange, FuturesLiquidationColumn>[]
@@ -54,7 +54,7 @@ describe("channel.liquidations", () => {
 
   it("decodes a frame to the history row of its minute, and starts again at zero in the next", () => {
     /* These are the values /api/v1/rows returned for the same minute. */
-    expect(channel.liquidations(BTC).decode(LAST_OF_MINUTE)).toEqual({
+    expect(channels.liquidations(BTC).decode(LAST_OF_MINUTE)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -62,7 +62,7 @@ describe("channel.liquidations", () => {
       buy_liquidations: 7,
       sell_liquidations: 0,
     });
-    expect(channel.liquidations(BTC).decode(ROLLOVER)).toEqual({
+    expect(channels.liquidations(BTC).decode(ROLLOVER)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -73,7 +73,7 @@ describe("channel.liquidations", () => {
   });
 
   it("decodes a coin's frame to one entry per exchange that publishes, without a time", () => {
-    const entries = channel.liquidations({ coin: "BTC" }).decode(AGGREGATE_FRAME);
+    const entries = channels.liquidations({ coin: "BTC" }).decode(AGGREGATE_FRAME);
 
     /* The three coin-margin exchanges publish no live liquidations, so they have no entry. */
     expect(entries.map((entry) => entry.exchange).toSorted()).toEqual([
@@ -94,12 +94,15 @@ describe("channel.liquidations", () => {
   it("follows futures products, the silent exchanges among them", () => {
     /* The server accepts this name and sends nothing for it; the docs say so. */
     expect(
-      channel.liquidations({ exchange: "binance-coin-margin", coin: "BTC", product: "BTCUSD_PERP" })
-        .name,
+      channels.liquidations({
+        exchange: "binance-coin-margin",
+        coin: "BTC",
+        product: "BTCUSD_PERP",
+      }).name,
     ).toBe("realtime_binance-coin-margin:BTCUSD_PERP#liquidations#Liquidation Count");
     // @ts-expect-error a spot exchange has no liquidations
-    expect(() => channel.liquidations({ ...BTC, exchange: "binance" })).toThrow(
-      'channel.liquidations() received an invalid exchange "binance"',
+    expect(() => channels.liquidations({ ...BTC, exchange: "binance" })).toThrow(
+      'channels.liquidations() received an invalid exchange "binance"',
     );
   });
 });

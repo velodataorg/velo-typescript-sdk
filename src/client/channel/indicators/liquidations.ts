@@ -5,7 +5,7 @@ import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.liquidations";
+const INDICATOR = "channels.liquidations";
 
 /*
  * How many liquidations the one-minute candle in progress has seen so far:
@@ -24,7 +24,7 @@ const LIQUIDATIONS = {
  * @remarks
  * Spelled like the history builder's `liquidations()`, and in its columns. A
  * buy is a forced buy, which closes a short; a sell closes a long. For what
- * was liquidated rather than how many times, see `channel.liquidationVolume`.
+ * was liquidated rather than how many times, see `channels.liquidationVolume`.
  *
  * Only binance-futures, bybit, deribit, hyperliquid, and okex-swap publish
  * live liquidations. The server accepts a product of binance-coin-margin,

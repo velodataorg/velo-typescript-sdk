@@ -6,7 +6,7 @@ import { option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.openInterest";
+const INDICATOR = "channels.openInterest";
 
 /*
  * Every open interest channel the server publishes. Each sends the one-minute

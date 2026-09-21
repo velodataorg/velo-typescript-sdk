@@ -28,7 +28,7 @@ export interface Channel<Kind extends string = string, Data = unknown> {
   decode(frame: ChannelFrame): Data;
 }
 
-/* What `channel.raw()` builds: a wire name whose payload is left as `unknown`. */
+/* What `channels.raw()` builds: a wire name whose payload is left as `unknown`. */
 export type RawChannel = Channel<"raw", unknown>;
 
 /** Distributes over channels so checking kind narrows the associated data. */

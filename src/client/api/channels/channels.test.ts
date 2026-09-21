@@ -2,7 +2,6 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { REALTIME_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import {
-  channel,
   channels,
   DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
   Velo,
@@ -34,7 +33,7 @@ import {
 const PRICE = "realtime_binance-futures:BTCUSDT";
 const OI = "realtime_BTC#open_interest#Coins#Aggregated";
 const ONDEMAND = "ondemand_hyperliquid_spot_UBTC-USDC_candle_1";
-const rawChannels = (...names: string[]) => names.map((name) => channel.raw(name));
+const rawChannels = (...names: string[]) => names.map((name) => channels.raw(name));
 const message = (c = PRICE, d: unknown = [1, 2, 3]) => ({ c, d, tt: 123, f: false });
 const rawMessage = (raw: ChannelFrame): ChannelMessage<RawChannel> => ({
   kind: "raw",
@@ -64,12 +63,12 @@ afterEach(() => vi.useRealTimers());
 describe("raw channel subscriptions", () => {
   it("accepts raw channels, collapses repeats, and never infers a market kind", async () => {
     const { client, sockets } = harness();
-    const price = channel.raw(PRICE);
+    const price = channels.raw(PRICE);
     expect(price.kind).toBe("raw");
     expect(price.name).toBe(PRICE);
     expect(Object.isFrozen(price)).toBe(true);
     const seen: ChannelMessage<RawChannel>[] = [];
-    const pending = client.watch(channels.feed([price, channel.raw(PRICE), channel.raw(OI)]), {
+    const pending = client.watch(channels.feed([price, channels.raw(PRICE), channels.raw(OI)]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"raw">();
@@ -94,7 +93,7 @@ describe("raw channel subscriptions", () => {
     }).toThrow(/array/);
     const rejected = () => {
       // @ts-expect-error feed does not take variadic channel arguments
-      channels.feed(channel.raw(PRICE), channel.raw(OI));
+      channels.feed(channels.raw(PRICE), channels.raw(OI));
     };
     expect(rejected).toBeTypeOf("function");
   });
@@ -119,7 +118,7 @@ describe("raw channel subscriptions", () => {
       },
     };
     const seen: unknown[] = [];
-    const pending = client.watch(channels.feed([numeric, label, channel.raw(PRICE)]), {
+    const pending = client.watch(channels.feed([numeric, label, channels.raw(PRICE)]), {
       on: {
         data: (event) => {
           expectTypeOf(event.kind).toEqualTypeOf<"numeric" | "label" | "raw">();
@@ -198,7 +197,7 @@ describe("raw channel subscriptions", () => {
     const descriptor = { kind: "count", name: PRICE, decode: (): number => 1 };
     const request = channels.feed([descriptor, descriptor]);
     expect(request.build().params.channels).toHaveLength(1);
-    expect(() => channels.feed([descriptor, channel.raw(PRICE)])).toThrow(/conflicting channels/);
+    expect(() => channels.feed([descriptor, channels.raw(PRICE)])).toThrow(/conflicting channels/);
     expect(
       channels.feed([descriptor, { ...descriptor, decode: (): number => 2 }]).build().params
         .channels,
@@ -304,7 +303,7 @@ describe("raw channel subscriptions", () => {
     };
     const seen: string[] = [];
     const channelErrors = vi.fn();
-    const pending = client.watch(channels.feed([strict, channel.raw(OI)]), {
+    const pending = client.watch(channels.feed([strict, channels.raw(OI)]), {
       reconnect: false,
       on: (event) => {
         seen.push(event.type === "data" ? `data:${event.event.channel}` : event.type);
@@ -412,7 +411,7 @@ describe("raw channel subscriptions", () => {
     const names = [PRICE, PRICE, "realtime_hyperliquid:BTC-USD#funding_rate#Rate (%)"];
     const inputs = rawChannels(...names);
     const builder = channels.feed(inputs);
-    inputs.push(channel.raw(OI));
+    inputs.push(channels.raw(OI));
     expect(client.channels).toBe(channels);
     expect(sockets).toHaveLength(0);
     expect(builder.build().kind).toBe("channels.feed");
@@ -425,19 +424,19 @@ describe("raw channel subscriptions", () => {
   it.each(["", " channel", "channel ", "a\ns2 b", "a\r", "a\0", 42, null])(
     "rejects invalid channel names: %j",
     (name) => {
-      expect(() => channel.raw(name as string)).toThrow(VeloError);
+      expect(() => channels.raw(name as string)).toThrow(VeloError);
     },
   );
 
-  it.each([[], null, [PRICE], [42], [channel.raw(PRICE), PRICE]])(
+  it.each([[], null, [PRICE], [42], [channels.raw(PRICE), PRICE]])(
     "takes a non-empty array of channels, not bare names: %j",
     (value) => {
       expect(() => channels.feed(value as never)).toThrow(VeloError);
     },
   );
 
-  it("points a bare name at channel.raw()", () => {
-    expect(() => channels.feed([PRICE] as never)).toThrow(/channel\.raw\(\)/);
+  it("points a bare name at channels.raw()", () => {
+    expect(() => channels.feed([PRICE] as never)).toThrow(/channels\.raw\(\)/);
   });
 
   it("validates direct requests before creating a socket", () => {

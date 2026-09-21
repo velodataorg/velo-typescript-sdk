@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel, channels, Velo } from "../../index.ts";
-import type { ChannelFor, Coin, Target } from "../../index.ts";
-import { FakeSocket, flushConnection } from "../../transport/fake-socket.ts";
-import type { FuturesOpenInterestColumn } from "../api/futures/selectors.ts";
-import type { Row } from "../data/row.ts";
-import type { FuturesExchange } from "../market/exchanges.ts";
-import type { ExchangeEntry } from "./helpers/decode.ts";
+import { channels, Velo } from "../../../index.ts";
+import type { ChannelFor, Coin, Target } from "../../../index.ts";
+import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
+import type { ExchangeEntry } from "../../channel/helpers/decode.ts";
+import type { Row } from "../../data/row.ts";
+import type { FuturesExchange } from "../../market/exchanges.ts";
+import type { FuturesOpenInterestColumn } from "../futures/selectors.ts";
 
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
 
@@ -29,10 +29,10 @@ describe("channel builders in a feed", () => {
     });
     const seen: [string, number | null][] = [];
     const feed = channels.feed([
-      channel.price(BTC),
-      channel.openInterest(BTC, { metric: "coins" }),
-      channel.openInterest({ coin: "BTC" }, { metric: "coins" }),
-      channel.fundingRate({ coin: "BTC" }, { weighted: true }),
+      channels.price(BTC),
+      channels.openInterest(BTC, { metric: "coins" }),
+      channels.openInterest({ coin: "BTC" }, { metric: "coins" }),
+      channels.fundingRate({ coin: "BTC" }, { weighted: true }),
     ]);
     const pending = client.watch(feed, {
       on: {
@@ -104,7 +104,7 @@ describe("channel builders in a feed", () => {
   });
 
   it("lets a caller write a function over any target, in the types the package exports", () => {
-    const follow = <T extends Target<FuturesExchange>>(target: T) => channel.tape(target);
+    const follow = <T extends Target<FuturesExchange>>(target: T) => channels.tape(target);
     const coin: Coin = { coin: "BTC" };
 
     expectTypeOf(follow(BTC).kind).toEqualTypeOf<"tape">();

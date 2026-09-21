@@ -5,7 +5,7 @@ import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.tape";
+const INDICATOR = "channels.tape";
 
 /* How many trades the one-minute candle in progress has seen so far: buys, then sells. */
 const TAPE = {

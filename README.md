@@ -142,15 +142,13 @@ Pass `reconnect: false` for one initial connection attempt and no automatic reco
 
 ### Channels
 
-Watch live market data by building channels with `channel` and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
+Watch live market data by building channels on `velo.channels` and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
 
 ```ts
-import { Velo, channel } from "velo-sdk";
-
 const watcher = await velo.watch(
   velo.channels.feed([
-    channel.price({ exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" }),
-    channel.openInterest({ coin: "BTC" }, { metric: "coins" }), // Aggregated open interest when `coin` is passed
+    velo.channels.price({ exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" }),
+    velo.channels.openInterest({ coin: "BTC" }, { metric: "coins" }), // Aggregated open interest when `coin` is passed
   ]),
   {
     on: {

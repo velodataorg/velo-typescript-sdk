@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel, VeloError } from "../../../index.ts";
+import { channels, VeloError } from "../../../index.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange, SpotExchange } from "../../market/exchanges.ts";
 import type { Channel } from "../channel.ts";
@@ -30,9 +30,9 @@ const ROLLOVER = {
   tt: 1789642200599,
 };
 
-describe("channel.price", () => {
+describe("channels.price", () => {
   it("names the channel from the exchange and product alone, under the price kind", () => {
-    const btc = channel.price(BTC);
+    const btc = channels.price(BTC);
 
     expectTypeOf(btc).toEqualTypeOf<
       Channel<"price", Row<FuturesExchange | SpotExchange, PriceColumn>>
@@ -41,17 +41,17 @@ describe("channel.price", () => {
   });
 
   it("follows futures and spot products, and no others", () => {
-    expect(channel.price({ exchange: "coinbase", coin: "BTC", product: "BTC-USD" }).name).toBe(
+    expect(channels.price({ exchange: "coinbase", coin: "BTC", product: "BTC-USD" }).name).toBe(
       "realtime_coinbase:BTC-USD",
     );
     // @ts-expect-error not an exchange that publishes prices
-    expect(() => channel.price({ ...BTC, exchange: "deribit-options" })).toThrow(
-      'channel.price() received an invalid exchange "deribit-options"',
+    expect(() => channels.price({ ...BTC, exchange: "deribit-options" })).toThrow(
+      'channels.price() received an invalid exchange "deribit-options"',
     );
   });
 
   it("decodes a frame to the history row of its minute", () => {
-    const btc = channel.price(BTC);
+    const btc = channels.price(BTC);
 
     /* These are the values /api/v1/rows returned for the same minute. */
     expect(btc.decode(LAST_OF_MINUTE)).toEqual({
@@ -76,7 +76,7 @@ describe("channel.price", () => {
 
   it("follows a product only, since the server publishes no price across exchanges", () => {
     // @ts-expect-error price takes a product, never a coin
-    const aggregated = () => channel.price({ coin: "BTC" });
+    const aggregated = () => channels.price({ coin: "BTC" });
     expect(aggregated).toThrow(VeloError);
   });
 });

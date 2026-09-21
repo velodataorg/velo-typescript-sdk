@@ -8,7 +8,7 @@
  * Run from the repository root; Bun loads VELO_API_KEY from .env. Takes up to
  * 85 seconds.
  *
- * Every channel is followed as `channel.raw(name)`, so a fixture holds what
+ * Every channel is followed as `channels.raw(name)`, so a fixture holds what
  * the server sent whatever the decoders make of it. Nothing is written unless
  * every channel delivered both of its frames.
  */
@@ -16,7 +16,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { channel, channels, Velo } from "../../src/index.ts";
+import { channels, Velo } from "../../src/index.ts";
 import type { ChannelFrame } from "../../src/index.ts";
 import { isListed } from "../../src/util/array.ts";
 import { assert } from "../../src/util/assert.ts";
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
 /**
  * Picks the builders to capture.
  *
- * @param asked - The builders to keep, as named on `channel`; none means all.
+ * @param asked - The builders to keep, as named on `channels`; none means all.
  * @returns The builders, in the order `BUILT` lists them.
  * @throws A VeloError when a name is not a builder.
  */
@@ -137,7 +137,7 @@ async function captureMinuteEnd(
   const until = end + AFTER_MINUTE;
 
   console.log(`Following ${names.length} channels until ${clock(until)} UTC...`);
-  const watcher = await velo.watch(channels.feed(names.map((name) => channel.raw(name))), {
+  const watcher = await velo.watch(channels.feed(names.map((name) => channels.raw(name))), {
     reconnect: false,
     /* The emitter catches what a listener throws; a frame without a `tt` must still fail the run. */
     onListenerError: (error) => problems.push(String(error)),
@@ -210,7 +210,7 @@ function completeFixture(
 /**
  * Names a builder's fixture file after its source file.
  *
- * @param builder - The builder, as named on `channel`, such as `openInterest`.
+ * @param builder - The builder, as named on `channels`, such as `openInterest`.
  * @returns The file name without its extension, such as `open-interest`.
  */
 function fileName(builder: Builder): string {

@@ -16,7 +16,7 @@ export interface OptionParser<Value> {
    *
    * @param value - What the caller passed for the entry, if anything.
    * @param name - The entry's key, such as `metric`.
-   * @param indicator - The indicator's public name, such as `channel.fundingRate`, used in
+   * @param indicator - The indicator's public name, such as `channels.fundingRate`, used in
    * error messages.
    * @returns The checked value, or what an omitted one means.
    * @throws A VeloError when the value is not usable.
@@ -76,7 +76,7 @@ export function flag(): OptionParser<boolean> {
  * @param input - What the caller passed; undefined means no options.
  * @param parsers - Every option and flag the builder has, keyed as a caller
  * passes them.
- * @param indicator - The indicator's public name, such as `channel.fundingRate`, used in
+ * @param indicator - The indicator's public name, such as `channels.fundingRate`, used in
  * error messages.
  * @returns Each entry's checked value, with what an omitted one means filled in.
  * @throws A VeloError when the options are not an object, name an entry the

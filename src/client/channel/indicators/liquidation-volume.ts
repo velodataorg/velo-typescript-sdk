@@ -6,7 +6,7 @@ import { option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.liquidationVolume";
+const INDICATOR = "channels.liquidationVolume";
 
 /*
  * Every liquidation volume channel the server publishes. Each sends what has
@@ -46,7 +46,7 @@ type Metric = (typeof METRICS)[number];
  * defaulting to `dollars` as history defaults to `dollar`. A buy is a forced
  * buy, which closes a short; a sell closes a long. The total is not sent; it
  * is the two added. For how many liquidations rather than how much, see
- * `channel.liquidations`.
+ * `channels.liquidations`.
  *
  * Only binance-futures, bybit, deribit, hyperliquid, and okex-swap publish
  * live liquidations. The server accepts a product of binance-coin-margin,

@@ -34,7 +34,7 @@ export type ParsedTarget<X extends string> =
  *
  * @param input - The caller's target; extra fields, as on a catalog row, are dropped.
  * @param exchanges - The exchanges that publish the indicator.
- * @param indicator - The indicator's public name, such as `channel.fundingRate`, used in
+ * @param indicator - The indicator's public name, such as `channels.fundingRate`, used in
  * error messages.
  * @returns A frozen product holding only the three fields.
  * @throws A VeloError when the target is not an object, its exchange does not
@@ -72,7 +72,7 @@ export function parseProduct<X extends string>(
  *
  * @param input - The caller's target.
  * @param exchanges - The exchanges that publish the indicator.
- * @param indicator - The indicator's public name, such as `channel.fundingRate`, used in
+ * @param indicator - The indicator's public name, such as `channels.fundingRate`, used in
  * error messages.
  * @returns The snapshotted product, or the coin symbol, under its scope.
  * @throws A VeloError when the target is neither a usable product nor a

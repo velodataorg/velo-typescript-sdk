@@ -7,7 +7,7 @@ import { flag, option, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Coin, Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.fundingRate";
+const INDICATOR = "channels.fundingRate";
 
 /*
  * Every funding rate channel the server publishes. Each of the first three

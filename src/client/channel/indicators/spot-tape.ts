@@ -5,7 +5,7 @@ import type { ChannelDefinition, ChannelFor } from "../helpers/build.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.spotTape";
+const INDICATOR = "channels.spotTape";
 
 /*
  * How many trades the one-minute candle in progress has seen so far: buys,
@@ -22,7 +22,7 @@ const SPOT_TAPE = {
  * across spot exchanges.
  *
  * @remarks
- * The spot counterpart of `channel.tape`. A coin cannot say which market it
+ * The spot counterpart of `channels.tape`. A coin cannot say which market it
  * means, so the two markets are two builders. History's spot `trades()`
  * selects the same columns. The total is not sent; it is the two added.
  *

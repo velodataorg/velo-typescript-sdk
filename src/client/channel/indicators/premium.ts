@@ -7,7 +7,7 @@ import { flag, parseOptions } from "../helpers/options.ts";
 import { parseTarget } from "../helpers/target.ts";
 import type { Coin, Target } from "../helpers/target.ts";
 
-const INDICATOR = "channel.premium";
+const INDICATOR = "channels.premium";
 
 /*
  * Every premium channel the server publishes. Each sends the premium of the

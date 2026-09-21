@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { SpotTradeColumn } from "../../api/spot/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { SpotExchange } from "../../market/exchanges.ts";
@@ -27,18 +27,21 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.spotTape", () => {
+describe("channels.spotTape", () => {
   it("names one channel per target, in the server's word for the spot tape", () => {
-    expect([channel.spotTape(BTC).kind, channel.spotTape(BTC).name]).toEqual(["spot_tape", SINGLE]);
-    const aggregated = channel.spotTape({ coin: "BTC" });
+    expect([channels.spotTape(BTC).kind, channels.spotTape(BTC).name]).toEqual([
+      "spot_tape",
+      SINGLE,
+    ]);
+    const aggregated = channels.spotTape({ coin: "BTC" });
     expect([aggregated.kind, aggregated.name]).toEqual(["aggregated_spot_tape", AGGREGATE]);
   });
 
   it("types each channel in spot history's buy and sell trade columns", () => {
-    expectTypeOf(channel.spotTape(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.spotTape(BTC)).toEqualTypeOf<
       Channel<"spot_tape", Row<SpotExchange, SpotTradeColumn<"buy" | "sell">>>
     >();
-    expectTypeOf(channel.spotTape({ coin: "BTC" })).toEqualTypeOf<
+    expectTypeOf(channels.spotTape({ coin: "BTC" })).toEqualTypeOf<
       Channel<
         "aggregated_spot_tape",
         readonly ExchangeEntry<SpotExchange, SpotTradeColumn<"buy" | "sell">>[]
@@ -48,7 +51,7 @@ describe("channel.spotTape", () => {
 
   it("decodes a frame to the history row of its minute, and starts again in the next", () => {
     /* These are the values /api/v1/rows returned for the same minute. */
-    expect(channel.spotTape(BTC).decode(LAST_OF_MINUTE)).toEqual({
+    expect(channels.spotTape(BTC).decode(LAST_OF_MINUTE)).toEqual({
       exchange: "coinbase",
       coin: "BTC",
       product: "BTC-USD",
@@ -56,7 +59,7 @@ describe("channel.spotTape", () => {
       buy_trades: 343,
       sell_trades: 446,
     });
-    expect(channel.spotTape(BTC).decode(ROLLOVER)).toEqual({
+    expect(channels.spotTape(BTC).decode(ROLLOVER)).toEqual({
       exchange: "coinbase",
       coin: "BTC",
       product: "BTC-USD",
@@ -67,7 +70,7 @@ describe("channel.spotTape", () => {
   });
 
   it("decodes a coin's frame to one entry per spot exchange, without a time", () => {
-    const entries = channel.spotTape({ coin: "BTC" }).decode(AGGREGATE_FRAME);
+    const entries = channels.spotTape({ coin: "BTC" }).decode(AGGREGATE_FRAME);
 
     expect(entries).toHaveLength(4);
     expect(entries.find((entry) => entry.exchange === "okex")).toEqual({
@@ -80,8 +83,8 @@ describe("channel.spotTape", () => {
 
   it("follows spot products only", () => {
     // @ts-expect-error the futures tape is another channel
-    expect(() => channel.spotTape({ ...BTC, exchange: "binance-futures" })).toThrow(
-      'channel.spotTape() received an invalid exchange "binance-futures"',
+    expect(() => channels.spotTape({ ...BTC, exchange: "binance-futures" })).toThrow(
+      'channels.spotTape() received an invalid exchange "binance-futures"',
     );
   });
 });

@@ -4,7 +4,7 @@ import { singleChannel } from "../helpers/build.ts";
 import type { ChannelDefinition, SingleChannel } from "../helpers/build.ts";
 import { parseProduct } from "../helpers/target.ts";
 
-const INDICATOR = "channel.price";
+const INDICATOR = "channels.price";
 const EXCHANGES = [...FUTURES_EXCHANGES, ...SPOT_EXCHANGES];
 type PriceExchange = (typeof EXCHANGES)[number];
 

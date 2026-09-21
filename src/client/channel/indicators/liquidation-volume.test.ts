@@ -1,6 +1,6 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { channel } from "../../../index.ts";
+import { channels } from "../../../index.ts";
 import type { FuturesLiquidationVolumeColumn } from "../../api/futures/selectors.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";
@@ -33,36 +33,36 @@ const AGGREGATE_FRAME = {
   },
 };
 
-describe("channel.liquidationVolume", () => {
+describe("channels.liquidationVolume", () => {
   it("names one channel per metric and target, defaulting to dollars as history does", () => {
     const named = (built: { readonly kind: string; readonly name: string }) => [
       built.kind,
       built.name,
     ];
 
-    expect(named(channel.liquidationVolume(BTC))).toEqual(["liquidation_volume_dollars", DOLLARS]);
-    expect(named(channel.liquidationVolume(BTC, { metric: "coins" }))).toEqual([
+    expect(named(channels.liquidationVolume(BTC))).toEqual(["liquidation_volume_dollars", DOLLARS]);
+    expect(named(channels.liquidationVolume(BTC, { metric: "coins" }))).toEqual([
       "liquidation_volume_coins",
       COINS,
     ]);
-    expect(named(channel.liquidationVolume({ coin: "BTC" }))).toEqual([
+    expect(named(channels.liquidationVolume({ coin: "BTC" }))).toEqual([
       "aggregated_liquidation_volume_dollars",
       AGGREGATE_DOLLARS,
     ]);
-    expect(named(channel.liquidationVolume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
+    expect(named(channels.liquidationVolume({ coin: "BTC" }, { metric: "coins" }))).toEqual([
       "aggregated_liquidation_volume_coins",
       "realtime_BTC#liquidations#Coins#Aggregated",
     ]);
   });
 
   it("types each channel in history's buy and sell columns of its metric", () => {
-    expectTypeOf(channel.liquidationVolume(BTC)).toEqualTypeOf<
+    expectTypeOf(channels.liquidationVolume(BTC)).toEqualTypeOf<
       Channel<
         "liquidation_volume_dollars",
         Row<FuturesExchange, FuturesLiquidationVolumeColumn<"dollar", "buy" | "sell">>
       >
     >();
-    expectTypeOf(channel.liquidationVolume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
+    expectTypeOf(channels.liquidationVolume({ coin: "BTC" }, { metric: "coins" })).toEqualTypeOf<
       Channel<
         "aggregated_liquidation_volume_coins",
         readonly ExchangeEntry<
@@ -74,7 +74,7 @@ describe("channel.liquidationVolume", () => {
   });
 
   it("decodes a coin frame to the history row of its minute, and starts again at zero in the next", () => {
-    const coins = channel.liquidationVolume(BTC, { metric: "coins" });
+    const coins = channels.liquidationVolume(BTC, { metric: "coins" });
 
     /* These are the values /api/v1/rows returned for the same minute. */
     expect(coins.decode(LAST_OF_MINUTE)).toEqual({
@@ -97,7 +97,7 @@ describe("channel.liquidationVolume", () => {
 
   it("decodes a dollar frame to the dollar columns", () => {
     /* These too are the values /api/v1/rows returned for the minute. */
-    expect(channel.liquidationVolume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
+    expect(channels.liquidationVolume(BTC).decode(DOLLARS_LAST_OF_MINUTE)).toEqual({
       exchange: "binance-futures",
       coin: "BTC",
       product: "BTCUSDT",
@@ -108,7 +108,7 @@ describe("channel.liquidationVolume", () => {
   });
 
   it("decodes a coin's frame to one entry per exchange that publishes, without a time", () => {
-    const entries = channel.liquidationVolume({ coin: "BTC" }).decode(AGGREGATE_FRAME);
+    const entries = channels.liquidationVolume({ coin: "BTC" }).decode(AGGREGATE_FRAME);
 
     /* The three coin-margin exchanges publish no live liquidations, so they have no entry. */
     expect(entries).toHaveLength(5);
@@ -122,19 +122,19 @@ describe("channel.liquidationVolume", () => {
 
   it("follows futures products only", () => {
     // @ts-expect-error a spot exchange has no liquidations
-    expect(() => channel.liquidationVolume({ ...BTC, exchange: "binance" })).toThrow(
-      'channel.liquidationVolume() received an invalid exchange "binance"',
+    expect(() => channels.liquidationVolume({ ...BTC, exchange: "binance" })).toThrow(
+      'channels.liquidationVolume() received an invalid exchange "binance"',
     );
   });
 
   it("has one option, the metric, in the plural; history's spelling is refused", () => {
     // @ts-expect-error history says coin, a channel says coins
-    expect(() => channel.liquidationVolume(BTC, { metric: "coin" })).toThrow(
-      'channel.liquidationVolume() received an unknown metric "coin"; expected coins, dollars',
+    expect(() => channels.liquidationVolume(BTC, { metric: "coin" })).toThrow(
+      'channels.liquidationVolume() received an unknown metric "coin"; expected coins, dollars',
     );
-    // @ts-expect-error the count is another builder, channel.liquidations
-    expect(() => channel.liquidationVolume(BTC, { metric: "count" })).toThrow(
-      'channel.liquidationVolume() received an unknown metric "count"; expected coins, dollars',
+    // @ts-expect-error the count is another builder, channels.liquidations
+    expect(() => channels.liquidationVolume(BTC, { metric: "count" })).toThrow(
+      'channels.liquidationVolume() received an unknown metric "count"; expected coins, dollars',
     );
   });
 });
