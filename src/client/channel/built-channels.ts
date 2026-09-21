@@ -45,4 +45,10 @@ export const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readon
     { list: "futuresCoin", built: channel.fundingRate(COIN, { measure: "dollars" }) },
     { list: "futuresCoin", built: channel.fundingRate(COIN, { weighted: true }) },
   ],
+  volume: [
+    { list: "futuresProduct", built: channel.volume(PERP, { metric: "coins" }) },
+    { list: "futuresProduct", built: channel.volume(PERP, { metric: "dollars" }) },
+    { list: "futuresCoin", built: channel.volume(COIN, { metric: "coins" }) },
+    { list: "futuresCoin", built: channel.volume(COIN, { metric: "dollars" }) },
+  ],
 };
