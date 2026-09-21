@@ -204,6 +204,35 @@ describe("SafeEmitter", () => {
     expect(reportError).toHaveBeenCalledWith(reason);
   });
 
+  it("calls a listener it does not hold, with every argument, without adding it", () => {
+    const emitter = new SafeEmitter<TestEvents>();
+    const listener = vi.fn();
+
+    emitter.call(listener, 1, "x");
+    emitter.emit("value", 2);
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith(1, "x");
+  });
+
+  it("reports what a called listener throws or rejects with, as it does for its own", async () => {
+    const report = vi.fn();
+    const emitter = new SafeEmitter<TestEvents>(report);
+    const thrown = new Error("sync failure");
+    const rejected = new Error("async failure");
+
+    expect(() =>
+      emitter.call(() => {
+        throw thrown;
+      }),
+    ).not.toThrow();
+    emitter.call(() => Promise.reject(rejected));
+    await flushReports();
+
+    expect(report).toHaveBeenNthCalledWith(1, thrown);
+    expect(report).toHaveBeenNthCalledWith(2, rejected);
+  });
+
   it("clears every listener across types", () => {
     const emitter = new SafeEmitter<TestEvents>();
     const value = vi.fn();
