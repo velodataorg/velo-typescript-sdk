@@ -2,6 +2,7 @@ import { fundingRate } from "./indicators/funding-rate.ts";
 import { openInterest } from "./indicators/open-interest.ts";
 import { price } from "./indicators/price.ts";
 import { raw } from "./indicators/raw.ts";
+import { spotTape } from "./indicators/spot-tape.ts";
 import { spotVolume } from "./indicators/spot-volume.ts";
 import { tape } from "./indicators/tape.ts";
 import { volume } from "./indicators/volume.ts";
@@ -21,4 +22,5 @@ export const channel = Object.freeze({
   volume,
   tape,
   spotVolume,
+  spotTape,
 });

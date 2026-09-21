@@ -61,4 +61,8 @@ export const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readon
     { list: "spotCoin", built: channel.spotVolume(COIN, { metric: "coins" }) },
     { list: "spotCoin", built: channel.spotVolume(COIN, { metric: "dollars" }) },
   ],
+  spotTape: [
+    { list: "spotProduct", built: channel.spotTape(SPOT) },
+    { list: "spotCoin", built: channel.spotTape(COIN) },
+  ],
 };
