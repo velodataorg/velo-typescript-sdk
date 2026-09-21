@@ -142,26 +142,36 @@ Pass `reconnect: false` for one initial connection attempt and no automatic reco
 
 ### Channels
 
-Watch live market data by building channels on `velo.channels` and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
+Watch live market data by building channels on `velo.channels`, giving each its listeners with `.on()`, and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
 
 ```ts
+const BTCUSDT = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
+
 const watcher = await velo.watch(
   velo.channels.feed([
-    velo.channels.price({ exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" }),
-    velo.channels.openInterest({ coin: "BTC" }, { metric: "coins" }), // Aggregated open interest when `coin` is passed
+    velo.channels.price(BTCUSDT).on({
+      data: (row) => console.log(row.time, row.close_price),
+      error: ({ reason }) => console.error("price:", reason),
+    }),
+    velo.channels.openInterest({ coin: "BTC" }, { metric: "coins" }).on({
+      data: (entries) => console.table(entries),
+    }),
   ]),
   {
     on: {
-      data: (event) => {
-        // Checking `kind` narrows `data` to that channel's rows
-        if (event.kind === "price") console.log(event.data.time, event.data.close_price);
-        else console.table(event.data);
-      },
-      decodeError: ({ channel, error }) => console.error("skipped a frame of", channel, error),
-      channelError: ({ channel, reason }) => console.error(channel, "stopped:", reason),
       error: (error) => console.error(error),
       close: ({ code, reason }) => console.log("closed", code, reason),
     },
   },
 );
+```
+
+A watcher can start and stop channels without reconnecting. A channel is the value you built: keep it to stop it later.
+
+```ts
+const ETHUSDT = { exchange: "binance-futures", coin: "ETH", product: "ETHUSDT" } as const;
+const eth = velo.channels.price(ETHUSDT).on({ data: (row) => console.log(row.close_price) });
+
+watcher.subscribe(eth);
+watcher.unsubscribe(eth);
 ```
