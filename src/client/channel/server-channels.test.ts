@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { channel } from "../../index.ts";
-import type { Channel } from "./channel.ts";
+import { BUILT } from "./built-channels.ts";
+import type { ServerList } from "./built-channels.ts";
 
 /*
  * What the server publishes, copied from `channel-info.js` in velo-websockets
@@ -55,53 +55,14 @@ const SERVER = {
     "#spotvol#Dollars#Aggregated",
     "#spottape#Trade Count#Aggregated",
   ],
-} as const;
+} as const satisfies Readonly<Record<ServerList, readonly string[]>>;
 
-type ServerList = keyof typeof SERVER;
-
-const PERP = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
-const SPOT = { exchange: "coinbase", coin: "BTC", product: "BTC-USD" } as const;
-const COIN = { coin: "BTC" } as const;
-
-/* How the server spells each list's target, for the targets above. */
+/* How the server spells each list's target, for the targets `BUILT` is built on. */
 const TARGET: Readonly<Record<ServerList, string>> = {
   futuresProduct: "realtime_binance-futures:BTCUSDT",
   spotProduct: "realtime_coinbase:BTC-USD",
   futuresCoin: "realtime_BTC",
   spotCoin: "realtime_BTC",
-};
-
-interface Built {
-  /* The server list this channel's suffix must be in. */
-  readonly list: ServerList;
-  readonly built: Channel;
-}
-
-/*
- * Every channel the builders can build, one line each. The type makes a new
- * builder on `channel` a compile error here until it is listed; listing each
- * of its targets and options is by hand.
- */
-const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readonly Built[]>> = {
-  price: [
-    { list: "futuresProduct", built: channel.price(PERP) },
-    { list: "spotProduct", built: channel.price(SPOT) },
-  ],
-  openInterest: [
-    { list: "futuresProduct", built: channel.openInterest(PERP, { metric: "coins" }) },
-    { list: "futuresProduct", built: channel.openInterest(PERP, { metric: "dollars" }) },
-    { list: "futuresCoin", built: channel.openInterest(COIN, { metric: "coins" }) },
-    { list: "futuresCoin", built: channel.openInterest(COIN, { metric: "dollars" }) },
-  ],
-  fundingRate: [
-    { list: "futuresProduct", built: channel.fundingRate(PERP, { measure: "rate" }) },
-    { list: "futuresProduct", built: channel.fundingRate(PERP, { measure: "coins" }) },
-    { list: "futuresProduct", built: channel.fundingRate(PERP, { measure: "dollars" }) },
-    { list: "futuresCoin", built: channel.fundingRate(COIN, { measure: "rate" }) },
-    { list: "futuresCoin", built: channel.fundingRate(COIN, { measure: "coins" }) },
-    { list: "futuresCoin", built: channel.fundingRate(COIN, { measure: "dollars" }) },
-    { list: "futuresCoin", built: channel.fundingRate(COIN, { weighted: true }) },
-  ],
 };
 
 /* What the server publishes and no builder builds yet. Delete a line when its builder lands. */
