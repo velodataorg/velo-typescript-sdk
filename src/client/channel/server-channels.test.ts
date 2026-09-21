@@ -67,17 +67,9 @@ const TARGET: Readonly<Record<ServerList, string>> = {
 
 /* What the server publishes and no builder builds yet. Delete a line when its builder lands. */
 const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
-  futuresProduct: [
-    "#liquidations#Coins",
-    "#liquidations#Dollars",
-    "#vwap",
-    "#turnover",
-    "#oiwap",
-    "#returns",
-    "#total_return",
-  ],
+  futuresProduct: ["#vwap", "#turnover", "#oiwap", "#returns", "#total_return"],
   spotProduct: [],
-  futuresCoin: ["#liquidations#Coins#Aggregated", "#liquidations#Dollars#Aggregated"],
+  futuresCoin: [],
   spotCoin: [],
 };
 

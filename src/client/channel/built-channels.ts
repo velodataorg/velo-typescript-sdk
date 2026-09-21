@@ -74,4 +74,10 @@ export const BUILT: Readonly<Record<Exclude<keyof typeof channel, "raw">, readon
     { list: "futuresProduct", built: channel.liquidations(PERP) },
     { list: "futuresCoin", built: channel.liquidations(COIN) },
   ],
+  liquidationVolume: [
+    { list: "futuresProduct", built: channel.liquidationVolume(PERP, { metric: "coins" }) },
+    { list: "futuresProduct", built: channel.liquidationVolume(PERP, { metric: "dollars" }) },
+    { list: "futuresCoin", built: channel.liquidationVolume(COIN, { metric: "coins" }) },
+    { list: "futuresCoin", built: channel.liquidationVolume(COIN, { metric: "dollars" }) },
+  ],
 };

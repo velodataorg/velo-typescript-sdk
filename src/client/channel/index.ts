@@ -1,4 +1,5 @@
 import { fundingRate } from "./indicators/funding-rate.ts";
+import { liquidationVolume } from "./indicators/liquidation-volume.ts";
 import { liquidations } from "./indicators/liquidations.ts";
 import { openInterest } from "./indicators/open-interest.ts";
 import { premium } from "./indicators/premium.ts";
@@ -27,4 +28,5 @@ export const channel = Object.freeze({
   spotTape,
   premium,
   liquidations,
+  liquidationVolume,
 });
