@@ -139,3 +139,31 @@ const watcher = await velo.watch(velo.news.feed(), {
 ```
 
 Pass `reconnect: false` for one initial connection attempt and no automatic recovery. The resolved watcher can be paused with `disconnect()`, manually reopened with `connect()`, or permanently disposed with `close()`.
+
+### Channels
+
+Watch live market data by building channels with `channel` and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
+
+```ts
+import { Velo, channel } from "velo-sdk";
+
+const watcher = await velo.watch(
+  velo.channels.feed([
+    channel.price({ exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" }),
+    channel.openInterest({ coin: "BTC" }, { metric: "coins" }), // Aggregated open interest when `coin` is passed
+  ]),
+  {
+    on: {
+      data: (event) => {
+        // Checking `kind` narrows `data` to that channel's rows
+        if (event.kind === "price") console.log(event.data.time, event.data.close_price);
+        else console.table(event.data);
+      },
+      decodeError: ({ channel, error }) => console.error("skipped a frame of", channel, error),
+      channelError: ({ channel, reason }) => console.error(channel, "stopped:", reason),
+      error: (error) => console.error(error),
+      close: ({ code, reason }) => console.log("closed", code, reason),
+    },
+  },
+);
+```
