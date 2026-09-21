@@ -78,7 +78,7 @@ const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
     "#premium",
     "#total_return",
   ],
-  spotProduct: ["#spotvol#Coins", "#spotvol#Dollars", "#spottape#Trade Count"],
+  spotProduct: ["#spottape#Trade Count"],
   futuresCoin: [
     "#liquidations#Coins#Aggregated",
     "#liquidations#Liquidation Count#Aggregated",
@@ -86,11 +86,7 @@ const NOT_BUILT: Readonly<Record<ServerList, readonly string[]>> = {
     "#premium#Aggregated",
     "#premium#weighted#Aggregated",
   ],
-  spotCoin: [
-    "#spotvol#Coins#Aggregated",
-    "#spotvol#Dollars#Aggregated",
-    "#spottape#Trade Count#Aggregated",
-  ],
+  spotCoin: ["#spottape#Trade Count#Aggregated"],
 };
 
 const ALL = Object.entries(BUILT).flatMap(([builder, rows]) =>
