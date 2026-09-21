@@ -45,6 +45,10 @@ export type {
   ChannelsWatcherEvents,
   ChannelsWatchOptions,
 } from "./client/api/channels/watcher.ts";
+export {
+  MAX_CHANNELS_PER_SOCKET,
+  MAX_CONSECUTIVE_DECODE_FAILURES,
+} from "./client/api/channels/watcher.ts";
 export type {
   QueryBuilder,
   QueryInput,
