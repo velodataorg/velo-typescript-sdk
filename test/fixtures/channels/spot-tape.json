@@ -1,0 +1,45 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_coinbase:BTC-USD#spottape#Trade Count": {
+      "lastOfMinute": {
+        "c": "realtime_coinbase:BTC-USD#spottape#Trade Count",
+        "d": [127, 228],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_coinbase:BTC-USD#spottape#Trade Count",
+        "d": [0, 1],
+        "f": true,
+        "tt": 1789991040002
+      }
+    },
+    "realtime_BTC#spottape#Trade Count#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_binance": [483, 2060],
+          "realtime_coinbase": [127, 228],
+          "realtime_okex": [224, 94],
+          "realtime_bybit-spot": [140, 320]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#spottape#Trade Count#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_binance": [0, 0],
+          "realtime_coinbase": [0, 0],
+          "realtime_okex": [0, 0],
+          "realtime_bybit-spot": [2, 2]
+        },
+        "f": true,
+        "tt": 1789991040442,
+        "c": "realtime_BTC#spottape#Trade Count#Aggregated"
+      }
+    }
+  }
+}

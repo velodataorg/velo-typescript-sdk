@@ -1,0 +1,35 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_binance-futures:BTCUSDT": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT",
+        "d": [84816.9, 84816.9, 84761.2, 84769.7, 72.13600000000035, 6115246.175999975],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT",
+        "tt": 1789991040000,
+        "d": [84769.7, 84769.7, 84769.7, 84769.7, 0, 0],
+        "f": true
+      }
+    },
+    "realtime_coinbase:BTC-USD": {
+      "lastOfMinute": {
+        "c": "realtime_coinbase:BTC-USD",
+        "d": [84830.12, 84830.12, 84774.94, 84789.99, 2.806304980000001, 237975.26099999997],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_coinbase:BTC-USD",
+        "d": [84789.99, 84789.99, 84789.99, 84789.99, 2e-8, 0.002],
+        "f": true,
+        "tt": 1789991040002
+      }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "captured": "2026-09-21T11:44:10.003Z",
+  "minute": 1789990980000,
+  "host": "wss.velo.xyz",
+  "channels": {
+    "realtime_binance-futures:BTCUSDT#liquidations#Coins": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#liquidations#Coins",
+        "d": [0.002, 0],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#liquidations#Coins",
+        "d": [0, 0],
+        "f": true,
+        "tt": 1789991040000
+      }
+    },
+    "realtime_binance-futures:BTCUSDT#liquidations#Dollars": {
+      "lastOfMinute": {
+        "c": "realtime_binance-futures:BTCUSDT#liquidations#Dollars",
+        "d": [169.523, 0],
+        "f": false,
+        "tt": 1789991039999
+      },
+      "rollover": {
+        "c": "realtime_binance-futures:BTCUSDT#liquidations#Dollars",
+        "d": [0, 0],
+        "f": true,
+        "tt": 1789991040000
+      }
+    },
+    "realtime_BTC#liquidations#Coins#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_okex-swap": [0, 0],
+          "realtime_binance-futures": [0.002, 0],
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#liquidations#Coins#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_okex-swap": [0, 0],
+          "realtime_binance-futures": [0, 0],
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": true,
+        "tt": 1789991040228,
+        "c": "realtime_BTC#liquidations#Coins#Aggregated"
+      }
+    },
+    "realtime_BTC#liquidations#Dollars#Aggregated": {
+      "lastOfMinute": {
+        "d": {
+          "realtime_okex-swap": [0, 0],
+          "realtime_binance-futures": [169.523, 0],
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": false,
+        "tt": 1789991039999,
+        "c": "realtime_BTC#liquidations#Dollars#Aggregated"
+      },
+      "rollover": {
+        "d": {
+          "realtime_okex-swap": [0, 0],
+          "realtime_binance-futures": [0, 0],
+          "realtime_hyperliquid": [0, 0],
+          "realtime_bybit": [0, 0],
+          "realtime_deribit": [0, 0]
+        },
+        "f": true,
+        "tt": 1789991040228,
+        "c": "realtime_BTC#liquidations#Dollars#Aggregated"
+      }
+    }
+  }
+}
