@@ -1,6 +1,6 @@
 {
   "name": "velo-sdk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "TypeScript and JavaScript SDK for the Velo API",
   "keywords": [
     "api",
