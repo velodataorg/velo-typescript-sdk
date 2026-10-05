@@ -1,7 +1,6 @@
 {
   "captured": "2026-09-21T11:44:10.003Z",
   "minute": 1789990980000,
-  "host": "wss.velo.xyz",
   "channels": {
     "realtime_binance-futures:BTCUSDT#funding_rate#Rate (%)": {
       "lastOfMinute": {

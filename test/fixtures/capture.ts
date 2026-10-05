@@ -23,7 +23,6 @@ import { assert } from "../../src/util/assert.ts";
 import { BUILT } from "../channels.ts";
 import type { ChannelFixture, ChannelFixtureFile } from "./channels.ts";
 
-const HOST = "wss.velo.xyz";
 const DIRECTORY = join(import.meta.dirname, "channels");
 
 const MINUTE = 60_000;
@@ -51,7 +50,7 @@ async function main(): Promise<void> {
     apiKey !== undefined && apiKey !== "",
     "Add VELO_API_KEY to .env, then run from the root.",
   );
-  const velo = new Velo({ apiKey, channelsBaseUrl: `https://${HOST}` });
+  const velo = new Velo({ apiKey });
 
   const builders = chosenBuilders(process.argv.slice(2));
   const names = builders.flatMap((builder) => BUILT[builder].map((built) => built.name));
@@ -75,7 +74,6 @@ async function main(): Promise<void> {
     const file: ChannelFixtureFile = {
       captured: written,
       minute,
-      host: HOST,
       channels: Object.fromEntries(
         BUILT[builder].map(({ name }) => {
           const fixture = fixtures.get(name);

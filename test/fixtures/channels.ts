@@ -28,7 +28,6 @@ export interface ChannelFixtureFile {
   readonly captured: string;
   /* The start of the minute that ended, in milliseconds. */
   readonly minute: number;
-  readonly host: string;
   /* Keyed by wire name, which is each frame's `c`. */
   readonly channels: Readonly<Record<string, ChannelFixture>>;
 }
