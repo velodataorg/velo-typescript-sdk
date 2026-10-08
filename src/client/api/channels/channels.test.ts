@@ -32,7 +32,12 @@ import {
 
 const PRICE = "realtime_binance-futures:BTCUSDT";
 const OI = "realtime_BTC#open_interest#Coins#Aggregated";
-const ONDEMAND = "ondemand_hyperliquid_spot_UBTC-USDC_candle_1";
+const TAPE = "realtime_binance-futures:BTCUSDT#tape#Trade Count";
+/* One name more than a socket carries, so a feed of them opens two sockets. */
+const TWO_SOCKETS = Array.from(
+  { length: MAX_CHANNELS_PER_SOCKET + 1 },
+  (_, index) => `realtime_test:${String(index)}`,
+);
 /* Raw channels that each report the message they deliver, in arrival order. */
 const rawChannels = (
   names: readonly string[],
@@ -492,31 +497,21 @@ describe("raw channel subscriptions", () => {
     expect(watcher.state).toBe("closed");
   });
 
-  it("routes on-demand channels to a separate endpoint and waits for both sockets", async () => {
-    const { client, sockets, targets } = harness();
-    const seen = vi.fn();
+  it("waits for every socket before resolving", async () => {
+    const { client, sockets } = harness();
     let ready = false;
-    const pending = client
-      .watch(channels.feed(rawChannels([PRICE, ONDEMAND], seen)))
-      .then((watcher) => {
-        ready = true;
-        return watcher;
-      });
+    const pending = client.watch(channels.feed(rawChannels(TWO_SOCKETS))).then((watcher) => {
+      ready = true;
+      return watcher;
+    });
     await flushConnection();
-    expect(targets.map((target) => target.url)).toEqual([
-      "wss://api.velo.xyz/api/w/connect",
-      "wss://api.velo.xyz/api/o/connect",
-    ]);
-    expect(targets[1]!.authenticatedUrl).toBe("wss://api.velo.xyz/api/o/connect/test%2Fkey");
+    expect(sockets).toHaveLength(2);
     sockets[0]!.open();
     await flushConnection();
     expect(ready).toBe(false);
     sockets[1]!.open();
     const watcher = await pending;
-    expect(sockets[1]!.sent).toEqual([`s2 ${ONDEMAND}`]);
-    sockets[0]!.message(JSON.stringify(message(ONDEMAND)));
-    sockets[1]!.message(JSON.stringify(message(ONDEMAND)));
-    expect(seen).toHaveBeenCalledTimes(1);
+    expect(sockets[1]!.sent).toEqual([`s2 ${TWO_SOCKETS[MAX_CHANNELS_PER_SOCKET]}`]);
     watcher.close();
     expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
   });
@@ -549,19 +544,19 @@ describe("raw channel subscriptions", () => {
     const { client, sockets } = harness();
     const errors = vi.fn();
     const data = vi.fn();
-    const fed = [PRICE, OI, ONDEMAND].map((name) => channels.raw(name).on({ data, error: errors }));
+    const fed = [PRICE, OI, TAPE].map((name) => channels.raw(name).on({ data, error: errors }));
     const pending = client.watch(channels.feed(fed));
     await flushConnection();
-    sockets.forEach((socket) => socket.open());
+    sockets[0]!.open();
     const watcher = await pending;
     sockets[0]!.message(JSON.stringify({ err: OI }));
-    sockets[1]!.message(JSON.stringify({ u2: ONDEMAND }));
+    sockets[0]!.message(JSON.stringify({ u2: TAPE }));
     sockets[0]!.message(JSON.stringify({ err: "unrequested" }));
     sockets[0]!.message(JSON.stringify(message(OI)));
     sockets[0]!.message(JSON.stringify(message()));
     expect(errors.mock.calls.map((call) => call[0])).toEqual([
       { channel: OI, reason: "rejected" },
-      { channel: ONDEMAND, reason: "unsubscribed" },
+      { channel: TAPE, reason: "unsubscribed" },
     ]);
     expect(data).toHaveBeenCalledTimes(1);
     expect(watcher.state).toBe("open");
@@ -618,9 +613,9 @@ describe("raw channel subscriptions", () => {
     await expect(watcher.connect()).rejects.toThrow(/closed/);
   });
 
-  it("closes sibling sockets when one endpoint fails", async () => {
+  it("closes sibling sockets when one socket fails", async () => {
     const { client, sockets } = harness();
-    const pending = client.watch(channels.feed(rawChannels([PRICE, ONDEMAND])), {
+    const pending = client.watch(channels.feed(rawChannels(TWO_SOCKETS)), {
       reconnect: false,
     });
     const rejection = expect(pending).rejects.toThrow(/gone/);
@@ -638,7 +633,7 @@ describe("raw channel subscriptions", () => {
     const controller = new AbortController();
     const add = vi.spyOn(controller.signal, "addEventListener");
     const remove = vi.spyOn(controller.signal, "removeEventListener");
-    const pending = client.watch(channels.feed(rawChannels([PRICE, ONDEMAND])), {
+    const pending = client.watch(channels.feed(rawChannels(TWO_SOCKETS)), {
       signal: controller.signal,
     });
     const rejection = expect(pending).rejects.toThrow("stop");
@@ -704,10 +699,9 @@ describe("raw channel subscriptions", () => {
       sockets.push(socket);
       return socket;
     });
-    const watcher = new ChannelsWatcherController(
-      { realtime: transport, ondemand: transport },
-      { channels: rawChannels([PRICE]) },
-    );
+    const watcher = new ChannelsWatcherController(transport, {
+      channels: rawChannels([PRICE]),
+    });
     const pending = watcher.connect();
     expect(watcher.connect()).toBe(pending);
     const rejection = expect(pending).rejects.toThrow(/JSON/);
@@ -718,14 +712,14 @@ describe("raw channel subscriptions", () => {
     watcher.close();
   });
 
-  it("shards an endpoint's channels across sockets at the server's per-socket limit", async () => {
+  it("shards channels across sockets at the server's per-socket limit", async () => {
     const { client, sockets, targets } = harness();
     const names = Array.from(
       { length: MAX_CHANNELS_PER_SOCKET * 2 + 1 },
       (_, index) => `realtime_test:${String(index)}`,
     );
     const seen: string[] = [];
-    const fed = rawChannels([...names, ONDEMAND], (event) => seen.push(event.channel));
+    const fed = rawChannels(names, (event) => seen.push(event.channel));
     const pending = client.watch(channels.feed(fed));
     await flushConnection();
 
@@ -733,14 +727,12 @@ describe("raw channel subscriptions", () => {
       "wss://api.velo.xyz/api/w/connect",
       "wss://api.velo.xyz/api/w/connect",
       "wss://api.velo.xyz/api/w/connect",
-      "wss://api.velo.xyz/api/o/connect",
     ]);
     sockets.forEach((socket) => socket.open());
     const watcher = await pending;
     expect(sockets.map((socket) => socket.sent.length)).toEqual([
       MAX_CHANNELS_PER_SOCKET,
       MAX_CHANNELS_PER_SOCKET,
-      1,
       1,
     ]);
     expect(sockets[2]!.sent).toEqual([`s2 ${names[MAX_CHANNELS_PER_SOCKET * 2]}`]);
@@ -802,7 +794,7 @@ describe("raw channel subscriptions", () => {
   it("tracks the heartbeat deadline per socket", async () => {
     vi.useFakeTimers();
     const { client, sockets } = harness();
-    const pending = client.watch(channels.feed(rawChannels([PRICE, ONDEMAND])), {
+    const pending = client.watch(channels.feed(rawChannels(TWO_SOCKETS)), {
       reconnect: false,
       heartbeatTimeout: 100,
     });

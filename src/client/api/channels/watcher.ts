@@ -5,14 +5,11 @@ import type { WebSocketCloseEvent, WebSocketTransport } from "../../../transport
 import { assert } from "../../../util/assert.ts";
 import type { Channel, ChannelError, ChannelFrame, ChannelMessage } from "../../channel/channel.ts";
 import { isChannel, listenersOf } from "../../channel/create.ts";
-import { channelEndpoint } from "../../channel/name.ts";
-import type { ChannelEndpoint } from "../../channel/name.ts";
 import { HeartbeatDeadline } from "../../watch/heartbeat.ts";
 import { WatchLifecycle } from "../../watch/lifecycle.ts";
 import type { TeardownReason } from "../../watch/lifecycle.ts";
 import { prepareWatcherOptions } from "../../watch/options.ts";
 import type { WatcherOptions } from "../../watch/options.ts";
-import type { WatchTransports } from "../../watch/transports.ts";
 import type { WatcherOf, WatchState } from "../../watch/watcher.ts";
 import { decodeChannelFrame } from "./decode.ts";
 import { ChannelsParams, parseChannel } from "./params.ts";
@@ -76,11 +73,10 @@ export interface ChannelsWatcher extends WatcherOf<ChannelsWatcherEvents> {
 }
 
 /*
- * One socket's share of the subscription: its endpoint and the wire names it
- * carries, at most the per-socket limit. It lives as long as it carries one.
+ * One socket's share of the subscription: the wire names it carries, at most
+ * the per-socket limit. It lives as long as it carries one.
  */
 interface ChannelGroup {
-  readonly transport: WebSocketTransport;
   readonly channels: string[];
   readonly heartbeat: HeartbeatDeadline;
 }
@@ -88,12 +84,12 @@ interface ChannelGroup {
 /**
  * A disconnected controller for a set of channels that can change while open.
  *
- * Owns the sockets the channels need — one per endpoint, or more when an
- * endpoint's channels exceed the per-socket limit — and the v2 `s2`/`u2`
- * commands; the connection lifecycle itself is the shared one. `connect()`
- * resolves once every socket is open and subscribed. The controller never
- * reconnects on its own — an unexpected loss on any socket enters
- * `disconnected` and emits `close`, and the watch layer resumes it.
+ * Owns the sockets the channels need — one, or more when the channels exceed
+ * the per-socket limit — and the v2 `s2`/`u2` commands; the connection
+ * lifecycle itself is the shared one. `connect()` resolves once every socket
+ * is open and subscribed. The controller never reconnects on its own — an
+ * unexpected loss on any socket enters `disconnected` and emits `close`, and
+ * the watch layer resumes it.
  *
  * Nothing published while disconnected is replayed, and a reconnect
  * resubscribes the set as it is then, including channels the server rejected.
@@ -114,13 +110,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   readonly #groups: ChannelGroup[] = [];
   readonly #lifecycle: WatchLifecycle<ChannelsWatcherEvents>;
   readonly #sessions = new Map<ChannelGroup, WebSocketSession>();
-  readonly #transports: Pick<WatchTransports, ChannelEndpoint>;
+  readonly #transport: WebSocketTransport;
   readonly #heartbeatTimeout: number;
   /* The attempt the open sockets belong to, which a socket opened later joins. */
   #attempt: AbortController | undefined;
 
   constructor(
-    transports: Pick<WatchTransports, ChannelEndpoint>,
+    transport: WebSocketTransport,
     params: ChannelsParams,
     options?: ChannelsWatchOptions,
   ) {
@@ -128,7 +124,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     const prepared = prepareWatcherOptions(options);
     this.#connectTimeout = prepared.connectTimeout;
     this.#heartbeatTimeout = prepared.heartbeatTimeout;
-    this.#transports = transports;
+    this.#transport = transport;
     this.#lifecycle = new WatchLifecycle("Channels", prepared, {
       start: (attempt) => this.#open(attempt),
       teardown: (reason) => this.#teardown(reason),
@@ -184,7 +180,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
 
     this.#active.add(name);
     const session = this.#sessions.get(placed.group);
-    if (session !== undefined) this.#send(placed.group, session, `s2 ${name}`);
+    if (session !== undefined) this.#send(session, `s2 ${name}`);
     else if (placed.created) this.#openLater(placed.group, this.#attempt);
     /* Otherwise the group's socket is still opening, and subscribes every name it carries once open. */
   }
@@ -268,13 +264,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * that `attempt` has not ended: a sibling socket may have failed and torn
    * this attempt down while the handshake was in flight.
    *
-   * @param group - The endpoint and channels to open.
+   * @param group - The channels to open.
    * @param attempt - The connection attempt this socket belongs to.
    * @throws When the handshake fails or a subscription cannot be sent.
    */
   async #openGroup(group: ChannelGroup, attempt: AbortController): Promise<void> {
     const session = await WebSocketSession.open(
-      group.transport,
+      this.#transport,
       {
         onMessage: (data) => {
           if (!attempt.signal.aborted) this.#handleMessage(group, data);
@@ -302,7 +298,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
       try {
         session.send(`s2 ${channel}`);
       } catch (cause) {
-        throw group.transport.connectionError("subscription failed", cause);
+        throw this.#transport.connectionError("subscription failed", cause);
       }
     }
   }
@@ -411,20 +407,16 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#listening.set(name, [channel]);
     this.#channels.set(name, channel);
 
-    const transport = this.#transports[channelEndpoint(name)];
-    const roomy = this.#groups.find(
-      (group) => group.transport === transport && group.channels.length < MAX_CHANNELS_PER_SOCKET,
-    );
+    const roomy = this.#groups.find((group) => group.channels.length < MAX_CHANNELS_PER_SOCKET);
     if (roomy !== undefined) {
       roomy.channels.push(name);
       return { group: roomy, created: false };
     }
     const group: ChannelGroup = {
-      transport,
       channels: [name],
       heartbeat: new HeartbeatDeadline(this.#heartbeatTimeout, () => {
         this.#lifecycle.fail(
-          transport.connectionError(
+          this.#transport.connectionError(
             `heartbeat timed out after ${this.#heartbeatTimeout} milliseconds`,
           ),
           abnormalCloseEvent(),
@@ -454,16 +446,15 @@ export class ChannelsWatcherController implements ChannelsWatcher {
   /**
    * Sends one command on an open socket, failing the connection if it cannot.
    *
-   * @param group - The group the socket belongs to.
-   * @param session - Its open session.
+   * @param session - The socket's open session.
    * @param command - The command to send.
    */
-  #send(group: ChannelGroup, session: WebSocketSession, command: string): void {
+  #send(session: WebSocketSession, command: string): void {
     try {
       session.send(command);
     } catch (cause) {
       this.#lifecycle.fail(
-        group.transport.connectionError("subscription failed", cause),
+        this.#transport.connectionError("subscription failed", cause),
         abnormalCloseEvent(),
       );
     }

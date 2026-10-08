@@ -1,8 +1,4 @@
-import {
-  NEWS_WEBSOCKET_PATH,
-  ONDEMAND_WEBSOCKET_PATH,
-  REALTIME_WEBSOCKET_PATH,
-} from "../constants/endpoints.ts";
+import { NEWS_WEBSOCKET_PATH, REALTIME_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { Http } from "../transport/http.ts";
 import type { HttpConfig, HttpRequestOptions } from "../transport/http.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
@@ -53,7 +49,7 @@ import { attachWatchListeners } from "./watch/watcher.ts";
 
 export interface VeloConfig extends HttpConfig {
   /**
-   * HTTP(S) origin for the realtime and on-demand channel sockets.
+   * HTTP(S) origin for the channel sockets.
    *
    * Defaults to `baseUrl`. The news feed always connects through `baseUrl`.
    */
@@ -206,6 +202,5 @@ function buildTransports(config: VeloConfig): WatchTransports {
   return {
     news: new WebSocketTransport(config, NEWS_WEBSOCKET_PATH, factory),
     realtime: new WebSocketTransport(channelsConfig, REALTIME_WEBSOCKET_PATH, factory),
-    ondemand: new WebSocketTransport(channelsConfig, ONDEMAND_WEBSOCKET_PATH, factory),
   };
 }

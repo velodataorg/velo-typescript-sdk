@@ -118,9 +118,8 @@ interface WatcherDefinition<K extends WatchableKind> {
   /**
    * Builds this kind's watcher.
    *
-   * Takes every transport the client owns and picks the ones this kind
-   * needs, so a kind that spans endpoints is built the same way as one that
-   * uses a single socket.
+   * Takes every transport the client owns and picks the one this kind
+   * needs.
    *
    * The `WatcherOf` half of the return type is what lets the client attach
    * listeners and resume drops generically: without it, `Watcher<K>` is an
@@ -154,7 +153,7 @@ export const WATCHERS: WatcherRegistry = Object.freeze({
   },
   "channels.feed": {
     create: (transports, params, options) =>
-      new ChannelsWatcherController(transports, params, options),
+      new ChannelsWatcherController(transports.realtime, params, options),
     events: { error: true, close: true },
   },
 });

@@ -153,10 +153,8 @@ describe("a live subscription", () => {
     expect(feed.sent.slice(2)).toEqual(names.map((name) => `u2 ${name}`));
   });
 
-  it("sends the encoded API key in the native WebSocket URL for on-demand channels", async ({
-    feed,
-  }) => {
-    const channel = "ondemand_hyperliquid_linear_BTC_candle_1";
+  it("sends the encoded API key in the native WebSocket URL", async ({ feed }) => {
+    const channel = "realtime_binance-futures:BTCUSDT";
     const velo = new Velo({
       apiKey: "test/key +?",
       baseUrl: feed.baseUrl,
@@ -170,7 +168,7 @@ describe("a live subscription", () => {
       ]),
     );
     try {
-      expect(feed.upgrades[0]?.url).toBe("/api/o/connect/test%2Fkey%20%2B%3F");
+      expect(feed.upgrades[0]?.url).toBe("/api/w/connect/test%2Fkey%20%2B%3F");
       expect(feed.upgrades[0]?.headers.authorization).toBeUndefined();
       await until(() => feed.sent.length === 1, "native subscription");
       const frame = { c: channel, d: [1, 2, 3], tt: 123, f: false };

@@ -11,5 +11,4 @@ export const NEWS_PATH = "/api/n/news";
 export const REALTIME_WEBSOCKET_PATH = "/api/w/connect";
 /* The news feed is one channel of the realtime socket, subscribed with the v1 verb. */
 export const NEWS_WEBSOCKET_PATH = REALTIME_WEBSOCKET_PATH;
-export const ONDEMAND_WEBSOCKET_PATH = "/api/o/connect";
 export const ORDERBOOK_PATH = "/api/v1/heatmap";

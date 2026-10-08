@@ -12,6 +12,4 @@ export interface WatchTransports {
   readonly news: WebSocketTransport;
   /* Realtime channels at `/api/w/connect`, rehosted by `channelsBaseUrl`. */
   readonly realtime: WebSocketTransport;
-  /* On-demand channels at `/api/o/connect`, rehosted by `channelsBaseUrl`. */
-  readonly ondemand: WebSocketTransport;
 }

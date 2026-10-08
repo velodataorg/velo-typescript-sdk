@@ -2,14 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { channelEndpoint } from "./name.ts";
-
 describe("channel names", () => {
-  it("routes by the name's source", () => {
-    expect(channelEndpoint("realtime_BTC#premium#Aggregated")).toBe("realtime");
-    expect(channelEndpoint("ondemand_hyperliquid_spot_UBTC-USDC_candle_1")).toBe("ondemand");
-  });
-
   it("keeps every source file free of control bytes, so changes stay reviewable", () => {
     /*
      * A pattern or a test string written with the characters themselves in
