@@ -87,3 +87,13 @@ export const SPOT_COLUMNS = [
 ] as const;
 
 export type SpotColumn = (typeof SPOT_COLUMNS)[number];
+
+/*
+ * What the server publishes live and history has no column for: what funding
+ * spends, in coins and in dollars. The only column names that are the SDK's
+ * own rather than the history API's.
+ */
+export type LiveOnlyColumn = "coin_funding_spend_rate" | "dollar_funding_spend_rate";
+
+/* A column a channel's data may carry: a history column, or one only live data has. */
+export type ChannelColumn = FuturesStandardColumn | SpotColumn | LiveOnlyColumn;

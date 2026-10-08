@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { Product } from "../../market/product.ts";
 import { invalidParamsError } from "../../validation.ts";
 
 export type CatalogParams<E extends string> =
@@ -30,10 +31,7 @@ export interface PreparedCatalogParams {
 /* Markets whose params never allow `depth` (spot, options) also lack the row
  * field, so their filter branch below is unreachable.
  */
-interface CatalogProduct {
-  readonly coin: string;
-  readonly product: string;
-  readonly exchange: string;
+interface CatalogProduct extends Product<string> {
   readonly depth?: boolean;
 }
 

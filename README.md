@@ -139,3 +139,39 @@ const watcher = await velo.watch(velo.news.feed(), {
 ```
 
 Pass `reconnect: false` for one initial connection attempt and no automatic recovery. The resolved watcher can be paused with `disconnect()`, manually reopened with `connect()`, or permanently disposed with `close()`.
+
+### Channels
+
+Watch live market data by building channels on `velo.channels`, giving each its listeners with `.on()`, and passing them to `velo.channels.feed()`. A product follows one exchange, and a coin, such as `{ coin: "BTC" }`, is aggregated across exchanges.
+
+```ts
+const BTCUSDT = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;
+
+const watcher = await velo.watch(
+  velo.channels.feed([
+    velo.channels.price(BTCUSDT).on({
+      data: (row) => console.log(row.time, row.close_price),
+      error: ({ reason }) => console.error("price:", reason),
+    }),
+    velo.channels.openInterest({ coin: "BTC" }, { metric: "coins" }).on({
+      data: (entries) => console.table(entries),
+    }),
+  ]),
+  {
+    on: {
+      error: (error) => console.error(error),
+      close: ({ code, reason }) => console.log("closed", code, reason),
+    },
+  },
+);
+```
+
+A watcher can start and stop channels without reconnecting. A channel is the value you built: keep it to stop it later.
+
+```ts
+const ETHUSDT = { exchange: "binance-futures", coin: "ETH", product: "ETHUSDT" } as const;
+const eth = velo.channels.price(ETHUSDT).on({ data: (row) => console.log(row.close_price) });
+
+watcher.subscribe(eth);
+watcher.unsubscribe(eth);
+```

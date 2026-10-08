@@ -7,6 +7,7 @@ import {
   FUTURES_COLUMNS,
   FUTURES_EXCHANGES,
   MARKET_CAPS_COLUMNS,
+  NEWS_WEBSOCKET_PATH,
   OPTIONS_CATALOG_PATH,
   OPTIONS_COLUMNS,
   OPTIONS_EXCHANGES,
@@ -19,6 +20,7 @@ import {
   TERMS_COINS,
   TERMS_COLUMNS,
   TERMS_PATH,
+  WEBSOCKET_PATH,
 } from "./index.ts";
 import type { NewsWatcherEvents, NewsWatcherListener } from "./index.ts";
 
@@ -72,6 +74,13 @@ describe("orderbook public exports", () => {
   it("exports the endpoint contract and data view", () => {
     expect(ORDERBOOK_PATH).toBe("/api/v1/heatmap");
     expect(new OrderbookData([]).snapshots()).toEqual([]);
+  });
+});
+
+describe("socket public exports", () => {
+  it("exports the socket path, and still under the name 0.1 published it as", () => {
+    expect(WEBSOCKET_PATH).toBe("/api/w/connect");
+    expect(NEWS_WEBSOCKET_PATH).toBe(WEBSOCKET_PATH);
   });
 });
 

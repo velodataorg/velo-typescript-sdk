@@ -8,7 +8,7 @@ import {
   type WindowScope,
 } from "../../builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import { byMetric, partColumns, splitParts } from "../../builder/selection.ts";
 import type { OptionsColumn } from "../../market/columns.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../market/exchanges.ts";
 import type { QueryRequest } from "../../query/plan.ts";
@@ -143,7 +143,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
   vega<M extends OptionsVegaMetric>(options?: {
     readonly metric: M;
   }): OptionsBuilder<C | OptionsVegaColumn<M>, S> {
-    return this.#withColumns([metricColumns("vega", VEGA_COLUMNS, options)]) as OptionsBuilder<
+    return this.#withColumns([byMetric("vega", VEGA_COLUMNS, options)]) as OptionsBuilder<
       C | OptionsVegaColumn<M>,
       S
     >;
@@ -185,7 +185,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
     metricOptions?: { readonly metric: M },
   ): OptionsBuilder<C | OptionsDeltaColumn<M, P>, S> {
     const { parts, options } = splitParts("delta", partsOrOptions, metricOptions);
-    const columns = metricColumns("delta", DELTA_COLUMNS, options);
+    const columns = byMetric("delta", DELTA_COLUMNS, options);
     return this.#withColumns(partColumns("delta", columns, parts)) as OptionsBuilder<
       C | OptionsDeltaColumn<M, P>,
       S
@@ -205,7 +205,7 @@ export class OptionsBuilder<C extends OptionsColumn = never, S extends ScopeBuil
   gamma<M extends OptionsGammaMetric>(options?: {
     readonly metric: M;
   }): OptionsBuilder<C | OptionsGammaColumn<M>, S> {
-    return this.#withColumns([metricColumns("gamma", GAMMA_COLUMNS, options)]) as OptionsBuilder<
+    return this.#withColumns([byMetric("gamma", GAMMA_COLUMNS, options)]) as OptionsBuilder<
       C | OptionsGammaColumn<M>,
       S
     >;

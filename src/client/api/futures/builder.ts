@@ -9,7 +9,7 @@ import {
   type WindowScope,
 } from "../../builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import { byMetric, partColumns, splitParts } from "../../builder/selection.ts";
 import type { FuturesStandardColumn } from "../../market/columns.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../market/exchanges.ts";
 import type { QueryRequest } from "../../query/plan.ts";
@@ -156,7 +156,7 @@ export class FuturesBuilder<
     metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesVolumeColumn<M, P>, E, S> {
     const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
-    const columns = metricColumns("volume", VOLUME_COLUMNS, options);
+    const columns = byMetric("volume", VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("volume", columns, parts)) as FuturesBuilder<
       C | FuturesVolumeColumn<M, P>,
       E,
@@ -218,7 +218,7 @@ export class FuturesBuilder<
     metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesOpenInterestColumn<M, P>, E, S> {
     const { parts, options } = splitParts("openInterest", partsOrOptions, metricOptions);
-    const columns = metricColumns("openInterest", OPEN_INTEREST_COLUMNS, options);
+    const columns = byMetric("openInterest", OPEN_INTEREST_COLUMNS, options);
     return this.#withColumns(partColumns("openInterest", columns, parts)) as FuturesBuilder<
       C | FuturesOpenInterestColumn<M, P>,
       E,
@@ -309,7 +309,7 @@ export class FuturesBuilder<
     metricOptions?: { readonly metric: M },
   ): FuturesBuilder<C | FuturesLiquidationVolumeColumn<M, P>, E, S> {
     const { parts, options } = splitParts("liquidationVolume", partsOrOptions, metricOptions);
-    const columns = metricColumns("liquidationVolume", LIQUIDATION_VOLUME_COLUMNS, options);
+    const columns = byMetric("liquidationVolume", LIQUIDATION_VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("liquidationVolume", columns, parts)) as FuturesBuilder<
       C | FuturesLiquidationVolumeColumn<M, P>,
       E,

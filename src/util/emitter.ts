@@ -76,15 +76,28 @@ export class SafeEmitter<Events extends object> {
   emit<K extends keyof Events>(type: K, event: Events[K]): void {
     const listeners = this.#listeners.get(type);
     if (!listeners?.size) return;
-    for (const listener of Array.from(listeners)) {
-      try {
-        const result = listener(event);
-        if (isPromiseLike(result)) {
-          void Promise.resolve(result).catch((cause: unknown) => this.#reportFailure(cause));
-        }
-      } catch (cause) {
-        this.#reportFailure(cause);
+    for (const listener of Array.from(listeners)) this.call(listener, event);
+  }
+
+  /**
+   * Calls one listener as `emit` calls each of its own.
+   *
+   * @remarks
+   * For a listener this emitter does not hold, such as one a caller attached
+   * to something narrower than an event type. A throw, or a rejecting promise
+   * it returns, goes to this emitter's reporter and never to the caller.
+   *
+   * @param listener - The listener to call.
+   * @param args - What to call it with.
+   */
+  call<Args extends readonly unknown[]>(listener: (...args: Args) => unknown, ...args: Args): void {
+    try {
+      const result = listener(...args);
+      if (isPromiseLike(result)) {
+        void Promise.resolve(result).catch((cause: unknown) => this.#reportFailure(cause));
       }
+    } catch (cause) {
+      this.#reportFailure(cause);
     }
   }
 
