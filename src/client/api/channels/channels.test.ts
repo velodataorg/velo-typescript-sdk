@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
+import {
+  FakeSocket,
+  flushConnection,
+  ThrowingSendSocket,
+  SynchronouslyFailingSendSocket,
+} from "../../../../test/fake-socket.ts";
 import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import {
   channels,
@@ -12,12 +18,6 @@ import {
   type ChannelMessage,
   type RawChannel,
 } from "../../../index.ts";
-import {
-  FakeSocket,
-  flushConnection,
-  ThrowingSendSocket,
-  SynchronouslyFailingSendSocket,
-} from "../../../transport/fake-socket.ts";
 import {
   WebSocketTransport,
   type WebSocketFactory,

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { FakeSocket, flushConnection } from "../../../../test/fake-socket.ts";
 import { channels, Velo } from "../../../index.ts";
 import type { Channel, ChannelFrame, WatchOptions } from "../../../index.ts";
-import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
 import { MAX_CONSECUTIVE_DECODE_FAILURES } from "./watcher.ts";
 
 const BTC = { exchange: "binance-futures", coin: "BTC", product: "BTCUSDT" } as const;

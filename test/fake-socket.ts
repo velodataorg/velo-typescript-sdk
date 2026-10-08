@@ -1,4 +1,4 @@
-import type { WebSocketConnection, WebSocketEvents } from "./websocket.ts";
+import type { WebSocketConnection, WebSocketEvents } from "../src/transport/websocket.ts";
 
 /**
  * In-memory sockets for tests.

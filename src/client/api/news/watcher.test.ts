@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import NodeWebSocket from "ws";
 
-import { VeloConnectionError, VeloError } from "../../../errors.ts";
 import {
   FakeSocket,
   flushConnection,
   SynchronouslyFailingSendSocket,
   ThrowingAttachSocket,
   ThrowingSendSocket,
-} from "../../../transport/fake-socket.ts";
+} from "../../../../test/fake-socket.ts";
+import { harness, openFeed, story, STORY } from "../../../../test/news.ts";
+import { VeloConnectionError, VeloError } from "../../../errors.ts";
 import { MAX_TIMER_MS } from "../../../transport/retry.ts";
 import type {
   WebSocketConnection,
   WebSocketFactory,
   WebSocketTarget,
 } from "../../../transport/websocket.ts";
-import { harness, openFeed, story, STORY } from "./fixtures.ts";
 import type { NewsStory } from "./validation.ts";
 import { DEFAULT_NEWS_CONNECT_TIMEOUT, DEFAULT_NEWS_HEARTBEAT_TIMEOUT } from "./watcher.ts";
 import type { NewsClose, NewsDelete, NewsWatcherState } from "./watcher.ts";

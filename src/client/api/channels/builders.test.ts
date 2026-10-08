@@ -1,8 +1,8 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
+import { FakeSocket, flushConnection } from "../../../../test/fake-socket.ts";
 import { channels, Velo } from "../../../index.ts";
 import type { ChannelFor, Coin, Target } from "../../../index.ts";
-import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
 import type { ExchangeEntry } from "../../channel/helpers/decode.ts";
 import type { Row } from "../../data/row.ts";
 import type { FuturesExchange } from "../../market/exchanges.ts";

@@ -1,11 +1,11 @@
-import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
-import { FakeSocket, flushConnection } from "../../../transport/fake-socket.ts";
-import { WebSocketTransport } from "../../../transport/websocket.ts";
-import type { WebSocketFactory, WebSocketTarget } from "../../../transport/websocket.ts";
-import { Velo } from "../../client.ts";
-import type { WatchOptions } from "../../watch/registry.ts";
-import { NewsWatcherController } from "./watcher.ts";
-import type { NewsWatcher, NewsWatchOptions } from "./watcher.ts";
+import { NewsWatcherController } from "../src/client/api/news/watcher.ts";
+import type { NewsWatcher, NewsWatchOptions } from "../src/client/api/news/watcher.ts";
+import { Velo } from "../src/client/client.ts";
+import type { WatchOptions } from "../src/client/watch/registry.ts";
+import { WEBSOCKET_PATH } from "../src/constants/endpoints.ts";
+import { WebSocketTransport } from "../src/transport/websocket.ts";
+import type { WebSocketFactory, WebSocketTarget } from "../src/transport/websocket.ts";
+import { FakeSocket, flushConnection } from "./fake-socket.ts";
 
 /**
  * Test fixtures for the news feed: a client over fake sockets, and stories.

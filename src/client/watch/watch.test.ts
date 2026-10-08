@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FakeSocket, flushConnection } from "../../transport/fake-socket.ts";
+import { FakeSocket, flushConnection } from "../../../test/fake-socket.ts";
+import { harness, openFeed, story, STORY } from "../../../test/news.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
-import { harness, openFeed, story, STORY } from "../api/news/fixtures.ts";
 import type { NewsStory } from "../api/news/validation.ts";
 
 afterEach(() => {
