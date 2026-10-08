@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import { newsStorySchema } from "./validation.ts";
 import type { NewsStory } from "./validation.ts";
@@ -40,7 +40,7 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
   try {
     value = JSON.parse(text) as unknown;
   } catch (cause) {
-    throw new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message: invalid JSON`, { cause });
+    throw new VeloError(`unexpected ${WEBSOCKET_PATH} message: invalid JSON`, { cause });
   }
 
   const object = MessageObjectSchema.safeParse(value);
@@ -90,7 +90,7 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
  * @returns A VeloError carrying the prettified schema error.
  */
 function unexpectedMessage(error: z.ZodError): VeloError {
-  return new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message:\n${z.prettifyError(error)}`, {
+  return new VeloError(`unexpected ${WEBSOCKET_PATH} message:\n${z.prettifyError(error)}`, {
     cause: error,
   });
 }

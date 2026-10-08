@@ -1,4 +1,4 @@
-import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import { frameText } from "../../../transport/frame.ts";
 import { WebSocketSession } from "../../../transport/session.ts";
@@ -216,7 +216,7 @@ export class NewsWatcherController implements NewsWatcher {
       const error =
         cause instanceof VeloError
           ? cause
-          : new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message`, { cause });
+          : new VeloError(`unexpected ${WEBSOCKET_PATH} message`, { cause });
       this.#lifecycle.fail(error, abnormalCloseEvent());
       return;
     }

@@ -1,3 +1,4 @@
+import type { WebSocketTransport } from "../../transport/websocket.ts";
 import type { ChannelsParams } from "../api/channels/params.ts";
 import { ChannelsWatcherController } from "../api/channels/watcher.ts";
 import type {
@@ -8,7 +9,6 @@ import type {
 import { NewsWatcherController } from "../api/news/watcher.ts";
 import type { NewsWatcher, NewsWatcherEvents, NewsWatchOptions } from "../api/news/watcher.ts";
 import type { ResumeOptions } from "./connection.ts";
-import type { WatchTransports } from "./transports.ts";
 import type { EventListeners, TaggedEvent, WatcherOf } from "./watcher.ts";
 
 /**
@@ -118,15 +118,12 @@ interface WatcherDefinition<K extends WatchableKind> {
   /**
    * Builds this kind's watcher.
    *
-   * Takes every transport the client owns and picks the one this kind
-   * needs.
-   *
    * The `WatcherOf` half of the return type is what lets the client attach
    * listeners and resume drops generically: without it, `Watcher<K>` is an
    * opaque indexed access and every call would need a cast.
    */
   create(
-    transports: WatchTransports,
+    transport: WebSocketTransport,
     params: WatchParams<K>,
     options: WatchDefinitions[K]["options"] | undefined,
   ): Watcher<K> & WatcherOf<WatchEvents<K>>;
@@ -148,12 +145,12 @@ type WatcherRegistry = {
 /** Builds the live watcher for one subscription kind. */
 export const WATCHERS: WatcherRegistry = Object.freeze({
   "news.feed": {
-    create: (transports, _params, options) => new NewsWatcherController(transports.news, options),
+    create: (transport, _params, options) => new NewsWatcherController(transport, options),
     events: { story: true, edit: true, delete: true, error: true, close: true },
   },
   "channels.feed": {
-    create: (transports, params, options) =>
-      new ChannelsWatcherController(transports.realtime, params, options),
+    create: (transport, params, options) =>
+      new ChannelsWatcherController(transport, params, options),
     events: { error: true, close: true },
   },
 });

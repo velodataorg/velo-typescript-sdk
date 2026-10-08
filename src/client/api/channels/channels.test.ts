@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
-import { REALTIME_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import {
   channels,
   DEFAULT_WATCH_HEARTBEAT_TIMEOUT,
@@ -516,30 +516,6 @@ describe("raw channel subscriptions", () => {
     expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
   });
 
-  it("overrides the channel host without changing the news endpoint or credentials", async () => {
-    const targets: WebSocketTarget[] = [];
-    const client = new Velo({
-      apiKey: "key",
-      baseUrl: "https://api.example.test",
-      channelsBaseUrl: "https://data.example.test",
-      webSocketFactory: (target) => {
-        targets.push(target);
-        const socket = new FakeSocket();
-        socket.readyState = 1;
-        return socket;
-      },
-    });
-    const raw = await client.watch(channels.feed(rawChannels([PRICE])));
-    const news = await client.watch(client.news.feed());
-    expect(targets.map((target) => target.url)).toEqual([
-      "wss://data.example.test/api/w/connect",
-      "wss://api.example.test/api/w/connect",
-    ]);
-    expect(targets[0]!.headers).toEqual(targets[1]!.headers);
-    raw.close();
-    news.close();
-  });
-
   it("reports rejected and server-unsubscribed channels while continuing others", async () => {
     const { client, sockets } = harness();
     const errors = vi.fn();
@@ -694,7 +670,7 @@ describe("raw channel subscriptions", () => {
 
   it("shares concurrent connect attempts and stops malformed early frames", async () => {
     const sockets: FakeSocket[] = [];
-    const transport = new WebSocketTransport({ apiKey: "key" }, REALTIME_WEBSOCKET_PATH, () => {
+    const transport = new WebSocketTransport({ apiKey: "key" }, WEBSOCKET_PATH, () => {
       const socket = new FakeSocket();
       sockets.push(socket);
       return socket;

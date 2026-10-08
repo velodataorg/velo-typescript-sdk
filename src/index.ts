@@ -185,11 +185,11 @@ export {
   NEWS_WEBSOCKET_PATH,
   OPTIONS_CATALOG_PATH,
   ORDERBOOK_PATH,
-  REALTIME_WEBSOCKET_PATH,
   ROWS_PATH,
   SPOT_CATALOG_PATH,
   STATUS_PATH,
   TERMS_PATH,
+  WEBSOCKET_PATH,
 } from "./constants/endpoints.ts";
 export type {
   FuturesColumn,

@@ -1,4 +1,4 @@
-import { NEWS_WEBSOCKET_PATH, REALTIME_WEBSOCKET_PATH } from "../constants/endpoints.ts";
+import { WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { Http } from "../transport/http.ts";
 import type { HttpConfig, HttpRequestOptions } from "../transport/http.ts";
 import { WebSocketTransport } from "../transport/websocket.ts";
@@ -44,16 +44,9 @@ import {
   type WatchOptions,
   type WatchParams,
 } from "./watch/registry.ts";
-import type { WatchTransports } from "./watch/transports.ts";
 import { attachWatchListeners } from "./watch/watcher.ts";
 
 export interface VeloConfig extends HttpConfig {
-  /**
-   * HTTP(S) origin for the channel sockets.
-   *
-   * Defaults to `baseUrl`. The news feed always connects through `baseUrl`.
-   */
-  readonly channelsBaseUrl?: string;
   /* Overrides runtime WebSocket creation, primarily for custom runtimes and tests. */
   readonly webSocketFactory?: WebSocketFactory;
 }
@@ -61,11 +54,11 @@ export interface VeloConfig extends HttpConfig {
 export class Velo {
   readonly #http: Http;
   readonly #status: Status;
-  readonly #transports: WatchTransports;
+  readonly #webSocket: WebSocketTransport;
 
   constructor(config: VeloConfig) {
     this.#http = new Http(config);
-    this.#transports = buildTransports(config);
+    this.#webSocket = new WebSocketTransport(config, WEBSOCKET_PATH, config.webSocketFactory);
     this.#status = new Status(this.#http);
   }
 
@@ -170,7 +163,7 @@ export class Velo {
     /* Options are a superset of what the factory takes, so they pass through
      * without narrowing: the extra keys belong to the watch layer.
      */
-    const watcher = definition.create(this.#transports, request.params, options);
+    const watcher = definition.create(this.#webSocket, request.params, options);
 
     if (options?.on) attachWatchListeners(watcher, definition.events, options.on);
 
@@ -187,20 +180,4 @@ export class Velo {
   ): Query<QueryItem<K, P>, QueryResult<K, P>> {
     return new Query(this.#http, plan(toQueryRequest(input)), options);
   }
-}
-
-/**
- * Builds every socket transport a client's watchers can use.
- *
- * @param config - The client configuration.
- * @returns One transport per endpoint, sharing the credential and factory.
- */
-function buildTransports(config: VeloConfig): WatchTransports {
-  const factory = config.webSocketFactory;
-  const channelsConfig =
-    config.channelsBaseUrl === undefined ? config : { ...config, baseUrl: config.channelsBaseUrl };
-  return {
-    news: new WebSocketTransport(config, NEWS_WEBSOCKET_PATH, factory),
-    realtime: new WebSocketTransport(channelsConfig, REALTIME_WEBSOCKET_PATH, factory),
-  };
 }
