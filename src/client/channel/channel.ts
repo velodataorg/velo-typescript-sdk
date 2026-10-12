@@ -34,7 +34,8 @@ export interface Channel<Kind extends string = string, Data = unknown> {
   /**
    * Attaches listeners, typed by this channel alone.
    *
-   * @param listeners - What to call with this channel's data and errors.
+   * @param listeners - What to call with this channel's data and errors. One
+   * left `undefined` is one left out.
    * @returns A new frozen channel carrying them; this one is unchanged.
    * @throws A VeloError when a listener is not a function, is not one a
    * channel has, or is already attached.

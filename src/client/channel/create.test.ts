@@ -90,6 +90,39 @@ describe("a channel's on()", () => {
     );
     // @ts-expect-error a listener is a function
     expect(() => price.on({ data: "log" })).toThrow("on() takes a function for data");
+    // @ts-expect-error a listener is a function
+    expect(() => price.on({ data: null })).toThrow("on() takes a function for data");
+  });
+
+  it("takes a listener left undefined as one left out", () => {
+    const price = channels.price(BTC);
+    const data = (): void => {};
+    const error = (): void => {};
+
+    /*
+     * What an optional handler passed straight through looks like. A caller
+     * without `exactOptionalPropertyTypes` may write it; this repository has
+     * the option on, and so each line says it expects the error.
+     */
+    // @ts-expect-error undefined is not a listener under exactOptionalPropertyTypes
+    const listened = price.on({ data, error: undefined });
+    expect(listenersOf(listened)).toEqual({ data });
+    expect(Object.keys(listenersOf(listened))).toEqual(["data"]);
+
+    /* It does not take the place of a listener the channel already carries. */
+    // @ts-expect-error undefined is not a listener under exactOptionalPropertyTypes
+    const kept = price.on({ error }).on({ data, error: undefined });
+    expect(listenersOf(kept)).toEqual({ data, error });
+
+    /* A channel left with no data listener is still one a feed refuses. */
+    // @ts-expect-error undefined is not a listener under exactOptionalPropertyTypes
+    const silent = price.on({ data: undefined });
+    expect(() => channels.feed([silent])).toThrow("has no data listener");
+
+    // @ts-expect-error a channel has no such listener
+    expect(() => price.on({ decodeError: undefined })).toThrow(
+      'on() received an unknown listener "decodeError"',
+    );
   });
 });
 

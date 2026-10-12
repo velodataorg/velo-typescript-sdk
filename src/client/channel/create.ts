@@ -68,6 +68,11 @@ export function listenersOf(channel: Channel): ChannelListeners {
  * @returns Both, as one set of listeners.
  * @throws A VeloError when `added` is not an object of functions, names a
  * listener a channel does not have, or names one already attached.
+ *
+ * @remarks
+ * A listener left `undefined` is one left out, as an optional handler passed
+ * straight through is. It is dropped before the two are put together, so it
+ * cannot replace a listener the channel already carries.
  */
 function addListeners<Kind extends string, Data>(
   listeners: ChannelListeners<Kind, Data>,
@@ -75,14 +80,18 @@ function addListeners<Kind extends string, Data>(
   name: string,
 ): ChannelListeners<Kind, Data> {
   assert(isRecord(added), "on() takes an object of listeners, such as { data, error }");
+  const merged: ChannelListeners<Kind, Data> = { ...listeners };
   for (const [listener, value] of Object.entries(added)) {
     assert(
       isListed(LISTENER_NAMES, listener),
       () =>
         `on() received an unknown listener ${JSON.stringify(listener)}; expected ${LISTENER_NAMES.join(", ")}`,
     );
+    if (value === undefined) continue;
     assert(typeof value === "function", `on() takes a function for ${listener}`);
     assert(listeners[listener] === undefined, `${name} already has a ${listener} listener`);
+    /* The name and the function were just checked together, which the type of each alone cannot say. */
+    Object.assign(merged, { [listener]: value });
   }
-  return { ...listeners, ...added };
+  return merged;
 }
