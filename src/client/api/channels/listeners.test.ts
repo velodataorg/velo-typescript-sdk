@@ -110,7 +110,7 @@ describe("a channel's own listeners in a feed", () => {
     watcher.close();
   });
 
-  it("sends the server's refusal to that channel's error alone", async () => {
+  it("sends the server's rejection to that channel's error alone", async () => {
     const priceError = vi.fn();
     const oiError = vi.fn();
     const oiData = vi.fn();
@@ -125,7 +125,7 @@ describe("a channel's own listeners in a feed", () => {
     send({ u2: PRICE });
     send(OI_FRAME);
 
-    expect(priceError).toHaveBeenCalledExactlyOnceWith({ channel: PRICE, reason: "unsubscribed" });
+    expect(priceError).toHaveBeenCalledExactlyOnceWith({ channel: PRICE, reason: "rejected" });
     expect(oiError).not.toHaveBeenCalled();
     expect(oiData).toHaveBeenCalledTimes(1);
     watcher.close();

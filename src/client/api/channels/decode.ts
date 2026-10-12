@@ -12,10 +12,12 @@ export type DecodedFrame =
  * Decodes one channel-socket frame into its typed message.
  *
  * @remarks
- * Frames are disambiguated by their marker field. `err` and `u2` report one
- * channel the server dropped; `s2` acknowledges a subscription; `hb` or
- * `heartbeat` without a channel is the liveness signal. Anything else must
- * carry a channel name in `c` to be data.
+ * Frames are disambiguated by their marker field. `u2` is the server
+ * rejecting a channel it does not know, the one answer it gives to a
+ * subscription. `err` is read the same way and `s2`, an acknowledgement, is
+ * ignored: the server sends neither, and a frame that is not understood
+ * fails the connection. `hb` or `heartbeat` without a channel is the
+ * liveness signal. Anything else must carry a channel name in `c` to be data.
  *
  * @param data - The frame's raw data from the session.
  * @returns The decoded frame.
@@ -33,11 +35,11 @@ export function decodeChannelFrame(data: unknown): DecodedFrame {
     throw new VeloError("unexpected channel message: expected an object");
   }
   const message = value as Record<string, unknown>;
+  if (typeof message.u2 === "string") {
+    return { type: "channelError", error: { channel: message.u2, reason: "rejected" } };
+  }
   if (typeof message.err === "string") {
     return { type: "channelError", error: { channel: message.err, reason: "rejected" } };
-  }
-  if (typeof message.u2 === "string") {
-    return { type: "channelError", error: { channel: message.u2, reason: "unsubscribed" } };
   }
   if (typeof message.s2 === "string") return { type: "control" };
   if (message.c === undefined && (message.heartbeat === true || message.hb === 1)) {

@@ -44,7 +44,7 @@ export interface ChannelsWatcher extends WatcherOf<ChannelsWatcherEvents> {
    *
    * @remarks
    * The server acknowledges nothing: the channel's first `data` is what
-   * shows it started, and a refusal arrives later at its `error` listener. A
+   * shows it started, and a rejection arrives later at its `error` listener. A
    * channel with the wire name of one already followed joins its
    * subscription. The same value again changes nothing.
    *
@@ -77,7 +77,7 @@ export interface ChannelsWatcher extends WatcherOf<ChannelsWatcherEvents> {
  * the per-socket limit. It lives as long as it carries one.
  *
  * The list holds what the server counts on the socket and no more. A name the
- * server refuses leaves it, and is followed on no socket until the next
+ * server rejects leaves it, and is followed on no socket until the next
  * connection gives it a place again.
  */
 interface ChannelGroup {
@@ -215,13 +215,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#strikes.delete(name);
 
     const group = this.#groups.find((candidate) => candidate.channels.includes(name));
-    /* A name the server refused is on no socket, so there is nothing to tell the server. */
+    /* A name the server rejected is on no socket, so there is nothing to tell the server. */
     if (group === undefined) return;
     group.channels.splice(group.channels.indexOf(name), 1);
     const session = this.#sessions.get(group);
     /*
-     * Only for a name the server still counts: it lowers a socket's count on
-     * any `u2`, so one for a name it already stopped would miscount the socket.
+     * Only for a name the server counts: it lowers a socket's count on any
+     * `u2`, so one for a name it does not count would miscount the socket.
      */
     if (this.#active.delete(name) && session?.state === "open") {
       try {
@@ -241,7 +241,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    */
   #open(attempt: AbortController): void {
     this.#attempt = attempt;
-    /* A name the server refused on the last connection is on no socket, and is tried again. */
+    /* A name the server rejected on the last connection is on no socket, and is tried again. */
     for (const name of this.#listening.keys()) {
       if (!this.#groups.some((group) => group.channels.includes(name))) this.#place(name);
     }
@@ -306,7 +306,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     for (const channel of carried) {
       /* A custom socket may emit a terminal event synchronously from send(). */
       if (attempt.signal.aborted) return;
-      /* Or an answer, and a name refused or unsubscribed since has left the list. */
+      /* Or an answer, and a name rejected or unsubscribed since has left the list. */
       if (!group.channels.includes(channel)) continue;
       try {
         session.send(`s2 ${channel}`);
@@ -342,7 +342,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     if (incoming.type === "channelError") {
       this.#active.delete(channel);
       /*
-       * The server counts nothing for a name it refused, so the socket's list
+       * The server counts nothing for a name it rejected, so the socket's list
        * drops it too: an empty list then means what it means to the server.
        * The name stays followed. All of it is settled before a listener runs.
        */
@@ -494,7 +494,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    *
    * @remarks
    * The server terminates a socket once its last channel is unsubscribed, and
-   * leaves one idle whose every name it refused. The group leaves the list
+   * leaves one idle whose every name it rejected. The group leaves the list
    * first, so neither the server's ending nor closing the socket here counts
    * as a lost connection, which would reconnect the whole feed.
    *

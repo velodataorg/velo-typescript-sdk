@@ -83,13 +83,14 @@ export type RawChannel = Channel<"raw", unknown>;
  *
  * `decode` is one frame the channel's decoder refused: the frame is skipped
  * and the channel carries on. Every other reason means the channel is not
- * delivering. `rejected` and `unsubscribed` are the server's doing, and last
- * until the next connection. `failing` is the client's: the channel's frames
- * kept failing to decode, so further failures stay quiet. Its subscription is
- * kept, and `data` resumes by itself once a frame decodes.
+ * delivering. `rejected` is the server's doing: it does not know the
+ * channel. That lasts until the next connection, which tries the channel
+ * again. `failing` is the client's: the channel's frames kept failing to
+ * decode, so further failures stay quiet. Its subscription is kept, and
+ * `data` resumes by itself once a frame decodes.
  */
 export type ChannelError =
-  | { readonly channel: string; readonly reason: "rejected" | "unsubscribed" }
+  | { readonly channel: string; readonly reason: "rejected" }
   | {
       readonly channel: string;
       readonly reason: "decode";

@@ -41,7 +41,7 @@ type Captured = { -readonly [Frame in keyof ChannelFixture]?: ChannelFixture[Fra
  * Captures a minute's end on the chosen builders' channels and writes their fixtures.
  *
  * @returns A promise that resolves once every file is written.
- * @throws A VeloError when the key is missing, the server refuses a channel,
+ * @throws A VeloError when the key is missing, the server rejects a channel,
  * or a channel did not deliver both frames.
  */
 async function main(): Promise<void> {
@@ -118,7 +118,7 @@ function chosenBuilders(asked: readonly string[]): Builder[] {
  * @param velo - The client to watch with.
  * @param names - The wire names to follow.
  * @returns The start of the minute that ended, and what arrived on each channel.
- * @throws A VeloError when the server refuses a channel, the connection
+ * @throws A VeloError when the server rejects a channel, the connection
  * fails, or a frame has no `tt`.
  */
 async function captureMinuteEnd(

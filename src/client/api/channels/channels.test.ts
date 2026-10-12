@@ -516,7 +516,7 @@ describe("raw channel subscriptions", () => {
     expect(sockets.every((socket) => socket.readyState === 3)).toBe(true);
   });
 
-  it("reports rejected and server-unsubscribed channels while continuing others", async () => {
+  it("reports the channels the server rejects while continuing others", async () => {
     const { client, sockets } = harness();
     const errors = vi.fn();
     const data = vi.fn();
@@ -532,7 +532,7 @@ describe("raw channel subscriptions", () => {
     sockets[0]!.message(JSON.stringify(message()));
     expect(errors.mock.calls.map((call) => call[0])).toEqual([
       { channel: OI, reason: "rejected" },
-      { channel: TAPE, reason: "unsubscribed" },
+      { channel: TAPE, reason: "rejected" },
     ]);
     expect(data).toHaveBeenCalledTimes(1);
     expect(watcher.state).toBe("open");
