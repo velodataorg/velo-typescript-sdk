@@ -539,6 +539,27 @@ describe("raw channel subscriptions", () => {
     watcher.close();
   });
 
+  it("does not take a field of a channel's own frame for the server's rejection", async () => {
+    const { client, sockets } = harness();
+    const errors = vi.fn();
+    const seen: string[] = [];
+    const fed = [PRICE, OI].map((name) =>
+      channels.raw(name).on({ data: (_payload, event) => seen.push(event.channel), error: errors }),
+    );
+    const pending = client.watch(channels.feed(fed));
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+
+    /* A frame of PRICE holding a field named like a rejection, with OI as its value. */
+    sockets[0]!.message(JSON.stringify({ ...message(PRICE), u2: OI }));
+    sockets[0]!.message(JSON.stringify(message(OI)));
+
+    expect(errors).not.toHaveBeenCalled();
+    expect(seen).toEqual([PRICE, OI]);
+    watcher.close();
+  });
+
   it("supports a tagged listener and isolates a channel listener's failure", async () => {
     const { client, sockets } = harness();
     const thrown = new Error("listener failed");
@@ -792,6 +813,20 @@ describe("raw channel frames", () => {
     expect(decodeChannelFrame('{"hb":1}')).toEqual({ type: "heartbeat" });
     const raw = { ...message(), hb: 1, heartbeat: true };
     expect(decodeChannelFrame(JSON.stringify(raw))).toEqual({ type: "data", frame: raw });
+  });
+
+  it("reads a frame that names its channel as data, whatever else it holds", () => {
+    for (const marker of [{ u2: OI }, { err: OI }, { s2: OI }]) {
+      const raw = { ...message(), ...marker };
+      expect(decodeChannelFrame(JSON.stringify(raw))).toEqual({ type: "data", frame: raw });
+    }
+  });
+
+  it("reads the server's own messages, which name no channel", () => {
+    const rejected = { type: "channelError", error: { channel: OI, reason: "rejected" } };
+    expect(decodeChannelFrame(JSON.stringify({ u2: OI }))).toEqual(rejected);
+    expect(decodeChannelFrame(JSON.stringify({ err: OI }))).toEqual(rejected);
+    expect(decodeChannelFrame(JSON.stringify({ s2: OI }))).toEqual({ type: "control" });
   });
 
   it("decodes Buffer and ArrayBuffer payloads without aggregating or renaming fields", () => {
