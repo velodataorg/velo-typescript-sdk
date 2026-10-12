@@ -4,6 +4,7 @@ import { FakeSocket, flushConnection } from "../../../test/fake-socket.ts";
 import { harness, openFeed, story, STORY } from "../../../test/news.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
 import type { NewsStory } from "../api/news/validation.ts";
+import { STABLE_AFTER_MS } from "./connection.ts";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -121,6 +122,8 @@ describe("Velo.watch", () => {
     firstConnection.open();
     const watcher = await pending;
 
+    /* A drop starts a new outage only once the connection has been stable. */
+    await vi.advanceTimersByTimeAsync(STABLE_AFTER_MS);
     firstConnection.remoteClose(1006, "gone");
     await vi.advanceTimersByTimeAsync(0);
 
