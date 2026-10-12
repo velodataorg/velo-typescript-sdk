@@ -25,6 +25,9 @@ export type ExchangeEntry<X extends string, C extends string> = {
  * The columns a payload fills, by position: one name for a bare number, a
  * list for a tuple of numbers, and null for a position that fills no column.
  * Every payload the server sends is one or the other.
+ *
+ * A position may hold null where it would hold a number. That is no value,
+ * and its column is null, as a history row's is.
  */
 export type ColumnNames = ChannelColumn | readonly (ChannelColumn | null)[];
 
@@ -79,21 +82,38 @@ export function aggregatedDecoder<X extends string, const Names extends ColumnNa
   columns: Names,
 ): (frame: ChannelFrame) => readonly ExchangeEntry<X, ColumnOf<Names>>[] {
   const payload = payloadOf(columns);
-  /* One payload per exchange the coin trades on, keyed `realtime_<exchange>`. */
-  const schema = z.object({ d: z.record(z.string(), payload.schema) });
-
-  const decode = decoderOf(name, schema, ({ d }) => {
-    const entries: object[] = [];
-    for (const [key, entry] of Object.entries(d)) {
-      const exchange = exchanges.find((listed) => listed === entryExchange(key));
-      if (exchange === undefined) continue;
-      entries.push({ exchange, coin, ...payload.read(entry) });
-    }
-    return entries;
+  const exchangeOf = (key: string): X | undefined =>
+    exchanges.find((listed) => listed === entryExchange(key));
+  /*
+   * One payload per exchange the coin trades on, keyed `realtime_<exchange>`.
+   * An exchange the indicator does not list is dropped before its payload is
+   * checked, so whatever it sends cannot fail the frame.
+   */
+  const schema = z.object({
+    d: z
+      .record(z.string(), z.unknown())
+      .transform((payloads) =>
+        Object.fromEntries(
+          Object.entries(payloads).filter(([key]) => exchangeOf(key) !== undefined),
+        ),
+      )
+      .pipe(z.record(z.string(), payload.schema)),
   });
+
+  const decode = decoderOf(name, schema, ({ d }) =>
+    Object.entries(d).map(([key, entry]) => ({
+      exchange: exchangeOf(key),
+      coin,
+      ...payload.read(entry),
+    })),
+  );
   /* An entry's keys are the names it was built from, which their literal type says and the value cannot. */
   return decode as (frame: ChannelFrame) => readonly ExchangeEntry<X, ColumnOf<Names>>[];
 }
+
+/* What one position of a payload holds: a number, or null for no value. */
+type Value = number | null;
+const VALUE = z.number().nullable();
 
 /**
  * What a payload must look like, and how its values are named, from the
@@ -103,20 +123,20 @@ export function aggregatedDecoder<X extends string, const Names extends ColumnNa
  * @returns The payload's schema, and a reader naming a validated payload's values.
  */
 function payloadOf(columns: ColumnNames): {
-  readonly schema: z.ZodType<number | readonly number[]>;
-  readonly read: (payload: number | readonly number[]) => Readonly<Record<string, number | null>>;
+  readonly schema: z.ZodType<Value | readonly Value[]>;
+  readonly read: (payload: Value | readonly Value[]) => Readonly<Record<string, Value>>;
 } {
   if (typeof columns === "string") {
-    return { schema: z.number(), read: (payload) => ({ [columns]: payload as number }) };
+    return { schema: VALUE, read: (payload) => ({ [columns]: payload as Value }) };
   }
-  const [first, ...rest] = columns.map(() => z.number());
+  const [first, ...rest] = columns.map(() => VALUE);
   assert(first !== undefined, "a channel's columns must name at least one position");
   return {
     schema: z.tuple([first, ...rest]),
     read: (payload) =>
       Object.fromEntries(
         columns.flatMap((column, position) =>
-          column === null ? [] : [[column, (payload as readonly number[])[position] ?? null]],
+          column === null ? [] : [[column, (payload as readonly Value[])[position] ?? null]],
         ),
       ),
   };

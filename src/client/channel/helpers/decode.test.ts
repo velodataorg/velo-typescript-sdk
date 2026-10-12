@@ -37,6 +37,21 @@ describe("singleDecoder", () => {
     );
   });
 
+  it("reads null in a position as no value, so its column is null", () => {
+    expect(decode({ c: "any", d: [1, null], tt: 60_000 })).toEqual({
+      ...BTC,
+      time: 60_000,
+      low_price: 1,
+      high_price: null,
+    });
+    /* A bare number's one position is the payload itself. */
+    expect(singleDecoder(NAME, BTC, "premium")({ c: "any", d: null, tt: 60_000 })).toEqual({
+      ...BTC,
+      time: 60_000,
+      premium: null,
+    });
+  });
+
   it("leaves out a position named null, and still requires it in the frame", () => {
     const skipping = singleDecoder(NAME, BTC, ["premium", null, "close_price"]);
     const row = skipping({ c: "any", d: [0.5, 9, 3], tt: 60_000 });
@@ -50,7 +65,7 @@ describe("singleDecoder", () => {
     { d: [1], tt: 1 },
     { d: [1, 2, 3], tt: 1 },
     { d: [1, "2"], tt: 1 },
-    { d: [1, null], tt: 1 },
+    { d: null, tt: 1 },
     { d: [1, 2] },
     { tt: 1 },
     {},
@@ -107,12 +122,38 @@ describe("aggregatedDecoder", () => {
     expect(decode({ c: "any", d: {} })).toEqual([]);
   });
 
-  it.each([{ d: { realtime_bybit: [1] } }, { d: [1, 2] }, { d: 1 }, {}])(
-    "refuses a frame whose payloads do not fit, naming the channel: %j",
-    (frame) => {
-      expect(() => decode({ c: "any", ...frame } as never)).toThrow(
-        /unexpected realtime_BTC#Aggregated message/,
-      );
+  it.each([[[9]], ["text"], [null], [{ other: 1 }]])(
+    "skips an exchange it does not list whatever it sends: %j",
+    (sent) => {
+      const entries = decode({
+        c: "any",
+        d: { realtime_bybit: [1, 2], "realtime_added-later": sent },
+      });
+      expect(entries).toEqual([{ exchange: "bybit", coin: "BTC", low_price: 1, high_price: 2 }]);
     },
   );
+
+  it("reads null in one exchange's payload as no value, and keeps every exchange", () => {
+    const entries = decode({
+      c: "any",
+      d: { realtime_bybit: [1, 2], realtime_deribit: [3, null] },
+    });
+    expect(entries).toEqual([
+      { exchange: "bybit", coin: "BTC", low_price: 1, high_price: 2 },
+      { exchange: "deribit", coin: "BTC", low_price: 3, high_price: null },
+    ]);
+  });
+
+  it.each([
+    { d: { realtime_bybit: [1] } },
+    { d: { realtime_bybit: [1, "2"] } },
+    { d: { realtime_bybit: null } },
+    { d: [1, 2] },
+    { d: 1 },
+    {},
+  ])("refuses a frame whose payloads do not fit, naming the channel: %j", (frame) => {
+    expect(() => decode({ c: "any", ...frame } as never)).toThrow(
+      /unexpected realtime_BTC#Aggregated message/,
+    );
+  });
 });
