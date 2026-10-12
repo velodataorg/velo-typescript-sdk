@@ -303,3 +303,157 @@ describe("a reconnect after the set changed", () => {
     watcher.close();
   });
 });
+
+describe("a channel the server refused", () => {
+  it("lets a socket end quietly once its last accepted channel goes", async () => {
+    vi.useFakeTimers();
+    const btc = recording(BTC);
+    const { watcher, sockets, events, send } = await open([btc.channel, recording(ETH).channel], {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    send(sockets[0]!, { u2: ETH });
+
+    watcher.unsubscribe(btc.channel);
+
+    expect(sockets[0]!.sent).toEqual([`s2 ${BTC}`, `s2 ${ETH}`, `u2 ${BTC}`]);
+    expect(sockets[0]!.readyState).toBe(3);
+    /* The server counted BTC alone, so it terminates the socket; nobody is listening. */
+    sockets[0]!.remoteClose();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(watcher.state).toBe("open");
+    expect(events).toEqual([]);
+    watcher.close();
+  });
+
+  it("is tried again on the next connection", async () => {
+    vi.useFakeTimers();
+    const eth = recording(ETH);
+    const { watcher, sockets, send } = await open([recording(BTC).channel, eth.channel], {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    send(sockets[0]!, { u2: ETH });
+
+    sockets[0]!.remoteClose();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[1]!.open();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(sockets[1]!.sent).toEqual([`s2 ${BTC}`, `s2 ${ETH}`]);
+    send(sockets[1]!, frame(ETH));
+    expect(eth.data).toHaveBeenCalledTimes(1);
+    watcher.close();
+  });
+
+  it("is not tried again once it is unsubscribed", async () => {
+    vi.useFakeTimers();
+    const eth = recording(ETH);
+    const { watcher, sockets, send } = await open([recording(BTC).channel, eth.channel], {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+    });
+    send(sockets[0]!, { u2: ETH });
+    watcher.unsubscribe(eth.channel);
+
+    sockets[0]!.remoteClose();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[1]!.open();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(sockets[1]!.sent).toEqual([`s2 ${BTC}`]);
+    watcher.close();
+  });
+
+  it("can be unsubscribed from inside its own error listener", async () => {
+    vi.useFakeTimers();
+    const onListenerError = vi.fn();
+    const held: { watcher?: { unsubscribe(channel: Channel): void } } = {};
+    const eth: Channel = channels.raw(ETH).on({
+      data: () => {},
+      error: () => held.watcher?.unsubscribe(eth),
+    });
+    const { watcher, sockets, send } = await open([recording(BTC).channel, eth], {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+      onListenerError,
+    });
+    held.watcher = watcher;
+
+    send(sockets[0]!, { u2: ETH });
+    sockets[0]!.remoteClose();
+    await vi.advanceTimersByTimeAsync(0);
+    sockets[1]!.open();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(onListenerError).not.toHaveBeenCalled();
+    expect(sockets[1]!.sent).toEqual([`s2 ${BTC}`]);
+    watcher.close();
+  });
+
+  it("still sends every other channel when one is refused as it is sent", async () => {
+    /* A socket that answers from inside send(), as a custom one may. */
+    class RefusingSocket extends FakeSocket {
+      override send(data: string): void {
+        super.send(data);
+        if (data === `s2 ${BTC}`) this.message(JSON.stringify({ u2: BTC }));
+      }
+    }
+    const sockets: RefusingSocket[] = [];
+    const client = new Velo({
+      apiKey: "key",
+      webSocketFactory: () => {
+        const socket = new RefusingSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    const btc = recording(BTC);
+    const fed = [btc.channel, recording(ETH).channel, recording(SOL).channel];
+    const pending = client.watch(channels.feed(fed), { reconnect: false });
+    await flushConnection();
+    sockets[0]!.open();
+    const watcher = await pending;
+
+    expect(sockets[0]!.sent).toEqual([`s2 ${BTC}`, `s2 ${ETH}`, `s2 ${SOL}`]);
+    expect(btc.error).toHaveBeenCalledExactlyOnceWith({ channel: BTC, reason: "unsubscribed" });
+    watcher.close();
+  });
+
+  it("leaves its place on the socket to the next channel", async () => {
+    const names = Array.from(
+      { length: MAX_CHANNELS_PER_SOCKET },
+      (_, index) => `realtime_test:${String(index)}`,
+    );
+    const { watcher, sockets, send } = await open(names.map((name) => recording(name).channel));
+    send(sockets[0]!, { u2: names[0] });
+
+    watcher.subscribe(recording("realtime_test:extra").channel);
+
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0]!.sent.at(-1)).toBe("s2 realtime_test:extra");
+    watcher.close();
+  });
+
+  it("closes a socket whose every channel was refused, and leaves the watcher open", async () => {
+    vi.useFakeTimers();
+    const btc = recording(BTC);
+    const { watcher, sockets, events, send } = await open([btc.channel], {
+      reconnect: { baseDelayMs: 0, maxDelayMs: 0 },
+    });
+
+    send(sockets[0]!, { u2: BTC });
+
+    expect(btc.error).toHaveBeenCalledExactlyOnceWith({ channel: BTC, reason: "unsubscribed" });
+    expect(sockets[0]!.readyState).toBe(3);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sockets).toHaveLength(1);
+    expect(watcher.state).toBe("open");
+    expect(events).toEqual([]);
+
+    /* With no socket left, the next channel opens one of its own. */
+    watcher.subscribe(recording(ETH).channel);
+    await flushConnection();
+    sockets[1]!.open();
+    await flushConnection();
+    expect(sockets[1]!.sent).toEqual([`s2 ${ETH}`]);
+    watcher.close();
+  });
+});

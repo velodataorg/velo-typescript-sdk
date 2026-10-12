@@ -75,6 +75,10 @@ export interface ChannelsWatcher extends WatcherOf<ChannelsWatcherEvents> {
 /*
  * One socket's share of the subscription: the wire names it carries, at most
  * the per-socket limit. It lives as long as it carries one.
+ *
+ * The list holds what the server counts on the socket and no more. A name the
+ * server refuses leaves it, and is followed on no socket until the next
+ * connection gives it a place again.
  */
 interface ChannelGroup {
   readonly channels: string[];
@@ -211,7 +215,8 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#strikes.delete(name);
 
     const group = this.#groups.find((candidate) => candidate.channels.includes(name));
-    assert(group !== undefined, () => `no socket carries ${name}`);
+    /* A name the server refused is on no socket, so there is nothing to tell the server. */
+    if (group === undefined) return;
     group.channels.splice(group.channels.indexOf(name), 1);
     const session = this.#sessions.get(group);
     /*
@@ -236,6 +241,10 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    */
   #open(attempt: AbortController): void {
     this.#attempt = attempt;
+    /* A name the server refused on the last connection is on no socket, and is tried again. */
+    for (const name of this.#listening.keys()) {
+      if (!this.#groups.some((group) => group.channels.includes(name))) this.#place(name);
+    }
     for (const group of this.#groups) {
       for (const channel of group.channels) this.#active.add(channel);
     }
@@ -292,9 +301,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     this.#sessions.set(group, session);
     group.heartbeat.reset();
 
-    for (const channel of group.channels) {
+    /* Copied first: the server's answer to one name can take another off the list. */
+    const carried = group.channels.slice();
+    for (const channel of carried) {
       /* A custom socket may emit a terminal event synchronously from send(). */
       if (attempt.signal.aborted) return;
+      /* Or an answer, and a name refused or unsubscribed since has left the list. */
+      if (!group.channels.includes(channel)) continue;
       try {
         session.send(`s2 ${channel}`);
       } catch (cause) {
@@ -328,6 +341,13 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     if (!this.#active.has(channel) || !group.channels.includes(channel)) return;
     if (incoming.type === "channelError") {
       this.#active.delete(channel);
+      /*
+       * The server counts nothing for a name it refused, so the socket's list
+       * drops it too: an empty list then means what it means to the server.
+       * The name stays followed. All of it is settled before a listener runs.
+       */
+      group.channels.splice(group.channels.indexOf(channel), 1);
+      if (group.channels.length === 0) this.#retire(group);
       this.#report(incoming.error);
       return;
     }
@@ -395,7 +415,7 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * @param channel - A channel already checked, whose kind agrees with any
    * other listed for its wire name.
    * @returns The group the wire name was placed in and whether it was made for
-   * it, or undefined when the name was already carried.
+   * it, or undefined when the name was already followed.
    */
   #follow(channel: Channel): { group: ChannelGroup; created: boolean } | undefined {
     const { name } = channel;
@@ -406,7 +426,16 @@ export class ChannelsWatcherController implements ChannelsWatcher {
     }
     this.#listening.set(name, [channel]);
     this.#channels.set(name, channel);
+    return this.#place(name);
+  }
 
+  /**
+   * Gives a wire name a socket: the first with room, or a new one.
+   *
+   * @param name - A followed wire name that no socket carries.
+   * @returns The group the name was placed in and whether it was made for it.
+   */
+  #place(name: string): { group: ChannelGroup; created: boolean } {
     const roomy = this.#groups.find((group) => group.channels.length < MAX_CHANNELS_PER_SOCKET);
     if (roomy !== undefined) {
       roomy.channels.push(name);
@@ -464,9 +493,10 @@ export class ChannelsWatcherController implements ChannelsWatcher {
    * Ends a group that carries nothing, as an intentional end.
    *
    * @remarks
-   * The server terminates a socket once its last channel is unsubscribed. The
-   * group leaves the list first, so neither that nor closing the socket here
-   * counts as a lost connection, which would reconnect the whole feed.
+   * The server terminates a socket once its last channel is unsubscribed, and
+   * leaves one idle whose every name it refused. The group leaves the list
+   * first, so neither the server's ending nor closing the socket here counts
+   * as a lost connection, which would reconnect the whole feed.
    *
    * @param group - The emptied group.
    */
