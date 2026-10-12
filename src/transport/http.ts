@@ -1,9 +1,9 @@
 import queryString from "query-string";
 
 import { version } from "../../package.json";
-import { BASE_URL } from "../constants/endpoints.ts";
 import { VeloError, VeloRequestError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
+import { parseBaseUrl } from "./base-url.ts";
 import { toConnectionError, toError } from "./error-mapping.ts";
 import { DEFAULT_RATE_LIMIT, RateLimiter } from "./rate-limit.ts";
 import type { RateLimitOptions } from "./rate-limit.ts";
@@ -40,6 +40,10 @@ export const DEFAULT_TIMEOUT = 60_000;
 
 export interface HttpConfig {
   apiKey: string;
+  /*
+   * The HTTP(S) address of the Velo API, which sockets upgrade from too.
+   * Defaults to the public API, and is checked when the client is made.
+   */
   baseUrl?: string;
   fetch?: typeof globalThis.fetch;
   /**
@@ -78,12 +82,12 @@ export class Http {
   /**
    * @param config - The API key plus optional base URL, fetch, rate-limit,
    * retry, and timeout overrides.
-   * @throws If the API key is missing, or the rate-limit, retry, or timeout
-   * options are invalid.
+   * @throws If the API key is missing, the base URL is not an HTTP(S) URL, or
+   * the rate-limit, retry, or timeout options are invalid.
    */
   constructor(config: HttpConfig) {
     assert(config.apiKey, "apiKey is required");
-    this.baseUrl = (config.baseUrl ?? BASE_URL).replace(/\/+$/, "");
+    this.baseUrl = parseBaseUrl(config.baseUrl);
     const authToken = btoa(`api:${config.apiKey}`);
     this.authHeader = `Basic ${authToken}`;
     this.fetchFn = config.fetch ?? globalThis.fetch;

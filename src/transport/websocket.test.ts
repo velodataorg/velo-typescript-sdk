@@ -188,27 +188,20 @@ describe("WebSocket runtime adapters", () => {
     expect(target).toBeDefined();
   });
 
-  it("rejects base URLs whose protocol cannot be upgraded when streaming starts", async () => {
-    const transport = new WebSocketTransport(
-      {
-        apiKey: "key",
-        baseUrl: "ftp://example.test",
-      },
-      WEBSOCKET_PATH,
-    );
-    await expect(transport.connect()).rejects.toBeInstanceOf(VeloError);
+  it("refuses a base URL whose protocol cannot be upgraded, where the transport is made", () => {
+    const make = () =>
+      new WebSocketTransport({ apiKey: "key", baseUrl: "ftp://example.test" }, WEBSOCKET_PATH);
+
+    expect(make).toThrow("invalid baseUrl protocol ftp:");
   });
 
-  it("rejects an unparseable baseUrl with a configuration error, not a socket failure", async () => {
-    const transport = new WebSocketTransport(
-      { apiKey: "key", baseUrl: "not a url" },
-      WEBSOCKET_PATH,
-    );
-    const error = await transport.connect().catch((cause: unknown) => cause);
+  it("refuses an unparseable base URL with a configuration error, not a socket failure", () => {
+    const make = () =>
+      new WebSocketTransport({ apiKey: "key", baseUrl: "not a url" }, WEBSOCKET_PATH);
 
-    expect(error).toBeInstanceOf(VeloError);
-    expect(error).not.toBeInstanceOf(VeloConnectionError);
-    expect((error as Error).message).toMatch(/invalid baseUrl/);
+    expect(make).toThrow(VeloError);
+    expect(make).not.toThrow(VeloConnectionError);
+    expect(make).toThrow(/invalid baseUrl/);
   });
 
   it("surfaces the text of a non-Error connection failure", async () => {
