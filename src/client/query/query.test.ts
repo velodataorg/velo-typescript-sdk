@@ -141,13 +141,6 @@ describe("Query options", () => {
 });
 
 describe("Query.stream", () => {
-  it("merges streaming overrides with query-level transport options", async () => {
-    const fetch: typeof globalThis.fetch = async (input) => response(stepFrom(input));
-    const query = new Query(http(fetch), OPTIONS, { timeout: 0 });
-
-    await expect(collect(query.stream({ timeout: 1_000 }))).resolves.toHaveLength(2);
-  });
-
   it("yields rows from a response body before it has finished arriving", async () => {
     /* The server writes the CSV row by row over a chunked response, so a
      * streaming query must surface early rows without waiting for the last

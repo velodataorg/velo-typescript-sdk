@@ -51,11 +51,12 @@ const FuturesBasisParamsSchema = z
   })
   .refine(...END_AFTER_BEGIN);
 
-const FuturesParamsSchema = z.union([FuturesStandardParamsSchema, FuturesBasisParamsSchema]);
-
-/* parse() returns a clone of its input, so the schema must never transform values. */
-type _SchemaDoesNotTransform = Expect<
-  Equals<z.input<typeof FuturesParamsSchema>, z.output<typeof FuturesParamsSchema>>
+/* parse() returns a clone of its input, so neither schema may transform values. */
+type _StandardSchemaDoesNotTransform = Expect<
+  Equals<z.input<typeof FuturesStandardParamsSchema>, z.output<typeof FuturesStandardParamsSchema>>
+>;
+type _BasisSchemaDoesNotTransform = Expect<
+  Equals<z.input<typeof FuturesBasisParamsSchema>, z.output<typeof FuturesBasisParamsSchema>>
 >;
 
 export const FuturesStandardParams = Object.freeze({
@@ -76,20 +77,6 @@ export const FuturesBasisParams = Object.freeze({
     if (!parsed.success) {
       throw invalidParamsError("futures", parsed.error);
     }
-    return structuredClone(params);
-  },
-});
-
-export const FuturesParams = Object.freeze({
-  /** Validates futures parameters while preserving their static column selection. */
-  parse<P extends FuturesParams>(params: P): P {
-    const parsed = FuturesParamsSchema.safeParse(params);
-    if (!parsed.success) {
-      throw invalidParamsError("futures", parsed.error);
-    }
-
-    /* Return a clone of the validated input: its type is already P, where Zod's
-       output necessarily widens back to the full column union. */
     return structuredClone(params);
   },
 });

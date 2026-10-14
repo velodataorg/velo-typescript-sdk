@@ -30,8 +30,8 @@ import {
   type QueryKind,
   type QueryParams,
   type QueryResult,
+  type QueryRequest,
   type StreamableKind,
-  toQueryRequest,
 } from "./query/plan.ts";
 import { Query } from "./query/query.ts";
 import { toRequest } from "./query/request.ts";
@@ -178,6 +178,6 @@ export class Velo {
     input: QueryInput<K, P>,
     options?: HttpRequestOptions,
   ): Query<QueryItem<K, P>, QueryResult<K, P>> {
-    return new Query(this.#http, plan(toQueryRequest(input)), options);
+    return new Query(this.#http, plan(toRequest<QueryRequest<K, P>>(input)), options);
   }
 }

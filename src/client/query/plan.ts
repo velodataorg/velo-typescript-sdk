@@ -189,20 +189,6 @@ const PLANNERS: PlannerRegistry = Object.freeze({
   "spot.rows": planSpotRows,
 });
 
-/** Resolves a direct endpoint request or invokes a request builder. */
-export function toQueryRequest<K extends QueryKind, P extends QueryParams<K>>(
-  input: QueryInput<K, P>,
-): QueryRequest<K, P> {
-  const candidate: unknown = input;
-  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
-    return input as QueryRequest<K, P>;
-  }
-
-  const { build } = candidate as { readonly build?: unknown };
-  if (typeof build !== "function") return input as QueryRequest<K, P>;
-  return build.call(candidate) as QueryRequest<K, P>;
-}
-
 /** Converts an endpoint request into the transport-ready plan for that endpoint. */
 export function plan<K extends QueryKind, P extends QueryParams<K>>(
   request: QueryRequest<K, P>,

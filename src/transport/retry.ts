@@ -1,4 +1,5 @@
 import { VeloConnectionError, VeloError, VeloHttpError } from "../errors.ts";
+import { abortReason } from "../util/abort.ts";
 import { assert } from "../util/assert.ts";
 
 export interface RetryOptions {
@@ -49,15 +50,6 @@ export function validateRetryOptions(retry: RetryOptions): void {
 }
 
 /**
- * @param signal - An already-aborted signal.
- * @returns The signal's abort reason, or a fresh `AbortError` DOMException
- * when none was provided.
- */
-function abortError(signal: AbortSignal): unknown {
-  return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
-}
-
-/**
  * Waits for `ms` milliseconds, abortable.
  *
  * @param ms - How long to wait.
@@ -68,12 +60,12 @@ function abortError(signal: AbortSignal): unknown {
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
-      reject(abortError(signal));
+      reject(abortReason(signal));
       return;
     }
     const onAbort = () => {
       clearTimeout(timer);
-      reject(abortError(signal as AbortSignal));
+      reject(abortReason(signal as AbortSignal));
     };
     const timer = setTimeout(() => {
       signal?.removeEventListener("abort", onAbort);

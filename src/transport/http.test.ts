@@ -8,7 +8,6 @@ import {
   VeloError,
   VeloHttpError,
   VeloRateLimitError,
-  VeloRequestError,
   VeloServerError,
   VeloTimeoutError,
 } from "../errors.ts";
@@ -111,47 +110,6 @@ describe("Http", () => {
     await expect(t.text("/api/v1/rows", { type: "spot" })).resolves.toBe("a,b\n1,2\n");
     expect(calls[0]?.headers.authorization).toBe(`Basic ${btoa("api:test_key")}`);
     expect(calls[0]?.url).toBe("https://api.velo.xyz/api/v1/rows?type=spot");
-  });
-
-  it("parses successful JSON responses without asserting an endpoint type", async () => {
-    const t = http([() => new Response('{"stories":[{"id":1}]}')]);
-    const value: unknown = await t.json("/api/n/news", { begin: 0 });
-    expect(value).toEqual({ stories: [{ id: 1 }] });
-  });
-
-  it("wraps invalid JSON with the URL and parse failure", async () => {
-    const calls: Call[] = [];
-    const t = http([() => new Response("{not json")], calls);
-    const error = await t.json("/api/n/news", { begin: 10 }).catch((e: unknown) => e);
-
-    expect(error).toBeInstanceOf(VeloRequestError);
-    expect(error).not.toHaveProperty("body");
-    expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
-    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
-    expect(calls).toHaveLength(1);
-  });
-
-  it("reports the URL actually sent if JSON params are later mutated", async () => {
-    let respond: ((response: Response) => void) | undefined;
-    const t = new Http({
-      apiKey: "test_key",
-      fetch: () =>
-        new Promise((resolve) => {
-          respond = resolve;
-        }),
-    });
-    const params = { begin: 10 };
-    const pending = t.json("/api/n/news", params);
-
-    params.begin = 20;
-    // flush the pre-fetch awaits (rate-limit acquire) until fetch is reached
-    while (!respond) {
-      await Promise.resolve();
-    }
-    respond(new Response("{not json"));
-    const error = await pending.catch((e: unknown) => e);
-
-    expect((error as VeloRequestError).url).toBe("https://api.velo.xyz/api/n/news?begin=10");
   });
 
   it("maps statuses to typed errors without retrying non-retryable ones", async () => {

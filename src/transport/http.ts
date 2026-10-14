@@ -1,7 +1,7 @@
 import queryString from "query-string";
 
 import { version } from "../../package.json";
-import { VeloError, VeloRequestError } from "../errors.ts";
+import { VeloError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
 import { parseBaseUrl } from "./base-url.ts";
 import { toConnectionError, toError } from "./error-mapping.ts";
@@ -241,32 +241,6 @@ export class Http {
 
       if (!isRetryable(failure) || attempt >= retry.retries) throw failure;
       await sleep(backoffMs(attempt, retry, retryAfter), options?.signal);
-    }
-  }
-
-  /**
-   * GETs a path and parses its response body as JSON.
-   *
-   * @remarks
-   * HTTP failures retain the retry and typed-error behavior of
-   * {@link Http#text | text()}. The parsed value remains `unknown`: endpoint
-   * code must validate its own response contract before exposing a type.
-   *
-   * @param path - The endpoint path, starting with `/`.
-   * @param params - Query params for the request.
-   * @param options - Per-request signal, timeout, and retry overrides.
-   * @returns The parsed JSON value.
-   * @throws A VeloError if a successful response is not valid JSON.
-   */
-  async json(path: string, params?: HttpParams, options?: HttpRequestOptions): Promise<unknown> {
-    // Snapshot this before awaiting so a caller mutating its params cannot
-    // make an invalid-JSON error point at a URL different from the one sent.
-    const url = this.url(path, params);
-    const body = await this.text(path, params, options);
-    try {
-      return JSON.parse(body) as unknown;
-    } catch (cause) {
-      throw new VeloRequestError(`Velo API returned invalid JSON: ${url}`, { url, cause });
     }
   }
 

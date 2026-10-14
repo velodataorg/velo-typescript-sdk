@@ -186,39 +186,3 @@ export function lowerBuilderWindow<R extends Resolution>(
         })();
   return { ...range, resolution: window.resolution };
 }
-
-/**
- * Lowers a full rows scope into its params fields.
- *
- * @throws {@link VeloError} when the scope is malformed at runtime; the
- * {@link RowsScope} type rules this out for TypeScript callers.
- */
-export function lowerRowsScope(scope: RowsScope): (
-  | { readonly products: readonly string[] }
-  | { readonly coins: readonly string[] }
-) & {
-  readonly begin: number;
-  readonly end: number;
-  readonly resolution: Resolution;
-} {
-  return {
-    ...lowerTargetScope(scope),
-    ...lowerTimedScope(scope),
-  };
-}
-
-/**
- * Lowers a market rows scope and supplies the market's default exchanges.
- *
- * Explicit exchange arrays are copied when the scope is lowered. Supported,
- * non-empty, unique exchanges are validated by the market params schema.
- */
-export function lowerMarketRowsScope<E extends string>(
-  scope: MarketRowsScope<E>,
-  defaultExchanges: readonly E[],
-): ReturnType<typeof lowerRowsScope> & { readonly exchanges: readonly E[] } {
-  return {
-    exchanges: [...(scope.exchanges ?? defaultExchanges)],
-    ...lowerRowsScope(scope),
-  };
-}

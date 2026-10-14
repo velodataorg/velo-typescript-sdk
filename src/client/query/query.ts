@@ -120,19 +120,17 @@ export class Query<T, D = T[]> {
    * responses are consumed; rows still arrive strictly in request order.
    * Ending iteration early aborts the outstanding requests.
    *
-   * @param options - Per-request transport options.
    * @returns An async generator of decoded rows.
    */
-  async *stream(options?: HttpRequestOptions): AsyncGenerator<T, void, undefined> {
+  async *stream(): AsyncGenerator<T, void, undefined> {
     const { requests } = this.#options;
     if (requests.length === 0) return;
 
-    const configuredOptions = this.#mergeRequestOptions(options);
     const controller = new AbortController();
-    const signal = configuredOptions.signal
-      ? AbortSignal.any([configuredOptions.signal, controller.signal])
+    const signal = this.#requestOptions.signal
+      ? AbortSignal.any([this.#requestOptions.signal, controller.signal])
       : controller.signal;
-    const requestOptions: HttpRequestOptions = { ...configuredOptions, signal };
+    const requestOptions: HttpRequestOptions = { ...this.#requestOptions, signal };
 
     /* A rejection is handled when its promise is dequeued below; the no-op
      * catch keeps a failure from becoming an unhandled rejection while
@@ -177,18 +175,6 @@ export class Query<T, D = T[]> {
     }
     const body = await this.#http.text(request.path, request.params, options);
     return decoder.decode(body);
-  }
-
-  /** Merges one streaming execution's overrides with the query defaults. */
-  #mergeRequestOptions(options?: HttpRequestOptions): HttpRequestOptions {
-    if (!options) return this.#requestOptions;
-    return {
-      ...this.#requestOptions,
-      ...options,
-      ...(this.#requestOptions.retry || options.retry
-        ? { retry: { ...this.#requestOptions.retry, ...options.retry } }
-        : {}),
-    };
   }
 
   /**
