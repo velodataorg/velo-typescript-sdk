@@ -170,7 +170,6 @@ describe("Query.stream", () => {
 
     const options: QueryOptions<Point> = {
       requests: [{ path: "/api/v1/test", params: { step: 1 } }],
-      decode: () => [],
       decodeLines: decodePointLines,
     };
     const query = new Query(

@@ -1,12 +1,12 @@
 import { ORDERBOOK_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
 import type { HttpParams } from "../../../transport/http.ts";
+import { decodeLines } from "../../decode/lines.ts";
 import type { QueryPlan } from "../../query/query.ts";
 import { alignRange, clampEnd, type TimeRange } from "../../time/range.ts";
 import { toResolutionValue } from "../../time/resolution.ts";
 import { chunkBuckets } from "./chunk.ts";
 import { OrderbookData, type OrderbookRow } from "./data.ts";
-import { decodeOrderbook, decodeOrderbookLines } from "./decode.ts";
+import { orderbookRows } from "./decode.ts";
 import { OrderbookParams } from "./params.ts";
 
 /** Plans an orderbook query from raw endpoint parameters. */
@@ -22,20 +22,7 @@ export function planOrderbook(params: OrderbookParams): QueryPlan<OrderbookRow, 
 
   return {
     requests,
-    decode(body): OrderbookRow[] {
-      try {
-        return decodeOrderbook(body);
-      } catch (cause) {
-        throw new VeloError(`Unexpected ${ORDERBOOK_PATH} response`, { cause });
-      }
-    },
-    async *decodeLines(lines): AsyncIterable<OrderbookRow> {
-      try {
-        yield* decodeOrderbookLines(lines);
-      } catch (cause) {
-        throw new VeloError(`Unexpected ${ORDERBOOK_PATH} response`, { cause });
-      }
-    },
+    decodeLines: (lines) => decodeLines(lines, orderbookRows(), ORDERBOOK_PATH),
     collect: (rows) => new OrderbookData(rows),
   };
 }

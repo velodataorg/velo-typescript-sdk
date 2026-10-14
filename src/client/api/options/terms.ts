@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { TERMS_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
-import { csvNumberOrNull, csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { csvNumberOrNull, csvRows, csvTimestamp } from "../../decode/csv.ts";
+import { decodeLines } from "../../decode/lines.ts";
 import type { QueryBuilder, QueryRequest } from "../../query/plan.ts";
 import { invalidParamsError } from "../../validation.ts";
 
@@ -58,20 +58,12 @@ export class OptionsTermsBuilder implements QueryBuilder<"options.terms"> {
   }
 }
 
-/** Decodes a term-structure response from its lines, with endpoint context. */
-export async function* decodeTermsLines(lines: AsyncIterable<string>): AsyncGenerator<TermPoint> {
-  try {
-    yield* decodeLines(lines, termPointSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${TERMS_PATH} response`, { cause });
-  }
-}
-
-/** Decodes a terms response and adds endpoint context to malformed data errors. */
-export function decodeTerms(body: string): TermPoint[] {
-  try {
-    return decode(body, termPointSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${TERMS_PATH} response`, { cause });
-  }
+/**
+ * Decodes a term-structure response from its lines.
+ *
+ * @param lines - The response body's lines.
+ * @returns The term points, in response order.
+ */
+export function decodeTermsLines(lines: AsyncIterable<string>): AsyncIterable<TermPoint> {
+  return decodeLines(lines, csvRows(termPointSchema), TERMS_PATH);
 }

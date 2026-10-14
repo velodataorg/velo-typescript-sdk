@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { FUTURES_CATALOG_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
-import { csvBoolean, csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { csvBoolean, csvRows, csvTimestamp } from "../../decode/csv.ts";
+import { decodeLines } from "../../decode/lines.ts";
 import { FUTURES_EXCHANGES, type FuturesExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -48,22 +48,18 @@ export function prepareFuturesCatalogParams(params: FuturesCatalogParams): Prepa
   });
 }
 
-export async function* decodeFuturesCatalogLines(
+/**
+ * Decodes a futures catalog response from its lines.
+ *
+ * @param lines - The response body's lines.
+ * @param delisted - Whether the response is the delisted catalog, whose rows
+ * carry an `end`.
+ * @returns The products, in response order.
+ */
+export function decodeFuturesCatalogLines(
   lines: AsyncIterable<string>,
   delisted: boolean,
-): AsyncGenerator<FutureProduct> {
-  try {
-    yield* decodeLines(lines, delisted ? delistedFutureProductSchema : futureProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${FUTURES_CATALOG_PATH} response`, { cause });
-  }
-}
-
-/** Decodes a futures catalog response using its active or delisted wire shape. */
-export function decodeFuturesCatalog(body: string, delisted: boolean): FutureProduct[] {
-  try {
-    return delisted ? decode(body, delistedFutureProductSchema) : decode(body, futureProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${FUTURES_CATALOG_PATH} response`, { cause });
-  }
+): AsyncIterable<FutureProduct> {
+  const schema = delisted ? delistedFutureProductSchema : futureProductSchema;
+  return decodeLines(lines, csvRows(schema), FUTURES_CATALOG_PATH);
 }

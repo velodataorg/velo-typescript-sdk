@@ -2,6 +2,7 @@ import { csvParseRows } from "d3-dsv";
 import { z } from "zod";
 
 import { timestamp } from "../validation.ts";
+import type { LineDecoder } from "./lines.ts";
 
 /**
  * Converts one CSV cell to a finite number.
@@ -54,74 +55,25 @@ export const csvNumberOrNull = z.string().transform((raw, context) => {
 });
 
 /**
- * Decodes header-first CSV text and validates every row with a Zod schema.
+ * Builds the line decoder of a header-first CSV response.
  *
- * The CSV header must contain exactly the schema's keys in the same order,
- * and every row must have a cell for every header column. An empty response
- * has no header and returns an empty array.
+ * @remarks
+ * The first non-empty line must be the schema's keys, in the same order.
+ * Every later one is a row with a cell for each key, validated by the
+ * schema. A blank line carries nothing: the server ends its body with a
+ * newline. Make one decoder per response, since it remembers whether the
+ * header has been read.
  *
- * @param text - The raw CSV response body.
  * @param schema - The schema for one raw CSV row.
- * @returns The validated and transformed rows.
- * @throws If the header, a row's cell count, or any cell does not match the
- * schema.
+ * @returns The line decoder, which throws if the header, a row's cell count,
+ * or any cell does not match the schema.
  */
-export function decode<Schema extends z.ZodObject>(
-  text: string,
-  schema: Schema,
-): z.output<Schema>[] {
-  const parsed = csvParseRows(text);
-  const expected = Object.keys(schema.shape);
-  const actual = parsed[0] ?? [];
-
-  if (
-    parsed.length !== 0 &&
-    (actual.length !== expected.length ||
-      actual.some((column, index) => column !== expected[index]))
-  ) {
-    throw new Error(
-      `CSV header ${JSON.stringify(actual)} does not match expected ${JSON.stringify(expected)}`,
-    );
-  }
-
-  /* Cell counts are validated on the raw rows because csvParse would pad a
-   * truncated row with empty — and therefore null — cells.
-   */
-  const rows = parsed.slice(1).map((cells, index) => {
-    if (cells.length !== expected.length) {
-      throw new Error(`CSV row ${index} has ${cells.length} cells, expected ${expected.length}`);
-    }
-    return Object.fromEntries(expected.map((column, position) => [column, cells[position]]));
-  });
-
-  return z.array(schema).parse(rows);
-}
-
-/**
- * Decodes header-first CSV from its lines as they arrive.
- *
- * Applies the same header, cell-count, and schema checks as {@link decode},
- * but validates and yields each row as soon as its line lands rather than
- * waiting for the whole body. An empty response yields nothing.
- *
- * @param lines - The response body's lines, without trailing newlines.
- * @param schema - The schema for one raw CSV row.
- * @returns The validated and transformed rows, in response order.
- * @throws If the header, a row's cell count, or any cell does not match the
- * schema.
- */
-export async function* decodeLines<Schema extends z.ZodObject>(
-  lines: AsyncIterable<string>,
-  schema: Schema,
-): AsyncGenerator<z.output<Schema>> {
+export function csvRows<Schema extends z.ZodObject>(schema: Schema): LineDecoder<z.output<Schema>> {
   const expected = Object.keys(schema.shape);
   let index = 0;
 
-  for await (const line of lines) {
-    /* The server terminates the body with a newline, so the split yields a
-     * trailing empty line that carries no row.
-     */
-    if (line.length === 0) continue;
+  return (line) => {
+    if (line.length === 0) return undefined;
     const cells = csvParseRows(line)[0] ?? [];
 
     if (index === 0) {
@@ -131,15 +83,18 @@ export async function* decodeLines<Schema extends z.ZodObject>(
         );
       }
       index++;
-      continue;
+      return undefined;
     }
 
+    /* Cell counts are checked on the raw cells: a short row would otherwise
+     * read its missing cells as empty, and so as null.
+     */
     if (cells.length !== expected.length) {
       throw new Error(
         `CSV row ${index - 1} has ${cells.length} cells, expected ${expected.length}`,
       );
     }
-    yield schema.parse(Object.fromEntries(expected.map((c, i) => [c, cells[i]])));
     index++;
-  }
+    return schema.parse(Object.fromEntries(expected.map((c, i) => [c, cells[i]])));
+  };
 }

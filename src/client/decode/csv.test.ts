@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { csvBoolean, csvNumber, csvNumberOrNull, csvTimestamp, decode } from "./csv.ts";
+import { csvBoolean, csvNumber, csvNumberOrNull, csvRows, csvTimestamp } from "./csv.ts";
 
 const RowSchema = z.strictObject({
   time: csvTimestamp,
@@ -13,7 +13,15 @@ const RowSchema = z.strictObject({
 
 type Row = z.output<typeof RowSchema>;
 
-describe("decode", () => {
+/* Decodes a whole body as the transport hands it over: line by line, without newlines. */
+function decode<Schema extends z.ZodObject>(text: string, schema: Schema): z.output<Schema>[] {
+  return text
+    .split("\n")
+    .map(csvRows(schema))
+    .filter((row): row is z.output<Schema> => row !== undefined);
+}
+
+describe("csvRows", () => {
   it("parses CSV and returns the schema's transformed output", () => {
     const rows: Row[] = decode(
       'time,name,amount,value,active\r\n1,"one, quoted",2.5,,true\r\n2,two,3,null,false\r\n' +

@@ -93,18 +93,4 @@ export const CatalogParams = Object.freeze({
       (depth === undefined || row.depth === depth)
     );
   },
-
-  /** Applies the selectors the catalog HTTP endpoints ignore. */
-  filter<T extends CatalogProduct>(rows: T[], params: PreparedCatalogParams): T[] {
-    const { coin, product, exchange, depth } = params;
-    if (
-      coin === undefined &&
-      product === undefined &&
-      exchange === undefined &&
-      depth === undefined
-    ) {
-      return rows;
-    }
-    return rows.filter((row) => CatalogParams.matches(row, params));
-  },
 });
