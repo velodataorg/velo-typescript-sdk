@@ -4,6 +4,8 @@ import { VeloError } from "../../errors.ts";
 import { MAX_REQUESTS_PER_QUERY } from "../query/query.ts";
 import { alignRange, chunkByStep, clampEnd } from "./range.ts";
 
+const DAY = 86_400_000;
+
 describe("alignRange", () => {
   it("floors begin and ceils end to fixed-length buckets", () => {
     expect(
@@ -42,6 +44,24 @@ describe("alignRange", () => {
       begin: Date.UTC(2026, 0, 5),
       end: Date.UTC(2026, 0, 19),
     });
+  });
+
+  it("starts a weekly range on 1970-01-05 when its own Monday is before the epoch", () => {
+    for (const begin of [0, 3 * DAY, 4 * DAY - 1]) {
+      expect(alignRange({ begin, end: Date.UTC(1970, 0, 31) }, "1W")).toEqual({
+        begin: Date.UTC(1970, 0, 5),
+        end: Date.UTC(1970, 1, 2),
+      });
+    }
+    /* The first Monday after the epoch is its own week's start, as usual. */
+    expect(alignRange({ begin: 4 * DAY, end: 5 * DAY }, "1W").begin).toBe(4 * DAY);
+  });
+
+  it("refuses a weekly range with no whole week from 1970-01-05 on", () => {
+    expect(() => alignRange({ begin: 0, end: 2 * DAY }, "1W")).toThrow(VeloError);
+    expect(() => alignRange({ begin: 0, end: 2 * DAY }, "1W")).toThrow(
+      "no whole week of it starts on or after 1970-01-01",
+    );
   });
 
   it("aligns months to UTC month starts", () => {

@@ -229,6 +229,18 @@ describe("Velo.orderbook", () => {
     expect(url.searchParams.get("end")).toBe(String(Date.UTC(2026, 0, 19)));
   });
 
+  it("never sends a weekly begin before the epoch", async () => {
+    const { velo, urls } = client([""]);
+    await orderbookQuery(velo, {
+      ...SCOPE,
+      between: [0, 30 * 24 * HOUR],
+      resolution: "1W",
+    });
+
+    const url = new URL(urls[0] as string);
+    expect(url.searchParams.get("begin")).toBe(String(Date.UTC(1970, 0, 5)));
+  });
+
   it("converts Date bounds to millisecond timestamps", async () => {
     const { velo, urls } = client([BODY]);
     await orderbookQuery(velo, {
