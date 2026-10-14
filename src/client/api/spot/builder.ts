@@ -9,7 +9,7 @@ import {
   type WindowScope,
 } from "../../builder/scope.ts";
 import type { ScopeBuilderStep, ScopedBuilder } from "../../builder/scoped.ts";
-import { metricColumns, partColumns, splitParts } from "../../builder/selection.ts";
+import { byMetric, partColumns, splitParts } from "../../builder/selection.ts";
 import type { SpotColumn } from "../../market/columns.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
 import type { QueryRequest } from "../../query/plan.ts";
@@ -126,7 +126,7 @@ export class SpotBuilder<
     metricOptions?: { readonly metric: M },
   ): SpotBuilder<C | SpotVolumeColumn<M, P>, E, S> {
     const { parts, options } = splitParts("volume", partsOrOptions, metricOptions);
-    const columns = metricColumns("volume", VOLUME_COLUMNS, options);
+    const columns = byMetric("volume", VOLUME_COLUMNS, options);
     return this.#withColumns(partColumns("volume", columns, parts)) as SpotBuilder<
       C | SpotVolumeColumn<M, P>,
       E,

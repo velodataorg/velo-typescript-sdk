@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { OPTIONS_CATALOG_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { csvRows, csvTimestamp } from "../../decode/csv.ts";
+import { decodeLines } from "../../decode/lines.ts";
 import { OPTIONS_EXCHANGES, type OptionsExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -24,21 +24,14 @@ export function prepareOptionsCatalogParams(params: OptionsCatalogParams): Prepa
   });
 }
 
-export async function* decodeOptionsCatalogLines(
+/**
+ * Decodes an options catalog response from its lines.
+ *
+ * @param lines - The response body's lines.
+ * @returns The products, in response order.
+ */
+export function decodeOptionsCatalogLines(
   lines: AsyncIterable<string>,
-): AsyncGenerator<OptionProduct> {
-  try {
-    yield* decodeLines(lines, optionProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${OPTIONS_CATALOG_PATH} response`, { cause });
-  }
-}
-
-/** Decodes an options catalog response. */
-export function decodeOptionsCatalog(body: string): OptionProduct[] {
-  try {
-    return decode(body, optionProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${OPTIONS_CATALOG_PATH} response`, { cause });
-  }
+): AsyncIterable<OptionProduct> {
+  return decodeLines(lines, csvRows(optionProductSchema), OPTIONS_CATALOG_PATH);
 }

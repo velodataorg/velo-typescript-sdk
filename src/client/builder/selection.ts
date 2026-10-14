@@ -39,21 +39,21 @@ export function partColumns<P extends string, Column extends string>(
 }
 
 /**
- * Resolves a metric-selector options bag to its column map.
+ * Resolves a metric-selector options bag to the entry for its metric.
  *
  * @param selector - The public selector name, used in error messages.
- * @param tree - The selector's column maps keyed by metric.
+ * @param tree - The selector's entries keyed by metric.
  * @param options - The options bag; the metric defaults to `"dollar"`.
- * @returns The column map for the selected metric.
+ * @returns The entry for the selected metric.
  * @throws {@link VeloError} when `options` is not an object or names an
  * unknown metric. Only untyped callers can reach either case; the overloads
  * reject them at compile time.
  */
-export function metricColumns<M extends string, Columns>(
+export function byMetric<M extends string, Entry>(
   selector: string,
-  tree: Readonly<Record<M | "dollar", Columns>>,
+  tree: Readonly<Record<M | "dollar", Entry>>,
   options: { readonly metric: M | "dollar" } | undefined,
-): Columns {
+): Entry {
   assert(
     options === undefined ||
       (typeof options === "object" && options !== null && !Array.isArray(options)),

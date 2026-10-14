@@ -1,69 +1,42 @@
 import { parseFiniteNumber } from "../../decode/csv.ts";
+import type { LineDecoder } from "../../decode/lines.ts";
 import { MAX_TIMESTAMP_MS } from "../../validation.ts";
 import type { OrderbookRow } from "./data.ts";
 
 /**
- * Decodes an orderbook levels response body.
+ * Builds the line decoder of an orderbook levels response.
  *
+ * @remarks
  * The body is not header-first CSV: the first line carries the price-grid
  * step, and every following line is one bucket of
  * `time,mid,price,size,price,size,...` cells with a variable number of level
  * pairs. Cells are validated positionally instead of through a Zod object
- * because rows have no column names and are hundreds of cells wide.
+ * because rows have no column names and are hundreds of cells wide. A blank
+ * line carries nothing, and a CRLF body is read as LF. Make one decoder per
+ * response, since it remembers the step.
  *
- * @param body - The raw response body.
- * @returns One row per bucket, each carrying the response's grid step.
- * @throws If the step line, a row's cell count, or any cell is malformed.
+ * @returns The line decoder, which yields one row per bucket, each carrying
+ * the response's grid step, and throws if the step line, a row's cell count,
+ * or any cell is malformed.
  */
-export function decodeOrderbook(body: string): OrderbookRow[] {
-  /* split("\n") keeps V8's non-regex fast path over the multi-megabyte body;
-   * a CRLF body leaves a trailing "\r" per line, stripped in stripReturn.
-   */
-  const lines = body.split("\n");
-  while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
-
-  const stepLine = lines.shift();
-  if (stepLine === undefined) return [];
-
-  const step = parseFiniteNumber(stripReturn(stepLine));
-  if (step === undefined || step <= 0) {
-    throw new Error(`Line 1 ${JSON.stringify(stepLine)} is not a positive price-grid step`);
-  }
-
-  return lines.map((line, index) => decodeRow(stripReturn(line), index + 2, step));
-}
-
-/**
- * Decodes an orderbook levels response from its lines as they arrive.
- *
- * Applies the same step, cell-count, and cell checks as
- * {@link decodeOrderbook}, but yields each bucket as soon as its line lands.
- * Bodies here reach several megabytes, so buffering one costs the most.
- *
- * @param lines - The response body's lines, without trailing newlines.
- * @returns One row per bucket, each carrying the response's grid step.
- * @throws If the step line, a row's cell count, or any cell is malformed.
- */
-export async function* decodeOrderbookLines(
-  lines: AsyncIterable<string>,
-): AsyncGenerator<OrderbookRow> {
+export function orderbookRows(): LineDecoder<OrderbookRow> {
   let step: number | undefined;
   let lineNumber = 0;
 
-  for await (const raw of lines) {
+  return (raw) => {
     const line = stripReturn(raw);
     lineNumber++;
-    if (line === "") continue;
+    if (line === "") return undefined;
 
     if (step === undefined) {
       step = parseFiniteNumber(line);
       if (step === undefined || step <= 0) {
         throw new Error(`Line 1 ${JSON.stringify(raw)} is not a positive price-grid step`);
       }
-      continue;
+      return undefined;
     }
-    yield decodeRow(line, lineNumber, step);
-  }
+    return decodeRow(line, lineNumber, step);
+  };
 }
 
 /**
@@ -133,6 +106,9 @@ function decodeRow(line: string, lineNumber: number, step: number): OrderbookRow
 
 /**
  * Removes one trailing carriage return, left by splitting a CRLF body.
+ *
+ * @param line - One line of the body.
+ * @returns The line without a trailing carriage return.
  */
 function stripReturn(line: string): string {
   return line.endsWith("\r") ? line.slice(0, -1) : line;

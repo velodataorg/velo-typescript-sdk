@@ -15,7 +15,9 @@ export interface TimeRange {
  * Widens a range to complete resolution buckets.
  *
  * Minute resolutions align to epoch multiples. Weeks align to UTC Mondays,
- * and months align to UTC month boundaries.
+ * and months align to UTC month boundaries. The one week that starts before
+ * the epoch is left out: a weekly range starts no earlier than Monday
+ * 1970-01-05.
  */
 export function alignRange(range: TimeRange, resolution: Resolution): TimeRange {
   const { begin, end } = range;
@@ -100,7 +102,14 @@ export function clampEnd(range: TimeRange, requestedBegin: number, now: number):
 }
 
 function alignToCalendar(range: TimeRange, unit: "week" | "month"): TimeRange {
-  const begin = DateTime.fromMillis(range.begin, { zone: "utc" }).startOf(unit);
+  const first = DateTime.fromMillis(range.begin, { zone: "utc" }).startOf(unit);
+  /*
+   * The week holding 1970's first four days starts on 1969-12-29, and the API
+   * takes no begin before the epoch. The next whole week is the earliest to
+   * ask for: clamping to the epoch instead would put every chunk boundary in
+   * the middle of a week. No market data is that old.
+   */
+  const begin = first.toMillis() < 0 ? first.plus({ [unit]: 1 }) : first;
   const end = DateTime.fromMillis(range.end, { zone: "utc" });
   const floored = end.startOf(unit);
   const ceiled = floored.toMillis() === end.toMillis() ? end : floored.plus({ [unit]: 1 });
@@ -108,6 +117,10 @@ function alignToCalendar(range: TimeRange, unit: "week" | "month"): TimeRange {
   assert(
     ceiled.isValid,
     `Invalid end ${range.end}: ceiling to the next ${unit} exceeds the representable date range`,
+  );
+  assert(
+    begin.toMillis() < ceiled.toMillis(),
+    `Invalid range [${range.begin}, ${range.end}): no whole ${unit} of it starts on or after 1970-01-01`,
   );
   return { begin: begin.toMillis(), end: ceiled.toMillis() };
 }

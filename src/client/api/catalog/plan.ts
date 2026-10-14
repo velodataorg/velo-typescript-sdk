@@ -5,14 +5,12 @@ import {
 } from "../../../constants/endpoints.ts";
 import type { QueryPlan } from "../../query/query.ts";
 import {
-  decodeFuturesCatalog,
   type FutureProduct,
   type FuturesCatalogParams,
   prepareFuturesCatalogParams,
   decodeFuturesCatalogLines,
 } from "./futures.ts";
 import {
-  decodeOptionsCatalog,
   type OptionProduct,
   type OptionsCatalogParams,
   prepareOptionsCatalogParams,
@@ -20,7 +18,6 @@ import {
 } from "./options.ts";
 import { CatalogParams } from "./params.ts";
 import {
-  decodeSpotCatalog,
   prepareSpotCatalogParams,
   type SpotCatalogParams,
   type SpotProduct,
@@ -37,7 +34,6 @@ export function planFuturesCatalog(params: FuturesCatalogParams): QueryPlan<Futu
         params: { delisted: prepared.delisted ? 1 : 0 },
       },
     ],
-    decode: (body) => CatalogParams.filter(decodeFuturesCatalog(body, prepared.delisted), prepared),
     async *decodeLines(lines) {
       for await (const row of decodeFuturesCatalogLines(lines, prepared.delisted)) {
         if (CatalogParams.matches(row, prepared)) yield row;
@@ -51,7 +47,6 @@ export function planOptionsCatalog(params: OptionsCatalogParams): QueryPlan<Opti
   const prepared = prepareOptionsCatalogParams(params);
   return {
     requests: [{ path: OPTIONS_CATALOG_PATH, params: { delisted: 0 } }],
-    decode: (body) => CatalogParams.filter(decodeOptionsCatalog(body), prepared),
     async *decodeLines(lines) {
       for await (const row of decodeOptionsCatalogLines(lines)) {
         if (CatalogParams.matches(row, prepared)) yield row;
@@ -70,7 +65,6 @@ export function planSpotCatalog(params: SpotCatalogParams): QueryPlan<SpotProduc
         params: { delisted: prepared.delisted ? 1 : 0 },
       },
     ],
-    decode: (body) => CatalogParams.filter(decodeSpotCatalog(body, prepared.delisted), prepared),
     async *decodeLines(lines) {
       for await (const row of decodeSpotCatalogLines(lines, prepared.delisted)) {
         if (CatalogParams.matches(row, prepared)) yield row;

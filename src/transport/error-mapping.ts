@@ -40,7 +40,7 @@ export function toError(
  *
  * @param thrown - The value fetch threw.
  * @param url - The request URL.
- * @param timeout - The per-attempt timeout in milliseconds.
+ * @param timeout - The timeout in milliseconds.
  * @param signal - The caller's abort signal, if any.
  * @param redact - Removes request credentials from surfaced error text.
  * @returns A VeloTimeoutError for timeouts, a VeloConnectionError otherwise.
