@@ -377,7 +377,9 @@ describe("News feed subscription", () => {
   });
 
   it("does not reclassify listener exceptions as watcher failures", async () => {
+    /* A browser page, the one place the default reporting uses reportError. */
     const reportError = vi.fn();
+    vi.stubGlobal("document", {});
     vi.stubGlobal("reportError", reportError);
     const { client, sockets } = harness();
     const { watcher, socket } = await openFeed(client, sockets);
@@ -397,7 +399,9 @@ describe("News feed subscription", () => {
   });
 
   it("reports rejected listener promises without failing the watcher", async () => {
+    /* A browser page, the one place the default reporting uses reportError. */
     const reportError = vi.fn();
+    vi.stubGlobal("document", {});
     vi.stubGlobal("reportError", reportError);
     const { client, sockets } = harness();
     const { watcher, socket } = await openFeed(client, sockets);
@@ -418,7 +422,9 @@ describe("News feed subscription", () => {
   });
 
   it("routes listener failures to onListenerError instead of the default reporting", async () => {
+    /* A browser page, the one place the default reporting uses reportError. */
     const reportError = vi.fn();
+    vi.stubGlobal("document", {});
     vi.stubGlobal("reportError", reportError);
     const onListenerError = vi.fn();
     const { client, sockets } = harness();

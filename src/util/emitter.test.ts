@@ -12,6 +12,14 @@ async function flushReports(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+/* Stands in for a browser page, the one place the default reporting uses reportError. */
+function stubPage() {
+  const reportError = vi.fn();
+  vi.stubGlobal("document", {});
+  vi.stubGlobal("reportError", reportError);
+  return reportError;
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -78,9 +86,8 @@ describe("SafeEmitter", () => {
     expect(calls).toEqual(["first", "removed", "first", "late"]);
   });
 
-  it("keeps dispatching when a listener throws and reports via reportError", () => {
-    const reportError = vi.fn();
-    vi.stubGlobal("reportError", reportError);
+  it("keeps dispatching when a listener throws and reports via reportError in a page", () => {
+    const reportError = stubPage();
     const emitter = new SafeEmitter<TestEvents>();
     const later = vi.fn();
     const thrown = new Error("listener failed");
@@ -120,9 +127,35 @@ describe("SafeEmitter", () => {
     );
   });
 
-  it("routes failures to a custom reporter instead of the default reporting", async () => {
+  it("logs where reportError would end the process, as on Bun and Deno", async () => {
+    /* Bun and Deno have reportError and no document. */
     const reportError = vi.fn();
     vi.stubGlobal("reportError", reportError);
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const emitter = new SafeEmitter<TestEvents>();
+    const later = vi.fn();
+    const thrown = new Error("sync failure");
+    const rejected = new Error("async failure");
+    emitter.on("value", () => {
+      throw thrown;
+    });
+    emitter.on("value", () => Promise.reject(rejected));
+    emitter.on("value", later);
+
+    emitter.emit("value", 7);
+    await flushReports();
+
+    expect(reportError).not.toHaveBeenCalled();
+    expect(later).toHaveBeenCalledWith(7);
+    expect(consoleError).toHaveBeenCalledWith("Velo SDK: uncaught error in event listener", thrown);
+    expect(consoleError).toHaveBeenCalledWith(
+      "Velo SDK: uncaught error in event listener",
+      rejected,
+    );
+  });
+
+  it("routes failures to a custom reporter instead of the default reporting", async () => {
+    const reportError = stubPage();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const report = vi.fn();
     const emitter = new SafeEmitter<TestEvents>(report);
@@ -143,8 +176,7 @@ describe("SafeEmitter", () => {
   });
 
   it("falls back to the default reporting when the custom reporter throws", () => {
-    const reportError = vi.fn();
-    vi.stubGlobal("reportError", reportError);
+    const reportError = stubPage();
     const reporterFailure = new Error("reporter failed");
     const report = vi.fn(() => {
       throw reporterFailure;
@@ -166,8 +198,7 @@ describe("SafeEmitter", () => {
   });
 
   it("falls back to the default reporting when the custom reporter rejects", async () => {
-    const reportError = vi.fn();
-    vi.stubGlobal("reportError", reportError);
+    const reportError = stubPage();
     const reporterFailure = new Error("reporter failed");
     const report = vi.fn(async () => {
       throw reporterFailure;
@@ -187,8 +218,7 @@ describe("SafeEmitter", () => {
   });
 
   it("reports rejecting thenables returned by listeners", async () => {
-    const reportError = vi.fn();
-    vi.stubGlobal("reportError", reportError);
+    const reportError = stubPage();
     const emitter = new SafeEmitter<TestEvents>();
     const reason = new Error("thenable failure");
     emitter.on("value", () => ({

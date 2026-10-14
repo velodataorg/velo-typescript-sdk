@@ -22,9 +22,10 @@ export interface WatcherOptions {
    * Replaces the default reporting for event-listener failures.
    *
    * Receives every error thrown — or promise rejection returned — by a
-   * listener. Without it, failures go to `reportError` where the runtime
-   * provides it and `console.error` otherwise. Should not throw or reject;
-   * if it does, both errors fall back to the default reporting.
+   * listener. Without it, failures go to `reportError` in a browser page and
+   * to `console.error` everywhere else, since Bun and Deno end the process on
+   * a `reportError`. Should not throw or reject; if it does, both errors fall
+   * back to the default reporting.
    */
   readonly onListenerError?: (error: unknown) => unknown;
 }
