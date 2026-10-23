@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { NEWS_WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
+import { WEBSOCKET_PATH } from "../../../constants/endpoints.ts";
 import { VeloError } from "../../../errors.ts";
 import { newsStorySchema } from "./validation.ts";
 import type { NewsStory } from "./validation.ts";
@@ -14,8 +14,6 @@ const DeleteSchema = z.strictObject({
 const EditSchema = newsStorySchema.extend({
   edit: z.literal(true),
 });
-
-const TEXT_DECODER = new TextDecoder();
 
 export type DecodedNewsMessage =
   | { readonly type: "heartbeat" }
@@ -42,7 +40,7 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
   try {
     value = JSON.parse(text) as unknown;
   } catch (cause) {
-    throw new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message: invalid JSON`, { cause });
+    throw new VeloError(`unexpected ${WEBSOCKET_PATH} message: invalid JSON`, { cause });
   }
 
   const object = MessageObjectSchema.safeParse(value);
@@ -86,32 +84,13 @@ export function decodeNewsMessage(text: string): DecodedNewsMessage {
 }
 
 /**
- * Extracts the text of one WebSocket frame.
- *
- * @param data - A frame's `data` in any shape the socket layer may deliver:
- * a string, an ArrayBuffer, or an ArrayBuffer view such as a Node Buffer.
- * @returns The frame payload as text.
- * @throws A VeloError when `data` is not a recognized text carrier.
- */
-export function frameText(data: unknown): string {
-  if (typeof data === "string") return data;
-  if (data instanceof ArrayBuffer) return TEXT_DECODER.decode(data);
-  if (ArrayBuffer.isView(data)) {
-    return TEXT_DECODER.decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
-  }
-  throw new VeloError(
-    `unexpected ${NEWS_WEBSOCKET_PATH} message data: expected text, got ${Object.prototype.toString.call(data)}`,
-  );
-}
-
-/**
  * Builds the validation failure for a frame that matches no message shape.
  *
  * @param error - The schema error describing the mismatch.
  * @returns A VeloError carrying the prettified schema error.
  */
 function unexpectedMessage(error: z.ZodError): VeloError {
-  return new VeloError(`unexpected ${NEWS_WEBSOCKET_PATH} message:\n${z.prettifyError(error)}`, {
+  return new VeloError(`unexpected ${WEBSOCKET_PATH} message:\n${z.prettifyError(error)}`, {
     cause: error,
   });
 }

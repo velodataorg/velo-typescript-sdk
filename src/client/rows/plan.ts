@@ -1,9 +1,9 @@
 import { ROWS_PATH } from "../../constants/endpoints.ts";
-import { VeloError } from "../../errors.ts";
 import type { HttpParams } from "../../transport/http.ts";
 import { Data, type DataResult } from "../data/data.ts";
 import { Row } from "../data/row.ts";
-import { decode, decodeLines } from "../decode/csv.ts";
+import { csvRows } from "../decode/csv.ts";
+import { decodeLines } from "../decode/lines.ts";
 import type { QueryPlan } from "../query/query.ts";
 import { alignRange, clampEnd, type TimeRange } from "../time/range.ts";
 import type { Resolution } from "../time/resolution.ts";
@@ -27,20 +27,8 @@ export function planRows<E extends string, C extends string>(
 
   return {
     requests,
-    decode(body): Row<E, C>[] {
-      try {
-        return decode(body, schema) as Row<E, C>[];
-      } catch (cause) {
-        throw new VeloError(`Unexpected ${ROWS_PATH} response`, { cause });
-      }
-    },
-    async *decodeLines(lines): AsyncIterable<Row<E, C>> {
-      try {
-        yield* decodeLines(lines, schema) as AsyncIterable<Row<E, C>>;
-      } catch (cause) {
-        throw new VeloError(`Unexpected ${ROWS_PATH} response`, { cause });
-      }
-    },
+    decodeLines: (lines) =>
+      decodeLines(lines, csvRows(schema), ROWS_PATH) as AsyncIterable<Row<E, C>>,
     collect: (rows): DataResult<E, C> => new Data<E, C>(rows),
   };
 }

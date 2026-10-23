@@ -20,24 +20,30 @@ export interface HttpRequest {
   readonly params: HttpParams;
 }
 
+/*
+ * How a query reads each response: whole, or line by line as it arrives.
+ * An endpoint gives one or the other. Line-oriented endpoints (CSV) stream
+ * their body, so rows surface before the last byte lands; whole-document
+ * ones (JSON) are buffered and decoded at once.
+ */
+export type QueryDecoder<T> =
+  | {
+      readonly decode: (body: string) => readonly T[];
+      readonly decodeLines?: never;
+    }
+  | {
+      readonly decodeLines: (lines: AsyncIterable<string>) => AsyncIterable<T>;
+      readonly decode?: never;
+    };
+
 /**
  * Everything a query needs to execute and decode its responses.
  *
  * @typeParam T - One decoded response item.
  * @typeParam D - The value awaiting the query resolves to.
  */
-export interface QueryOptions<T, D = T[]> {
+export type QueryOptions<T, D = T[]> = QueryDecoder<T> & {
   readonly requests: readonly HttpRequest[];
-  readonly decode: (body: string) => readonly T[];
-
-  /**
-   * Decodes a response from its lines as they arrive.
-   *
-   * When present the query streams the response body instead of buffering it,
-   * so rows surface before the last byte lands. Line-oriented endpoints (CSV)
-   * set this; whole-document ones (JSON) rely on {@link QueryOptions.decode}.
-   */
-  decodeLines?: (lines: AsyncIterable<string>) => AsyncIterable<T>;
 
   /**
    * Shapes the collected items into the awaited result.
@@ -45,7 +51,7 @@ export interface QueryOptions<T, D = T[]> {
    * When omitted, `D` must be `T[]` and the items are returned as-is.
    */
   collect?(items: T[]): D;
-}
+};
 
 /** A transport-ready plan consumed by a lazy {@link Query}. */
 export type QueryPlan<T, D = T[]> = QueryOptions<T, D>;
@@ -114,19 +120,17 @@ export class Query<T, D = T[]> {
    * responses are consumed; rows still arrive strictly in request order.
    * Ending iteration early aborts the outstanding requests.
    *
-   * @param options - Per-request transport options.
    * @returns An async generator of decoded rows.
    */
-  async *stream(options?: HttpRequestOptions): AsyncGenerator<T, void, undefined> {
+  async *stream(): AsyncGenerator<T, void, undefined> {
     const { requests } = this.#options;
     if (requests.length === 0) return;
 
-    const configuredOptions = this.#mergeRequestOptions(options);
     const controller = new AbortController();
-    const signal = configuredOptions.signal
-      ? AbortSignal.any([configuredOptions.signal, controller.signal])
+    const signal = this.#requestOptions.signal
+      ? AbortSignal.any([this.#requestOptions.signal, controller.signal])
       : controller.signal;
-    const requestOptions: HttpRequestOptions = { ...configuredOptions, signal };
+    const requestOptions: HttpRequestOptions = { ...this.#requestOptions, signal };
 
     /* A rejection is handled when its promise is dequeued below; the no-op
      * catch keeps a failure from becoming an unhandled rejection while
@@ -156,33 +160,21 @@ export class Query<T, D = T[]> {
    * Starts one request and returns its decoded rows.
    *
    * The promise settles once the response headers arrive, so a prefetched
-   * request is genuinely in flight. With {@link QueryOptions.decodeLines} the
-   * resolved value is a lazy iterable read from the body as it streams;
-   * otherwise the body is buffered and decoded whole.
+   * request is genuinely in flight. With `decodeLines` the resolved value is
+   * a lazy iterable read from the body as it streams; with `decode` the body
+   * is buffered and decoded whole.
    */
   async #open(
     request: HttpRequest,
     options: HttpRequestOptions,
   ): Promise<AsyncIterable<T> | readonly T[]> {
-    const { decodeLines } = this.#options;
-    if (decodeLines) {
+    const decoder: QueryDecoder<T> = this.#options;
+    if (decoder.decodeLines !== undefined) {
       const lines = await this.#http.openLines(request.path, request.params, options);
-      return decodeLines(lines);
+      return decoder.decodeLines(lines);
     }
     const body = await this.#http.text(request.path, request.params, options);
-    return this.#options.decode(body);
-  }
-
-  /** Merges one streaming execution's overrides with the query defaults. */
-  #mergeRequestOptions(options?: HttpRequestOptions): HttpRequestOptions {
-    if (!options) return this.#requestOptions;
-    return {
-      ...this.#requestOptions,
-      ...options,
-      ...(this.#requestOptions.retry || options.retry
-        ? { retry: { ...this.#requestOptions.retry, ...options.retry } }
-        : {}),
-    };
+    return decoder.decode(body);
   }
 
   /**
@@ -206,10 +198,13 @@ export class Query<T, D = T[]> {
     });
 
     Object.freeze(requests);
+    const decoder: QueryDecoder<T> =
+      options.decodeLines === undefined
+        ? { decode: options.decode }
+        : { decodeLines: options.decodeLines };
     return Object.freeze({
       requests,
-      decode: options.decode,
-      ...(options.decodeLines ? { decodeLines: options.decodeLines } : {}),
+      ...decoder,
       ...(options.collect ? { collect: options.collect } : {}),
     });
   }

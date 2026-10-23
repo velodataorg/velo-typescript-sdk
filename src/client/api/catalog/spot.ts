@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import { SPOT_CATALOG_PATH } from "../../../constants/endpoints.ts";
-import { VeloError } from "../../../errors.ts";
-import { csvTimestamp, decode, decodeLines } from "../../decode/csv.ts";
+import { csvRows, csvTimestamp } from "../../decode/csv.ts";
+import { decodeLines } from "../../decode/lines.ts";
 import { SPOT_EXCHANGES, type SpotExchange } from "../../market/exchanges.ts";
 import { CatalogParams, type PreparedCatalogParams } from "./params.ts";
 
@@ -37,22 +37,18 @@ export function prepareSpotCatalogParams(params: SpotCatalogParams): PreparedCat
   });
 }
 
-export async function* decodeSpotCatalogLines(
+/**
+ * Decodes a spot catalog response from its lines.
+ *
+ * @param lines - The response body's lines.
+ * @param delisted - Whether the response is the delisted catalog, whose rows
+ * carry an `end`.
+ * @returns The products, in response order.
+ */
+export function decodeSpotCatalogLines(
   lines: AsyncIterable<string>,
   delisted: boolean,
-): AsyncGenerator<SpotProduct> {
-  try {
-    yield* decodeLines(lines, delisted ? delistedSpotProductSchema : spotProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${SPOT_CATALOG_PATH} response`, { cause });
-  }
-}
-
-/** Decodes a spot catalog response using its active or delisted wire shape. */
-export function decodeSpotCatalog(body: string, delisted: boolean): SpotProduct[] {
-  try {
-    return delisted ? decode(body, delistedSpotProductSchema) : decode(body, spotProductSchema);
-  } catch (cause) {
-    throw new VeloError(`Unexpected ${SPOT_CATALOG_PATH} response`, { cause });
-  }
+): AsyncIterable<SpotProduct> {
+  const schema = delisted ? delistedSpotProductSchema : spotProductSchema;
+  return decodeLines(lines, csvRows(schema), SPOT_CATALOG_PATH);
 }

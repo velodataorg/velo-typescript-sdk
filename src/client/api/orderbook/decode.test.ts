@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { decodeOrderbook } from "./decode.ts";
+import type { OrderbookRow } from "./data.ts";
+import { orderbookRows } from "./decode.ts";
 
-describe("decodeOrderbook", () => {
+/* Decodes a whole body as the transport hands it over: line by line, without newlines. */
+function decodeOrderbook(body: string): OrderbookRow[] {
+  return body
+    .split("\n")
+    .map(orderbookRows())
+    .filter((row): row is OrderbookRow => row !== undefined);
+}
+
+describe("orderbookRows", () => {
   it("decodes the step line and variable-width bucket lines", () => {
     const rows = decodeOrderbook("15\n1000,100.5,95,1.5,110,2\n61000,101,96,3\n");
 
@@ -61,7 +70,11 @@ describe("decodeOrderbook", () => {
   it("rejects lines with an odd or short cell count", () => {
     expect(() => decodeOrderbook("15\n1000,100,99\n")).toThrow(/Line 2 has 3 cells/);
     expect(() => decodeOrderbook("15\n1000\n")).toThrow(/Line 2 has 1 cells/);
-    expect(() => decodeOrderbook("15\n\n1000,100\n")).toThrow(/Line 2 has 1 cells/);
+  });
+
+  it("skips a blank line, and still counts it in line numbers", () => {
+    expect(decodeOrderbook("15\n\n1000,100\n").map((row) => row.time)).toEqual([1000]);
+    expect(() => decodeOrderbook("15\n\n1000,100,99\n")).toThrow(/Line 3 has 3 cells/);
   });
 
   it("rejects malformed times", () => {

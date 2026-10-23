@@ -1,6 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { catalog, futures, marketCaps, news, options, orderbook, spot, Velo } from "../index.ts";
+import {
+  catalog,
+  channels,
+  futures,
+  marketCaps,
+  news,
+  options,
+  orderbook,
+  spot,
+  Velo,
+} from "../index.ts";
 
 describe("standalone builders", () => {
   it("describes requests without a client, and a client executes them", async () => {
@@ -39,5 +49,6 @@ describe("standalone builders", () => {
     expect(velo.futures).toBe(futures);
     expect(velo.news).toBe(news);
     expect(velo.catalog).toBe(catalog);
+    expect(velo.channels).toBe(channels);
   });
 });

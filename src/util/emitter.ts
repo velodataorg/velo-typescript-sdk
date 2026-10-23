@@ -67,8 +67,8 @@ export class SafeEmitter<Events extends object> {
    * Dispatch iterates a snapshot: listeners added during delivery are not
    * called for this event, and listeners removed during delivery still are.
    * A listener failure goes to this emitter's reporter; without a custom
-   * one, to `reportError` where the runtime provides it and `console.error`
-   * otherwise.
+   * one, to `reportError` in a browser page and `console.error` everywhere
+   * else.
    *
    * @param type - The event type to emit.
    * @param event - The event delivered to each listener.
@@ -76,15 +76,28 @@ export class SafeEmitter<Events extends object> {
   emit<K extends keyof Events>(type: K, event: Events[K]): void {
     const listeners = this.#listeners.get(type);
     if (!listeners?.size) return;
-    for (const listener of Array.from(listeners)) {
-      try {
-        const result = listener(event);
-        if (isPromiseLike(result)) {
-          void Promise.resolve(result).catch((cause: unknown) => this.#reportFailure(cause));
-        }
-      } catch (cause) {
-        this.#reportFailure(cause);
+    for (const listener of Array.from(listeners)) this.call(listener, event);
+  }
+
+  /**
+   * Calls one listener as `emit` calls each of its own.
+   *
+   * @remarks
+   * For a listener this emitter does not hold, such as one a caller attached
+   * to something narrower than an event type. A throw, or a rejecting promise
+   * it returns, goes to this emitter's reporter and never to the caller.
+   *
+   * @param listener - The listener to call.
+   * @param args - What to call it with.
+   */
+  call<Args extends readonly unknown[]>(listener: (...args: Args) => unknown, ...args: Args): void {
+    try {
+      const result = listener(...args);
+      if (isPromiseLike(result)) {
+        void Promise.resolve(result).catch((cause: unknown) => this.#reportFailure(cause));
       }
+    } catch (cause) {
+      this.#reportFailure(cause);
     }
   }
 
@@ -138,19 +151,22 @@ function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
  * Reports a listener failure without interrupting dispatch.
  *
  * @remarks
- * Browsers and Deno surface the failure through `reportError`. Node has no
- * non-fatal equivalent — rethrowing from a task would trigger
- * `uncaughtException` and terminate a default-configured process — so the
- * failure is logged instead.
+ * A browser page surfaces the failure through `reportError`, which reaches
+ * the page's error handlers and ends nothing. Everywhere else it is logged.
+ * Node has no `reportError`, and Bun and Deno treat one as an uncaught
+ * exception, which ends a default-configured process: the outcome this
+ * function exists to prevent. A page is told apart by its `document`.
  *
  * @param error - The thrown value, or the listener promise's rejection
  * reason.
  */
 function reportListenerError(error: unknown): void {
-  const report = (globalThis as typeof globalThis & { reportError?: (error: unknown) => void })
-    .reportError;
-  if (typeof report === "function") {
-    report(error);
+  const scope = globalThis as typeof globalThis & {
+    readonly document?: unknown;
+    readonly reportError?: (error: unknown) => void;
+  };
+  if (scope.document !== undefined && typeof scope.reportError === "function") {
+    scope.reportError(error);
   } else {
     console.error("Velo SDK: uncaught error in event listener", error);
   }

@@ -95,18 +95,25 @@ export class RateLimiter {
   }
 
   /**
-   * Records that the API rejected a request as rate limited, pausing this
-   * limiter for a full window.
+   * Records that the API rejected a request as rate limited, so that nothing
+   * new is sent for a full window.
    *
    * @remarks
    * Reaching this point means the account's budget is being spent elsewhere,
    * or the API halved its allowance, so local accounting alone was too
    * optimistic.
    *
+   * Every slot moves forward to at least `now`, so the next reservation is a
+   * full window away. A slot already promised for later keeps its time: the
+   * request waiting on it still goes out then, and is still counted, so new
+   * reservations queue behind it. Times only move forward, so the cursor entry
+   * stays the oldest.
+   *
    * @param now - The current millisecond timestamp.
    */
   penalize(now: number = Date.now()): void {
-    this.#sent.fill(now);
-    this.#cursor = 0;
+    for (let slot = 0; slot < this.#sent.length; slot++) {
+      this.#sent[slot] = Math.max(this.#sent[slot] as number, now);
+    }
   }
 }

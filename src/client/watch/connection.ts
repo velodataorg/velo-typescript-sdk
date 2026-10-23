@@ -1,6 +1,7 @@
-import { VeloError } from "../../errors.ts";
+import { VeloHttpError } from "../../errors.ts";
 import { backoffMs, isRetryable, MAX_TIMER_MS } from "../../transport/retry.ts";
 import { DEFAULT_RETRY } from "../../transport/retry.ts";
+import { abortReason } from "../../util/abort.ts";
 import { assert } from "../../util/assert.ts";
 import type { WatcherOf } from "./watcher.ts";
 
@@ -19,6 +20,9 @@ export interface ResumeOptions {
    * Omitted bounds the initial sequence, so a subscription that never
    * connects reports the failure, and leaves later outages unbounded, since
    * an endpoint that has served once is worth waiting on.
+   *
+   * A sequence ends once a connection has stayed up for five seconds. One
+   * that drops sooner counts against the sequence it interrupted.
    *
    * A dial the server refuses outright ends the sequence whatever the
    * budget: the next dial would only be refused the same way.
@@ -69,6 +73,16 @@ export function prepareReconnect(
   return merged;
 }
 
+/*
+ * How long a connection must stay up before its drop counts as a new outage.
+ *
+ * The server acknowledges no subscription, so an open socket is not yet a
+ * working one: a server that refuses a subscription drops the socket a
+ * moment after accepting it. Long enough to tell the two apart, and short
+ * enough that a connection which delivered for a while reconnects at once.
+ */
+export const STABLE_AFTER_MS = 5_000;
+
 /** What a policy knows about the attempt it is being asked to schedule. */
 export interface ResumeContext {
   /** Zero-based index of the attempt about to be made. */
@@ -98,7 +112,11 @@ export type ResumeSchedule = (context: ResumeContext, retry: ResumeOptions) => n
 const DEFAULT_INITIAL_RETRIES = DEFAULT_RETRY.retries;
 
 const exponentialBackoff: ResumeSchedule = ({ attempt, connected, error }, retry) => {
-  if (error instanceof VeloError && !isRetryable(error)) return undefined;
+  /* Only a handshake the server refused outright ends the sequence. Anything
+   * else that fails an attempt — a dropped socket, a malformed frame — is
+   * the same transient trouble a post-open drop is, and is retried alike.
+   */
+  if (error instanceof VeloHttpError && !isRetryable(error)) return undefined;
   const budget = connected ? retry.retries : (retry.retries ?? DEFAULT_INITIAL_RETRIES);
   if (budget !== undefined && attempt >= budget) return undefined;
   return backoffMs(attempt, retry);
@@ -124,9 +142,13 @@ export interface MaintainConnectionDeps {
  *
  * One supervisor owns every automatic connection attempt. The returned
  * promise resolves the first time the watcher opens; after that, the same
- * supervisor remains attached and reconnects unexpected drops. A successful
- * connection resets the attempt counter, so every outage gets a fresh retry
- * budget.
+ * supervisor remains attached and reconnects unexpected drops.
+ *
+ * A connection that stays up for {@link STABLE_AFTER_MS} ends the outage:
+ * the attempt counter resets, so the next outage gets a fresh retry budget
+ * and starts from the first delay. One that drops sooner continues the
+ * backoff it interrupted, so a server that accepts a socket only to drop it
+ * is not redialled at the first delay forever.
  *
  * `disconnect()` leaves the watcher idle and `close()` leaves it closed, so
  * neither resumes. Aborting `deps.signal` cancels a pending backoff and lets
@@ -147,6 +169,8 @@ export function maintainConnection<E extends { close: unknown }>(
   let attempting = false;
   let connected = false;
   let active = true;
+  /* When the connection one of our own attempts opened went live, while it is up. */
+  let openedAt: number | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let listeningForAbort = false;
   let readySettled = false;
@@ -211,15 +235,16 @@ export function maintainConnection<E extends { close: unknown }>(
       () => {
         if (!active) return;
         attempting = false;
-        attempt = 0;
         connected = true;
         resolveFirstConnection();
 
-        /* connect() can resolve just before a buffered frame or socket event
-         * drops the subscription. Do not lose that close while this promise's
-         * continuation was waiting to run.
+        /* connect() can resolve just before a socket event drops the
+         * subscription. Do not lose that close while this promise's
+         * continuation was waiting to run. Such a connection was never
+         * stable, so it continues the backoff.
          */
         if (watcher.state === "disconnected") scheduleNext();
+        else if (watcher.state === "open") openedAt = Date.now();
       },
       (error: unknown) => {
         if (!active) return;
@@ -261,12 +286,20 @@ export function maintainConnection<E extends { close: unknown }>(
   };
 
   function onClose(): void {
+    /* A connection this supervisor did not open, one reopened with an
+     * explicit connect(), has no recorded start and is taken as stable.
+     */
+    const wasStable = openedAt === undefined || Date.now() - openedAt >= STABLE_AFTER_MS;
+    openedAt = undefined;
+
     if (watcher.state === "disconnected") {
-      /* A close outside one of our own attempts starts a new outage. This
-       * also lets a successful explicit connect() reset an exhausted budget.
+      /* A close outside one of our own attempts ends a connection. One that
+       * had been stable starts a new outage; one that dropped sooner
+       * continues the outage it interrupted. This also lets a successful
+       * explicit connect() reset an exhausted budget.
        */
       if (!attempting) {
-        if (timer === undefined) attempt = 0;
+        if (timer === undefined && wasStable) attempt = 0;
         scheduleNext();
       }
       return;
@@ -282,9 +315,7 @@ export function maintainConnection<E extends { close: unknown }>(
 
   function onAbort(): void {
     if (!connected) {
-      rejectFirstConnection(
-        signal?.reason ?? new DOMException("The operation was aborted.", "AbortError"),
-      );
+      rejectFirstConnection(abortReason(signal as AbortSignal));
     } else {
       stop();
     }

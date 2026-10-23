@@ -1,6 +1,6 @@
-import { BASE_URL, NEWS_WEBSOCKET_PATH } from "../constants/endpoints.ts";
 import { VeloConnectionError, VeloError } from "../errors.ts";
 import { assert } from "../util/assert.ts";
+import { parseBaseUrl } from "./base-url.ts";
 import { toError } from "./error-mapping.ts";
 
 export interface WebSocketMessageEvent {
@@ -16,6 +16,28 @@ export interface WebSocketCloseEvent {
   readonly code: number;
   readonly reason: string;
   readonly wasClean: boolean;
+}
+
+/* Close codes per RFC 6455: a normal closure, and one the socket never reported. */
+export const CLEAN_CLOSE_CODE = 1000;
+export const ABNORMAL_CLOSE_CODE = 1006;
+
+/**
+ * Builds the close an intentional shutdown reports.
+ *
+ * @returns A normal-closure event (code 1000).
+ */
+export function cleanCloseEvent(): WebSocketCloseEvent {
+  return { code: CLEAN_CLOSE_CODE, reason: "", wasClean: true };
+}
+
+/**
+ * Builds the close reported when a connection ends without a close frame.
+ *
+ * @returns An abnormal-closure event (code 1006).
+ */
+export function abnormalCloseEvent(): WebSocketCloseEvent {
+  return { code: ABNORMAL_CLOSE_CODE, reason: "", wasClean: false };
 }
 
 export interface WebSocketEvents {
@@ -161,51 +183,53 @@ export async function defaultWebSocketFactory(
 }
 
 /**
- * Shared WebSocket connection configuration. Every `connect()` call creates
- * a fresh socket; the transport never reconnects implicitly.
+ * Connection configuration for one socket endpoint. Every `connect()` call
+ * creates a fresh socket; the transport never reconnects implicitly.
  */
 export class WebSocketTransport {
-  readonly #apiKey: string;
-  readonly #baseUrl: string;
   readonly #encodedKeyPattern: RegExp | undefined;
   readonly #factory: WebSocketFactory;
   readonly #secrets: readonly string[];
-  #target: WebSocketTarget | undefined;
+  readonly #target: WebSocketTarget;
 
+  /**
+   * @param config - The credential and the HTTP(S) origin sockets upgrade from.
+   * @param path - The endpoint path appended to the origin, starting with `/`.
+   * @param factory - Creates the runtime socket; the default adapts Node and
+   * native runtimes.
+   * @throws A VeloError when the API key is missing, the base URL is not an
+   * HTTP(S) URL, or the path does not start with `/`.
+   */
   constructor(
     config: { readonly apiKey: string; readonly baseUrl?: string },
+    path: string,
     factory: WebSocketFactory = defaultWebSocketFactory,
   ) {
     assert(config.apiKey, "apiKey is required");
+    assert(typeof path === "string" && path.startsWith("/"), "path must start with /");
 
     const encodedKey = encodeURIComponent(config.apiKey);
     const authToken = btoa(`api:${config.apiKey}`);
-    this.#apiKey = config.apiKey;
-    this.#baseUrl = config.baseUrl ?? BASE_URL;
+    const url = websocketUrl(parseBaseUrl(config.baseUrl), path);
     this.#encodedKeyPattern = percentEncodedSecretPattern(encodedKey);
     this.#factory = factory;
     this.#secrets = [encodedKey, config.apiKey, authToken]
       .filter((secret, index, all) => secret.length > 0 && all.indexOf(secret) === index)
       .sort((a, b) => b.length - a.length);
+    this.#target = Object.freeze({
+      url,
+      authenticatedUrl: `${url}/${encodedKey}`,
+      headers: Object.freeze({ authorization: `Basic ${authToken}` }),
+    });
   }
 
   get url(): string {
-    return this.#target?.url ?? NEWS_WEBSOCKET_PATH;
+    return this.#target.url;
   }
 
   async connect(): Promise<WebSocketConnection> {
-    let target: WebSocketTarget;
     try {
-      target = this.#connectionTarget();
-    } catch (cause) {
-      // Target construction contains no API key and has its own useful
-      // configuration error, so do not obscure it as a socket failure.
-      if (cause instanceof VeloError) throw cause;
-      throw this.connectionError("connection failed", cause);
-    }
-
-    try {
-      return await this.#factory(target);
+      return await this.#factory(this.#target);
     } catch (cause) {
       throw this.connectionError("connection failed", cause);
     }
@@ -239,7 +263,7 @@ export class WebSocketTransport {
       cause === undefined
         ? undefined
         : new Error(this.redact(reasonOf(cause)), { cause: undefined });
-    return new VeloConnectionError(`Velo News WebSocket ${safeMessage}${reason}`, {
+    return new VeloConnectionError(`Velo WebSocket ${safeMessage}${reason}`, {
       url: this.url,
       cause: safeCause,
     });
@@ -255,37 +279,18 @@ export class WebSocketTransport {
     }
     return safe;
   }
-
-  #connectionTarget(): WebSocketTarget {
-    if (this.#target) return this.#target;
-
-    const url = websocketUrl(this.#baseUrl);
-    const encodedKey = encodeURIComponent(this.#apiKey);
-    const authToken = btoa(`api:${this.#apiKey}`);
-    this.#target = Object.freeze({
-      url,
-      authenticatedUrl: `${url}/${encodedKey}`,
-      headers: Object.freeze({ authorization: `Basic ${authToken}` }),
-    });
-    return this.#target;
-  }
 }
 
-function websocketUrl(baseUrl: string): string {
-  let url: URL;
-  try {
-    url = new URL(`${baseUrl.replace(/\/+$/, "")}${NEWS_WEBSOCKET_PATH}`);
-  } catch (cause) {
-    throw new VeloError(`invalid baseUrl ${baseUrl}`, { cause });
-  }
-
-  if (url.protocol === "https:") {
-    url.protocol = "wss:";
-  } else if (url.protocol === "http:") {
-    url.protocol = "ws:";
-  } else {
-    throw new VeloError(`invalid baseUrl protocol ${url.protocol}`);
-  }
+/**
+ * Builds the socket address a base URL upgrades to.
+ *
+ * @param baseUrl - A checked HTTP(S) base URL, without trailing slashes.
+ * @param path - The endpoint path, starting with `/`.
+ * @returns The `wss:` address for an `https:` base URL, and `ws:` for `http:`.
+ */
+function websocketUrl(baseUrl: string, path: string): string {
+  const url = new URL(`${baseUrl}${path}`);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
   return url.toString();
 }
 

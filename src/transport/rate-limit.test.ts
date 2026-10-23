@@ -83,6 +83,25 @@ describe("RateLimiter", () => {
       expect(limiter.reserve(1050)).toBe(1250);
     });
 
+    it("keeps the slots it already promised, and books new requests behind them", () => {
+      const limiter = new RateLimiter({ requests: 2, windowMs: 1000 });
+      /* Two go now, and two are promised t = 1000. */
+      const sends = [0, 0, 0, 0].map((now) => limiter.reserve(now));
+      expect(sends).toEqual([0, 0, 1000, 1000]);
+
+      /* The first comes back 429; its retry and a new request then ask to send. */
+      limiter.penalize(10);
+      sends.push(limiter.reserve(20), limiter.reserve(20));
+
+      expect(sends.slice(4)).toEqual([2000, 2000]);
+      /* No trailing window holds more than the limit. */
+      for (const start of sends) {
+        expect(
+          sends.filter((sent) => sent >= start && sent < start + 1000).length,
+        ).toBeLessThanOrEqual(2);
+      }
+    });
+
     it("defaults its timestamp to the current time", () => {
       const limiter = new RateLimiter({ requests: 1, windowMs: 100 });
       const before = Date.now();
